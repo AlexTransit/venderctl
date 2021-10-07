@@ -1,0 +1,37 @@
+#!/bin/bash
+set -eu
+base="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+
+go fmt ./...
+
+main() {
+  local gopkg="./cmd/venderctl"
+  local name=venderctl
+  local version=$(build_version)
+  local target="$base/build/${name}"
+  local build_flags=(
+    -ldflags="-X 'main.BuildVersion=$version'"
+    -o "$target"
+    -trimpath
+  )
+  (
+    set -eu
+    cd "$base"
+    : ${GOARCH=amd64}
+    : ${GOOS=linux}
+    export -- GOARCH GOOS
+    go build "${build_flags[@]}" "$gopkg"
+  )
+}
+
+build_version() {
+  (
+    set -eu
+    cd "$base"
+    git describe --always --dirty --tags
+  )
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]] ; then
+  main "$@"
+fi
