@@ -23,8 +23,8 @@ import (
 	"github.com/temoto/alive/v2"
 
 	// mqtt1 "github.com/AlexTransit/vender/tele/mqtt"
-	tele_api "github.com/temoto/venderctl/internal/tele/api"
-	tele_config "github.com/temoto/venderctl/internal/tele/config"
+	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
+	tele_config "github.com/AlexTransit/venderctl/internal/tele/config"
 )
 
 const defaultSendTimeout = 30 * time.Second

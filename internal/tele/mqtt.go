@@ -17,7 +17,7 @@ import (
 
 	// vender_api "github.com/AlexTransit/vender/tele"
 	// mqttl "github.com/AlexTransit/vender/tele/mqtt"
-	tele_api "github.com/temoto/venderctl/internal/tele/api"
+	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	"gopkg.in/hlandau/passlib.v1"
 )
 

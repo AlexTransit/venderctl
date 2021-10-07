@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/AlexTransit/vender/log2"
+	"github.com/AlexTransit/venderctl/internal/state"
+	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	"github.com/temoto/alive/v2"
-	"github.com/temoto/venderctl/internal/state"
-	tele_api "github.com/temoto/venderctl/internal/tele/api"
 )
 
 func NewContext(tag string, log *log2.Log, teler tele_api.Teler) (context.Context, *state.Global) {

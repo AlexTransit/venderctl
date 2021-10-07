@@ -8,13 +8,13 @@ import (
 	"os"
 
 	vender_api "github.com/AlexTransit/vender/tele"
+	"github.com/AlexTransit/venderctl/cmd/internal/cli"
+	"github.com/AlexTransit/venderctl/internal/state"
+	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/go-pg/pg/v9"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/juju/errors"
-	"github.com/temoto/venderctl/cmd/internal/cli"
-	"github.com/temoto/venderctl/internal/state"
-	tele_api "github.com/temoto/venderctl/internal/tele/api"
 )
 
 const CmdName = "telegram"

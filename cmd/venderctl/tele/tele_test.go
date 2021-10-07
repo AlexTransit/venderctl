@@ -12,13 +12,13 @@ import (
 	"time"
 
 	vender_api "github.com/AlexTransit/vender/tele"
+	"github.com/AlexTransit/venderctl/internal/state"
+	state_new "github.com/AlexTransit/venderctl/internal/state/new"
 	"github.com/go-pg/pg/v9"
 	"github.com/golang/protobuf/proto"
 	"github.com/juju/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/temoto/venderctl/internal/state"
-	state_new "github.com/temoto/venderctl/internal/state/new"
 )
 
 type MError struct { //nolint:maligned

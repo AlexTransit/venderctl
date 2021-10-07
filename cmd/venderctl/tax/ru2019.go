@@ -8,11 +8,11 @@ import (
 	"time"
 
 	vender_api "github.com/AlexTransit/vender/tele"
+	"github.com/AlexTransit/venderctl/internal/state"
 	"github.com/go-pg/pg/v9"
 	"github.com/juju/errors"
 	ru_nalog "github.com/temoto/ru-nalog-go"
 	"github.com/temoto/ru-nalog-go/umka"
-	"github.com/temoto/venderctl/internal/state"
 )
 
 const procRu2019 = "ru2019"

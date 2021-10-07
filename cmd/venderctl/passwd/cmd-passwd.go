@@ -7,10 +7,10 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/AlexTransit/venderctl/cmd/internal/cli"
+	"github.com/AlexTransit/venderctl/internal/state"
+	"github.com/AlexTransit/venderctl/internal/tele"
 	"github.com/juju/errors"
-	"github.com/temoto/venderctl/cmd/internal/cli"
-	"github.com/temoto/venderctl/internal/state"
-	"github.com/temoto/venderctl/internal/tele"
 	"gopkg.in/hlandau/passlib.v1"
 )
 

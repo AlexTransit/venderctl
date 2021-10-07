@@ -14,12 +14,12 @@ import (
 	"time"
 
 	vender_api "github.com/AlexTransit/vender/tele"
+	"github.com/AlexTransit/venderctl/cmd/internal/cli"
+	"github.com/AlexTransit/venderctl/internal/state"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/go-pg/pg/v9"
 	"github.com/juju/errors"
-	"github.com/temoto/venderctl/cmd/internal/cli"
-	"github.com/temoto/venderctl/internal/state"
-	// tele_config "github.com/temoto/venderctl/internal/tele/config"
+	// tele_config "github.com/AlexTransit/venderctl/internal/tele/config"
 )
 
 const CmdName = "tax"

@@ -10,10 +10,10 @@ import (
 	"github.com/AlexTransit/vender/helpers"
 	"github.com/AlexTransit/vender/log2"
 	vender_api "github.com/AlexTransit/vender/tele"
+	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	"github.com/go-pg/pg/v9"
 	"github.com/juju/errors"
 	"github.com/temoto/alive/v2"
-	tele_api "github.com/temoto/venderctl/internal/tele/api"
 )
 
 type Global struct {

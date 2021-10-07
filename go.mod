@@ -1,4 +1,4 @@
-module github.com/temoto/venderctl
+module github.com/AlexTransit/venderctl
 
 go 1.17
 

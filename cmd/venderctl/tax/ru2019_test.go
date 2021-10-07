@@ -15,12 +15,12 @@ import (
 
 	"github.com/AlexTransit/vender/helpers"
 	vender_api "github.com/AlexTransit/vender/tele"
+	"github.com/AlexTransit/venderctl/internal/state"
+	state_new "github.com/AlexTransit/venderctl/internal/state/new"
 	"github.com/go-pg/pg/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/temoto/ru-nalog-go/umka"
-	"github.com/temoto/venderctl/internal/state"
-	state_new "github.com/temoto/venderctl/internal/state/new"
 )
 
 func TestRu2019(t *testing.T) {

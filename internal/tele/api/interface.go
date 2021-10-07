@@ -5,7 +5,7 @@ import (
 
 	"github.com/AlexTransit/vender/log2"
 	vender_api "github.com/AlexTransit/vender/tele"
-	tele_config "github.com/temoto/venderctl/internal/tele/config"
+	tele_config "github.com/AlexTransit/venderctl/internal/tele/config"
 )
 
 type Teler interface {

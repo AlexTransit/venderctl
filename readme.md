@@ -16,6 +16,6 @@ Please see [venderctl.hcl](venderctl.hcl) for config example. Except noted, defa
 
 # Flair
 
-[![Build status](https://travis-ci.org/temoto/venderctl.svg?branch=master)](https://travis-ci.org/temoto/venderctl)
-[![Coverage](https://codecov.io/gh/temoto/venderctl/branch/master/graph/badge.svg)](https://codecov.io/gh/temoto/venderctl)
-[![Go Report Card](https://goreportcard.com/badge/github.com/temoto/venderctl)](https://goreportcard.com/report/github.com/temoto/venderctl)
+[![Build status](https://travis-ci.org/AlexTransit/venderctl.svg?branch=master)](https://travis-ci.org/AlexTransit/venderctl)
+[![Coverage](https://codecov.io/gh/AlexTransit/venderctl/branch/master/graph/badge.svg)](https://codecov.io/gh/AlexTransit/venderctl)
+[![Go Report Card](https://goreportcard.com/badge/github.com/AlexTransit/venderctl)](https://goreportcard.com/report/github.com/AlexTransit/venderctl)

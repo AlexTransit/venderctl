@@ -8,9 +8,9 @@ import (
 	"github.com/AlexTransit/vender/currency"
 	"github.com/AlexTransit/vender/helpers"
 	"github.com/AlexTransit/vender/log2"
+	tele_config "github.com/AlexTransit/venderctl/internal/tele/config"
 	"github.com/hashicorp/hcl"
 	"github.com/juju/errors"
-	tele_config "github.com/temoto/venderctl/internal/tele/config"
 )
 
 type Config struct {

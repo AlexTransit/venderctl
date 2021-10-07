@@ -11,19 +11,19 @@ import (
 	"syscall"
 
 	"github.com/AlexTransit/vender/log2"
+	"github.com/AlexTransit/venderctl/cmd/internal/cli"
+	cmd_control "github.com/AlexTransit/venderctl/cmd/venderctl/control"
+	cmd_passwd "github.com/AlexTransit/venderctl/cmd/venderctl/passwd"
+	cmd_sponge "github.com/AlexTransit/venderctl/cmd/venderctl/sponge"
+	cmd_tax "github.com/AlexTransit/venderctl/cmd/venderctl/tax"
+	cmd_tele "github.com/AlexTransit/venderctl/cmd/venderctl/tele"
+	cmd_telegram "github.com/AlexTransit/venderctl/cmd/venderctl/telegram"
 	"github.com/juju/errors"
-	"github.com/temoto/venderctl/cmd/internal/cli"
-	cmd_control "github.com/temoto/venderctl/cmd/venderctl/control"
-	cmd_passwd "github.com/temoto/venderctl/cmd/venderctl/passwd"
-	cmd_sponge "github.com/temoto/venderctl/cmd/venderctl/sponge"
-	cmd_tax "github.com/temoto/venderctl/cmd/venderctl/tax"
-	cmd_tele "github.com/temoto/venderctl/cmd/venderctl/tele"
-	cmd_telegram "github.com/temoto/venderctl/cmd/venderctl/telegram"
 
 	// _ "golang.org/x/tools/cmd/stringer"
 
-	state_new "github.com/temoto/venderctl/internal/state/new"
-	"github.com/temoto/venderctl/internal/tele"
+	state_new "github.com/AlexTransit/venderctl/internal/state/new"
+	"github.com/AlexTransit/venderctl/internal/tele"
 )
 
 var log = log2.NewStderr(log2.LDebug)

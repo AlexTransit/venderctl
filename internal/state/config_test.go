@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/AlexTransit/vender/log2"
+	"github.com/AlexTransit/venderctl/internal/state"
+	state_new "github.com/AlexTransit/venderctl/internal/state/new"
+	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
+	tele_config "github.com/AlexTransit/venderctl/internal/tele/config"
 	"github.com/juju/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/temoto/venderctl/internal/state"
-	state_new "github.com/temoto/venderctl/internal/state/new"
-	tele_api "github.com/temoto/venderctl/internal/tele/api"
-	tele_config "github.com/temoto/venderctl/internal/tele/config"
 )
 
 func TestReadConfig(t *testing.T) {
