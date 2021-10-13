@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
+	"time"
 
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
@@ -33,22 +35,22 @@ type tgbotapiot struct {
 	updateConfig tgbotapi.UpdateConfig
 	admin        int64
 	g            *state.Global
-	chatId       map[int64]client
+	chatId       map[int64]tgUser
 }
 
-type client struct {
-	Id      uint32
+type tgUser struct {
+	Ban     bool
+	id      int64
 	Balance int32
-	Credit  uint32
-	vmid    int32
+	Credit  int32
 	rcook   cookSrruct
 }
 
 type cookSrruct struct {
-	// price uint32
 	code  string
 	sugar uint8
 	cream uint8
+	vmid  int32
 }
 
 // type tgRemoteMakeStruct struct {
@@ -89,8 +91,8 @@ func telegramInit(ctx context.Context) error {
 		os.Exit(1)
 	}
 
-	tb.bot.Debug = false
-	tb.chatId = make(map[int64]client)
+	tb.bot.Debug = true
+	tb.chatId = make(map[int64]tgUser)
 	tb.admin = tb.g.Config.Telegram.TelegramAdmin
 
 	// log.Printf("Authorized on account '%s'", tb.bot.Self.UserName)
@@ -121,8 +123,16 @@ func (tb *tgbotapiot) telegramLoop() error {
 
 		case tgm := <-tgch:
 			if tgm.Message == nil {
-				fmt.Printf("\n\033[41m (%v) \033[0m\n\n", tgm.EditedMessage)
+				tb.g.Log.Infof("telegramm message change (%v)", tgm.EditedMessage)
+				tb.logTgDbChange(*tgm.EditedMessage)
 				break
+			}
+			if tgm.Message.From.IsBot {
+				break
+			}
+
+			if int(time.Now().Unix())-tgm.Message.Date > 1 {
+				return tb.tgSend(tgm.Message.From.ID, "была проблема со связью.\nкоманда поступила c опозданием.\nесли актуально повторите еще раз.")
 			}
 			tb.g.Alive.Add(1)
 			err := tb.onTeleBot(tgm)
@@ -130,37 +140,120 @@ func (tb *tgbotapiot) telegramLoop() error {
 			if err != nil {
 				tb.g.Log.Error(errors.ErrorStack(err))
 			}
+
 		case <-stopch:
 			return nil
 		}
 	}
 }
 func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
+	const regMess = "Для работы с роботом, нужно зарегестрироваться в системе."
+	var msg tgbotapi.MessageConfig
 	cl, err := tb.getClient(m.Message.From.ID)
-	if err != nil {
+	if fmt.Sprint(err) == "user banned" {
 		return err
 	}
-	//parse command
-	cl.vmid = 88
-	cl.rcook.code = "1"
-	cl.rcook.cream = 4
-	cl.rcook.sugar = 4
-	if !tb.g.Vmc[cl.vmid].Connect {
-		return tb.tgSend(m.Message.From.ID, "автомат не в сети.")
+	if err != nil {
+		if m.Message.Text == "/start" {
+			msg = tgbotapi.NewMessage(m.Message.Chat.ID, regMess)
+			btn := tgbotapi.KeyboardButton{
+				Text:           "регистрация в системе",
+				RequestContact: true,
+			}
+			msg.ReplyMarkup = tgbotapi.NewReplyKeyboard([]tgbotapi.KeyboardButton{btn})
+			_, err = tb.bot.Send(msg)
+			return err
+		}
+		if m.Message.Contact == nil || m.Message.Contact.UserID != m.Message.From.ID || m.Message.ReplyToMessage.Text != regMess {
+			return nil
+		}
+		if err = tb.registerNewUser(m.Message.Contact, m.Message.Date); err != nil {
+			return err
+		}
+		complitMessage := "регистрация завершена.\nс Вашего номера списано 20 рублей."
+		msg := tgbotapi.NewMessage(m.Message.Chat.ID, complitMessage)
+		msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+		_, _ = tb.bot.Send(msg)
+		return nil
 	}
-	if tb.g.Vmc[cl.vmid].State == vender_api.State_Invalid {
+	//parse command
+	tb.logTgDb(*m.Message)
+	if cl.rcook, err = parseCookCommand(m.Message.Text); err != nil {
+		return tb.tgSend(m.Message.From.ID, "такое не приготовить. там фигня написана - "+m.Message.Text)
+	}
+	tb.chatId[m.Message.Chat.ID] = cl
+	if err = tb.checkRobo(cl.rcook.vmid, m.Message.From.ID); err != nil {
+		return err
+	}
+	return tb.sendCookCmd(m.Message.Chat.ID)
+}
+func (tb *tgbotapiot) registerNewUser(c *tgbotapi.Contact, dt int) error {
+	const q = `INSERT INTO tg_user ( userId, firstName, lastName, phoneNumber, registerDate ) values (?0, ?1, ?2, ?3, ?4);`
+	_, err := tb.g.DB.Exec(q, c.UserID, c.FirstName, c.LastName, c.PhoneNumber, dt)
+	return err
+}
+func parseCookCommand(m string) (cookSrruct, error) {
+	// команда /88_m3_c4_s4
+	// приготовить робот:88 код:3 cream:4 sugar:4 (сливики/сахар необязательные)
+	// 1 - robo, 2 - code , 3 - valid creame, 4 - value creme, 5 - valid sugar, 6 value sugar
+	var c cookSrruct
+	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m(\d+)(_c(\d))?(_s(\d))?$`)
+	parts := reCmdMake.FindStringSubmatch(m)
+	if len(parts) == 0 {
+		return c, errors.Errorf("parse cook command error (%s)", m)
+	}
+	fmt.Sscan(parts[1], &c.vmid)
+	c.code = parts[2]
+	if parts[4] != "" {
+		fmt.Sscan(parts[4], &c.cream)
+		c.cream++
+	}
+	if parts[6] != "" {
+		fmt.Sscan(parts[6], &c.sugar)
+		c.sugar++
+	}
+	return c, nil
+}
+
+func (tb *tgbotapiot) checkRobo(vmid int32, user int64) error {
+	if !tb.g.Vmc[vmid].Connect {
+		return tb.tgSend(user, "автомат не в сети.")
+	}
+	if tb.g.Vmc[vmid].State == vender_api.State_Invalid {
 		cmd := &vender_api.Command{
 			Task: &vender_api.Command_GetState{},
 		}
-		_ = tb.g.Tele.SendCommand(cl.vmid, cmd)
+		_ = tb.g.Tele.SendCommand(vmid, cmd)
 	}
-	if tb.g.Vmc[cl.vmid].State != vender_api.State_Nominal {
-		return tb.tgSend(m.Message.From.ID, "автомат сейчас не может выполнить заказ.")
+	if tb.g.Vmc[vmid].State != vender_api.State_Nominal {
+		errm := "автомат сейчас не может выполнить заказ."
+		err := tb.tgSend(user, errm)
+		return fmt.Errorf("%w -%s", err, errm)
 	}
+	return nil
+}
 
-	tb.chatId[m.Message.Chat.ID] = cl
-
-	return tb.sendCookCmd(m.Message.Chat.ID)
+func (tb *tgbotapiot) logTgDbChange(m tgbotapi.Message) {
+	const q = `UPDATE tgchat set (changedate, changetext) = (?0,?1) WHERE messageid=?2;`
+	tb.g.Alive.Add(1)
+	_, err := tb.g.DB.Exec(q,
+		m.EditDate,
+		m.Text,
+		m.MessageID,
+	)
+	tb.g.Alive.Done()
+	if err != nil {
+		tb.g.Log.Errorf("db query=%s err=%v", q, err)
+	}
+}
+func (tb *tgbotapiot) logTgDb(m tgbotapi.Message) {
+	const q = `insert into tgchat (messageid, fromid, toid, date, text) values (?0, ?1, ?2, ?3, ?4);`
+	tb.g.Alive.Add(1)
+	_, err := tb.g.DB.Exec(q, m.MessageID, m.From.ID, m.Chat.ID, m.Date, m.Text)
+	if err != nil {
+		tb.g.Log.Errorf("db query=%s err=%v", q, err)
+	}
+	tb.g.Alive.Done()
 }
 
 func (tb *tgbotapiot) sendCookCmd(chatId int64) error {
@@ -177,8 +270,8 @@ func (tb *tgbotapiot) sendCookCmd(chatId int64) error {
 				PaymentMethod: vender_api.PaymentMethod_Balance,
 			}},
 	}
-	tb.g.Log.Infof("client id:%d send remote cook code:%s", cl.Id, cl.rcook.code)
-	return tb.g.Tele.SendCommand(cl.vmid, cmd)
+	tb.g.Log.Infof("client (%v) send remote cook code:%s", cl, cl.rcook.code)
+	return tb.g.Tele.SendCommand(cl.rcook.vmid, cmd)
 }
 
 func (tb *tgbotapiot) onMqtt(p tele_api.Packet) error {
@@ -226,7 +319,7 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) error {
 	case vender_api.CookReplay_cookFinish:
 		msg = "заказ выполнен. приятного аппетита."
 		// tb.chatId[rm.Executer].Balance - rm.ValidateReplay
-		msg = msg + "\nбаланс :" + fmt.Sprintf("%d", tb.rcookWriteDb(rm))
+		msg = msg + "\nбаланс: " + fmt.Sprintf("%d", tb.rcookWriteDb(rm))
 	case vender_api.CookReplay_cookInaccessible:
 		msg = "код недоступен"
 	case vender_api.CookReplay_cookOverdraft:
@@ -235,7 +328,7 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) error {
 		msg = "ошибка приготовления."
 	default:
 		msg = "что то пошло не так. без паники. хозяину уже в сообщили."
-		TgSendError(fmt.Sprintf("vmid=%d code error invalid packet=%s", tb.chatId[rm.Executer].vmid, rm.String()))
+		TgSendError(fmt.Sprintf("vmid=%d code error invalid packet=%s", tb.chatId[rm.Executer].rcook.vmid, rm.String()))
 	}
 	err := tb.tgSend(int64(rm.Executer), msg)
 	delete(tb.chatId, rm.Executer)
@@ -245,10 +338,14 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) error {
 func (tb *tgbotapiot) rcookWriteDb(rm *vender_api.Response) (bal int32) {
 	tb.g.Log.Infof("cooking finished client:%d code:%s", rm.Executer, tb.chatId[rm.Executer].rcook.code)
 	c := tb.chatId[rm.Executer].rcook
+	c.cream--
+	c.sugar--
 	nb := tb.chatId[rm.Executer].Balance - int32(rm.ValidateReplay/100)
 	const q = `insert into trans (vmid,received,menu_code,options,price,method,executer) values (?0,current_timestamp,?1,?2,?3,?4,?5);
 	UPDATE vmc_user set balance = ?6 WHERE idtelegram = ?5;`
-	_, err := tb.g.DB.Exec(q, tb.chatId[rm.Executer].vmid, c.code, pg.Array([2]uint8{c.cream, c.sugar}), rm.ValidateReplay, vender_api.PaymentMethod_Balance, rm.Executer, nb)
+	tb.g.Alive.Add(1)
+	_, err := tb.g.DB.Exec(q, tb.chatId[rm.Executer].rcook.vmid, c.code, pg.Array([2]uint8{c.cream, c.sugar}), rm.ValidateReplay, vender_api.PaymentMethod_Balance, rm.Executer, nb)
+	tb.g.Alive.Done()
 	if err != nil {
 		tb.g.Log.Errorf("db query=%s chatid=%v err=%v", q, tb.chatId[rm.Executer], err)
 	}
@@ -265,23 +362,28 @@ func TgSendError(s string) {
 func (tb *tgbotapiot) tgSend(chatid int64, s string) error {
 	msg := tgbotapi.NewMessage(chatid, s)
 	// msg.ReplyToMessageID = t.replayMessageID
-	_, err := tb.bot.Send(msg)
+	m, err := tb.bot.Send(msg)
+	tb.logTgDb(m)
 	// return m.Date, err
 	return err
 }
 
-func (tb *tgbotapiot) getClient(c int64) (client, error) {
+func (tb *tgbotapiot) getClient(c int64) (tgUser, error) {
 	tb.g.Alive.Add(1)
 	db := tb.g.DB.Conn()
-	var cl client
-	_, err := db.QueryOne(&cl, `SELECT id, balance,	credit FROM vmc_user WHERE idtelegram = ?`, c)
-	// _ = db.Close()
+	var cl tgUser
+	_, err := db.QueryOne(&cl, `SELECT Ban, Balance, Credit FROM tg_user WHERE tg_user."userid" = ?;`, c)
+	_ = db.Close()
 	tb.g.Alive.Done()
 	if err == pg.ErrNoRows {
 		return cl, errors.Annotate(err, "client not found in db")
 	} else if err != nil {
-		return cl, errors.Annotate(err, "telegram client db read error")
+		return cl, errors.Annotate(err, "telegram client db read error ")
 	}
+	if cl.Ban {
+		return cl, errors.New("user banned")
+	}
+	cl.id = c
 	return cl, nil
 }
 
