@@ -97,7 +97,7 @@ func telegramInit(ctx context.Context) error {
 		os.Exit(1)
 	}
 
-	tb.bot.Debug = true
+	tb.bot.Debug = tb.g.Config.Telegram.DebugMessages
 	tb.chatId = make(map[int64]tgUser)
 	tb.admin = tb.g.Config.Telegram.TelegramAdmin
 
