@@ -38,6 +38,7 @@ const (
 	tgCommandBalanse
 	tgCommandHelp
 	tgCommandBabloToUser
+	tgCommandOther
 )
 
 type tgbotapiot struct {
@@ -97,7 +98,7 @@ func telegramInit(ctx context.Context) error {
 		os.Exit(1)
 	}
 
-	tb.bot.Debug = true
+	tb.bot.Debug = tb.g.Config.Telegram.DebugMessages
 	tb.chatId = make(map[int64]tgUser)
 	tb.admin = tb.g.Config.Telegram.TelegramAdmin
 
@@ -185,6 +186,8 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 	}
 	//parse command
 	switch parseCommad(m.Message.Text) {
+	case tgCommandInvalid:
+		return nil
 	case tgCommandBalanse:
 		msg := fmt.Sprintf("баланс: %d. ", cl.Balance)
 		// if cl.Credit != 0 {
@@ -197,7 +200,16 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 		}
 		tb.commandCook(*m.Message, cl)
 	case tgCommandHelp:
-		tb.tgSend(cl.id, "я пока не знаю что ответить\nпозвони моему хозяину, он расскажет")
+		msg := "пока это работает так:\n" +
+			"для заказа напитка нужно указать номер автомата (номер указан в право верхнем углу), код напитка и, если требуется, тюнинг сливок и сахара\n" +
+			"пример: хочется заказать атомату 5 напиток с кодом 23. для этого боту надо написать (используя латиницу)\n" +
+			"/5_m23\n" +
+			"для тюнинга сливок и сахара надо добавить _с (это cream = сливки) и/или _s (это sugar = сахар ) например:\n" +
+			"/5_m23_c3_s2\n" +
+			"это означает, автомат=5, приготовить код=23, сливки=3, сахар=2\n" +
+			"если непонятно, позвони/напиши моему хозяину, он расскажет.\n" +
+			"а еще, хозяин, сказал что позднее сделает более удобный механизм заказа"
+		tb.tgSend(cl.id, msg)
 	case tgCommandBabloToUser:
 		// первое сообщение указатель бабла и сумма которую положить на счет, второе это форвард .
 		if m.Message.From.ID == tb.admin {
@@ -205,13 +217,16 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 			cl.bablo = cl.bablo * 100
 			tb.chatId[tb.admin] = cl
 		}
-	default:
+	case tgCommandOther:
 		if m.Message.From.ID != tb.admin {
 			tb.tgSend(cl.id, "моя тебя не понимай\nна эту команду непонятно что делать.")
 			break
 		}
 		// обрабатываем команды админа
-		remUserId := m.Message.ForwardFrom.ID
+		var remUserId int64
+		if m.Message.ForwardFrom != nil {
+			remUserId = m.Message.ForwardFrom.ID
+		}
 		bablo := tb.chatId[cl.id].bablo
 		if remUserId != 0 && bablo != 0 {
 			client, err := tb.getClient(remUserId)
@@ -229,19 +244,25 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 }
 
 func parseCommad(cmd string) tgCommand {
-	if cmd == "/balanse" {
+	// https://extendsclass.com/regex-tester.html#js
+	cmdR := regexp.MustCompile(`^((/balanse)|(/help)|bablo(\d+)|(.+))$`)
+	parts := cmdR.FindStringSubmatch(cmd)
+	if len(parts) == 0 {
+		return tgCommandInvalid
+	}
+
+	switch {
+	case parts[2] != "":
 		return tgCommandBalanse
-	}
-	if cmd == "/help" {
+	case parts[3] != "":
 		return tgCommandHelp
-	}
-	if cmd[:5] == "bablo" {
+	case parts[4] != "":
 		return tgCommandBabloToUser
+	case parts[5] != "":
+		return tgCommandOther
+	default:
+		return tgCommandInvalid
 	}
-	if ok, _ := regexp.MatchString("^/[0-9]+_m.", cmd); ok {
-		return tgCommandCook
-	}
-	return tgCommandInvalid
 }
 
 func (tb *tgbotapiot) commandCook(m tgbotapi.Message, client tgUser) {

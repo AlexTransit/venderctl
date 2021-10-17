@@ -3,6 +3,13 @@ db {
   url = "postgresql://user:password@server/database"
 }
 
+telegram {
+ telegram_bot_api = "telegram bot api"
+ telegram_admin = 0 //telegram user id 
+ telegram_debug = true
+ }
+
+
 money {
   // Multiple of lowest money unit for config convenience and formatting.
   // All money numbers in config are multipled by scale.
@@ -61,6 +68,7 @@ tele {
   connect {
     url                 = "tcp://ctl:secret@internal"
     network_timeout_sec = 5
+    keepalive_sec = 10    
   }
 }
 
