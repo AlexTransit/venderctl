@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"time"
 
 	vender_api "github.com/AlexTransit/vender/tele"
@@ -35,10 +36,11 @@ type tgCommand uint8
 const (
 	tgCommandInvalid tgCommand = iota
 	tgCommandCook
-	tgCommandBalanse
+	tgCommandBalance
 	tgCommandHelp
 	tgCommandBabloToUser
 	tgCommandOther
+	// tgCommandTest
 )
 
 type tgbotapiot struct {
@@ -47,14 +49,14 @@ type tgbotapiot struct {
 	admin        int64
 	g            *state.Global
 	chatId       map[int64]tgUser
+	forvardMsg   []string
 }
 
 type tgUser struct {
 	Ban     bool
-	bablo   int16
-	id      int64
-	Balance int32
 	Credit  int32
+	Balance int64
+	id      int64
 	rcook   cookSruct
 }
 
@@ -129,7 +131,7 @@ func (tb *tgbotapiot) telegramLoop() error {
 			}
 
 		case tgm := <-tgch:
-			if tgm.Message == nil {
+			if tgm.Message == nil && tgm.EditedMessage != nil {
 				tb.g.Log.Infof("telegramm message change (%v)", tgm.EditedMessage)
 				tb.logTgDbChange(*tgm.EditedMessage)
 				break
@@ -142,6 +144,7 @@ func (tb *tgbotapiot) telegramLoop() error {
 				tb.tgSend(tgm.Message.From.ID, "была проблема со связью.\nкоманда поступила c опозданием.\nесли актуально повторите еще раз.")
 				break
 			}
+			tb.g.Log.Debugf("income telegramm messgage from (%d) message (%s)", tgm.Message.From.ID, tgm.Message.Text)
 			tb.g.Alive.Add(1)
 			err := tb.onTeleBot(tgm)
 			tb.g.Alive.Done()
@@ -154,89 +157,68 @@ func (tb *tgbotapiot) telegramLoop() error {
 		}
 	}
 }
+
+func balance(b int64) string {
+	return fmt.Sprintf("баланс: %.2f ", float64(b)/100)
+}
+
 func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
-	const regMess = "Для работы с роботом, нужно зарегестрироваться в системе."
-	var msg tgbotapi.MessageConfig
 	cl, err := tb.getClient(m.Message.From.ID)
-	if fmt.Sprint(err) == "user banned" {
-		return err
-	}
 	if err != nil {
-		if m.Message.Text == "/start" {
-			msg = tgbotapi.NewMessage(m.Message.Chat.ID, regMess)
-			btn := tgbotapi.KeyboardButton{
-				Text:           "регистрация в системе",
-				RequestContact: true,
-			}
-			msg.ReplyMarkup = tgbotapi.NewReplyKeyboard([]tgbotapi.KeyboardButton{btn})
-			_, err = tb.bot.Send(msg)
-			return err
-		}
-		if m.Message.Contact == nil || m.Message.Contact.UserID != m.Message.From.ID || m.Message.ReplyToMessage.Text != regMess {
-			return nil
-		}
-		if err = tb.registerNewUser(m.Message.Contact, m.Message.Date); err != nil {
-			return err
-		}
-		complitMessage := "регистрация завершена.\nс Вашего номера списано 20 рублей. :)"
-		msg := tgbotapi.NewMessage(m.Message.Chat.ID, complitMessage)
-		msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
-		_, _ = tb.bot.Send(msg)
-		return nil
+		return tb.registerNewUser(m)
 	}
 	//parse command
 	switch parseCommad(m.Message.Text) {
 	case tgCommandInvalid:
 		return nil
-	case tgCommandBalanse:
-		msg := fmt.Sprintf("баланс: %d. ", cl.Balance)
-		// if cl.Credit != 0 {
-		// 	msg = msg + fmt.Sprintf("кредит: %d", cl.Credit)
-		// }
+	case tgCommandBalance:
+		msg := balance(cl.Balance)
+		if cl.Credit != 0 {
+			msg = msg + fmt.Sprintf("кредит: %d \nдоступно: %.2f", cl.Credit, float64(cl.Balance+int64(cl.Credit)*100)/100)
+		}
 		tb.tgSend(cl.id, msg)
 	case tgCommandCook:
 		if tb.chatId[cl.id].id != 0 {
 			return nil
 		}
 		tb.commandCook(*m.Message, cl)
+
 	case tgCommandHelp:
-		msg := "пока это работает так:\n" +
-			"для заказа напитка нужно указать номер автомата (номер указан в право верхнем углу), код напитка и, если требуется, тюнинг сливок и сахара\n" +
-			"пример: хочется заказать атомату 5 напиток с кодом 23. для этого боту надо написать (используя латиницу)\n" +
-			"/5_m23\n" +
-			"для тюнинга сливок и сахара надо добавить _с (это cream = сливки) и/или _s (это sugar = сахар ) например:\n" +
-			"/5_m23_c3_s2\n" +
-			"это означает, автомат=5, приготовить код=23, сливки=3, сахар=2\n" +
-			"если непонятно, позвони/напиши моему хозяину, он расскажет.\n" +
-			"а еще, хозяин, сказал что позднее сделает более удобный механизм заказа"
-		tb.tgSend(cl.id, msg)
-	case tgCommandBabloToUser:
-		// первое сообщение указатель бабла и сумма которую положить на счет, второе это форвард .
-		if m.Message.From.ID == tb.admin {
-			fmt.Sscan(m.Message.Text[5:], &cl.bablo)
-			cl.bablo = cl.bablo * 100
-			tb.chatId[tb.admin] = cl
-		}
+		return tb.replayCommandHelp(cl.id)
 	case tgCommandOther:
 		if m.Message.From.ID != tb.admin {
-			tb.tgSend(cl.id, "моя тебя не понимай\nна эту команду непонятно что делать.")
+			msg := fmt.Sprintf("команда (%s) \nнепонятно что делать.", m.Message.Text)
+			tb.tgSend(cl.id, msg)
 			break
 		}
 		// обрабатываем команды админа
-		var remUserId int64
-		if m.Message.ForwardFrom != nil {
-			remUserId = m.Message.ForwardFrom.ID
+		parts := regexp.MustCompile(`^(bablo|credit)(\d+)$`).FindStringSubmatch(m.Message.Text)
+		if len(parts) != 0 {
+			tb.forvardMsg = parts
+			break
 		}
-		bablo := tb.chatId[cl.id].bablo
-		if remUserId != 0 && bablo != 0 {
-			client, err := tb.getClient(remUserId)
+		if m.Message.ForwardFrom != nil && len(tb.forvardMsg) != 0 {
+			client, err := tb.getClient(m.Message.ForwardFrom.ID)
 			if err != nil {
 				TgSendError(fmt.Sprintf("error get client for put bablo (%v)", err))
+			}
+			switch {
+			case tb.forvardMsg[1] == "bablo":
+				client.rcook.code = "bablo"
+				bablo, _ := strconv.Atoi(tb.forvardMsg[2])
+				tb.tgSend(client.id, fmt.Sprintf("пополнение баланса на: %d", bablo))
+				tb.tgSend(tb.admin, fmt.Sprintf("баланс: %d пополнен на: %d", client.id, bablo))
+				tb.rcookWriteDb(client, -bablo*100, vender_api.PaymentMethod_Balance)
+				fmt.Printf("i=%d, type: %T\n", bablo, bablo)
+			case tb.forvardMsg[1] == "credit":
+				credit, _ := strconv.Atoi(tb.forvardMsg[2])
+				tb.setCredit(client.id, credit)
+				tb.tgSend(client.id, fmt.Sprintf("появилась возможность делать отрицательный баланс на : %d", credit))
+				tb.tgSend(tb.admin, fmt.Sprintf("установлен кредит на: %d для: %d", credit, client.id))
+			default:
 				break
 			}
-			// команда положить на баланс
-			client.rcook.code = "bablo"
-			tb.rcookWriteDb(client, int(-bablo), vender_api.PaymentMethod_Balance)
+			tb.forvardMsg = nil
 		}
 	}
 
@@ -245,7 +227,12 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 
 func parseCommad(cmd string) tgCommand {
 	// https://extendsclass.com/regex-tester.html#js
-	cmdR := regexp.MustCompile(`^((/balanse)|(/help)|bablo(\d+)|(.+))$`)
+	rm := `((/\d+_m.+)|` +
+		`(/balance)|` +
+		`(/help)|` +
+		`(.+)|` +
+		`)$`
+	cmdR := regexp.MustCompile(rm)
 	parts := cmdR.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
 		return tgCommandInvalid
@@ -253,11 +240,11 @@ func parseCommad(cmd string) tgCommand {
 
 	switch {
 	case parts[2] != "":
-		return tgCommandBalanse
+		return tgCommandCook
 	case parts[3] != "":
-		return tgCommandHelp
+		return tgCommandBalance
 	case parts[4] != "":
-		return tgCommandBabloToUser
+		return tgCommandHelp
 	case parts[5] != "":
 		return tgCommandOther
 	default:
@@ -287,7 +274,7 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 	// приготовить робот:88 код:3 cream:4 sugar:4 (сливики/сахар необязательные)
 	// 1 - robo, 2 - code , 3 - valid creame, 4 - value creme, 5 - valid sugar, 6 value sugar
 	// var cs cookSruct
-	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m(\d+)(_c([0-6]))?(_s([0-8]))?$`)
+	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m(.+)(_c([0-6]))?(_s([0-8]))?$`)
 	parts := reCmdMake.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
 		return cs, false
@@ -337,6 +324,17 @@ func (tb *tgbotapiot) logTgDbChange(m tgbotapi.Message) {
 		tb.g.Log.Errorf("db query=%s err=%v", q, err)
 	}
 }
+
+func (tb *tgbotapiot) setCredit(id int64, credit int) {
+	const q = `UPDATE tg_user SET credit = ?1 WHERE userid = ?0;`
+	tb.g.Alive.Add(1)
+	_, err := tb.g.DB.Exec(q, id, credit)
+	tb.g.Alive.Done()
+	if err != nil {
+		tb.g.Log.Errorf("db query=%s err=%v", q, err)
+	}
+}
+
 func (tb *tgbotapiot) logTgDb(m tgbotapi.Message) {
 	const q = `insert into tg_chat (messageid, fromid, toid, date, text) values (?0, ?1, ?2, ?3, ?4);`
 	tb.g.Alive.Add(1)
@@ -352,7 +350,7 @@ func (tb *tgbotapiot) sendCookCmd(chatId int64) error {
 
 	Cook := &vender_api.Command_ArgCook{
 		Menucode:      cl.rcook.code,
-		Balance:       cl.Balance + int32(cl.Credit),
+		Balance:       int32(cl.Balance) + int32(cl.Credit),
 		PaymentMethod: vender_api.PaymentMethod_Balance,
 	}
 	if cl.rcook.cream != 0 {
@@ -436,7 +434,7 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) bool {
 
 func (tb *tgbotapiot) rcookWriteDb(user tgUser, price int, payMethod vender_api.PaymentMethod) {
 	tb.g.Log.Infof("cooking finished client:%d code:%s", user.id, tb.chatId[user.id].rcook.code)
-	nb := user.Balance - int32(price/100)
+	nb := user.Balance - int64(price)
 	const q = `insert into trans (vmid,received,menu_code,options,price,method,executer) values (?0,current_timestamp,?1,?2,?3,?4,?5);
 	UPDATE tg_user set balance = ?6 WHERE userid = ?5;`
 	tb.g.Alive.Add(1)
@@ -445,7 +443,7 @@ func (tb *tgbotapiot) rcookWriteDb(user tgUser, price int, payMethod vender_api.
 	if err != nil {
 		tb.g.Log.Errorf("db query=%s chatid=%v err=%v", q, user.id, err)
 	}
-	msg := fmt.Sprintf("баланс: %d", nb)
+	msg := balance(nb)
 	tb.tgSend(user.id, msg)
 }
 
@@ -470,7 +468,7 @@ func (tb *tgbotapiot) getClient(c int64) (tgUser, error) {
 	tb.g.Alive.Add(1)
 	db := tb.g.DB.Conn()
 	var cl tgUser
-	_, err := db.QueryOne(&cl, `SELECT Ban, Balance, Credit FROM tg_user WHERE tg_user."userid" = ?;`, c)
+	_, err := db.QueryOne(&cl, `SELECT Ban, Balance, Credit FROM tg_user WHERE userid = ?;`, c)
 	_ = db.Close()
 	tb.g.Alive.Done()
 	if err == pg.ErrNoRows {
@@ -479,14 +477,59 @@ func (tb *tgbotapiot) getClient(c int64) (tgUser, error) {
 		return cl, errors.Annotate(err, "telegram client db read error ")
 	}
 	if cl.Ban {
+		tb.g.Log.Infof("message from banned user id:%d", c)
 		return cl, errors.New("user banned")
 	}
 	cl.id = c
 	return cl, nil
 }
 
-func (tb *tgbotapiot) registerNewUser(c *tgbotapi.Contact, dt int) error {
+func (tb *tgbotapiot) addUserToDB(c *tgbotapi.Contact, dt int) error {
 	const q = `INSERT INTO tg_user ( userId, firstName, lastName, phoneNumber, registerDate ) values (?0, ?1, ?2, ?3, ?4);`
 	_, err := tb.g.DB.Exec(q, c.UserID, c.FirstName, c.LastName, c.PhoneNumber, dt)
 	return err
+}
+
+func (tb *tgbotapiot) registerNewUser(m tgbotapi.Update) error {
+	const regMess = "Для работы с роботом, нужно зарегестрироваться в системе."
+	var msg tgbotapi.MessageConfig
+	var err error
+
+	if m.Message.Text == "/start" {
+		msg = tgbotapi.NewMessage(m.Message.Chat.ID, regMess)
+		btn := tgbotapi.KeyboardButton{
+			Text:           "регистрация в системе",
+			RequestContact: true,
+		}
+		msg.ReplyMarkup = tgbotapi.NewReplyKeyboard([]tgbotapi.KeyboardButton{btn})
+		_, err = tb.bot.Send(msg)
+		return err
+	}
+	// if m.Message.Contact == nil || m.Message.Contact.UserID != m.Message.From.ID || m.Message.ReplyToMessage.Text != regMess {
+	if m.Message.Contact == nil || m.Message.Contact.UserID != m.Message.From.ID {
+		return nil
+	}
+	if err = tb.addUserToDB(m.Message.Contact, m.Message.Date); err != nil {
+		return err
+	}
+	complitMessage := "регистрация завершена. \n/help - получить справку."
+	msg = tgbotapi.NewMessage(m.Message.Chat.ID, complitMessage)
+	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+	_, _ = tb.bot.Send(msg)
+	return nil
+}
+
+func (tb *tgbotapiot) replayCommandHelp(cl int64) error {
+	msg := "пока это работает так:\n" +
+		"для заказа напитка нужно указать номер автомата (номер указан в право верхнем углу автомата), код напитка и, если требуется, тюнинг сливок и сахара\n" +
+		"пример: хочется заказать атомату 5 напиток с кодом 23. для этого боту надо написать (используя латиницу)\n" +
+		"/5_m23\n" +
+		"для тюнинга сливок и сахара надо добавить _с (это cream = сливки) и/или _s (это sugar = сахар ) например:\n" +
+		"/5_m23_c3_s2\n" +
+		"это означает, автомату=5, приготовить код=23, сливки=3, сахар=2\n" +
+		"если непонятно, позвоните/напишите @Alexey_Milko, он расскажет.\n" +
+		"\n" +
+		"PS позднее будет сделан более удобный механизм заказа"
+	tb.tgSend(cl, msg)
+	return nil
 }
