@@ -159,7 +159,11 @@ func (tb *tgbotapiot) telegramLoop() error {
 }
 
 func balance(b int64) string {
-	return fmt.Sprintf("баланс: %.2f ", float64(b)/100)
+	// return fmt.Sprintf("баланс: %.2f ", float64(b)/100)
+	return "баланс: " + amoutToString(b)
+}
+func amoutToString(i int64) string {
+	return fmt.Sprintf("%.2f ", float64(i)/100)
 }
 
 func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
@@ -406,15 +410,16 @@ func (tb *tgbotapiot) onMqtt(p tele_api.Packet) error {
 }
 func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) bool {
 	var msg string
+	client := rm.Executer
 	switch rm.CookReplay {
 	case vender_api.CookReplay_vmcbusy:
 		msg = "автомат в данный момент обрабатывает другой заказ. попробуйте позднее."
 	case vender_api.CookReplay_cookStart:
-		msg = "начинаю готовить"
+		msg = fmt.Sprintf("начинаю готовить. \nкод: %s автомат: %d", tb.chatId[client].rcook.code, tb.chatId[client].rcook.vmid)
 		tb.tgSend(int64(rm.Executer), msg)
 		return false
 	case vender_api.CookReplay_cookFinish:
-		msg = "заказ выполнен. приятного аппетита."
+		msg = fmt.Sprintf("заказ стоимостью: %s выполнен. \nприятного аппетита.", amoutToString(int64(rm.ValidateReplay)))
 		user := tb.chatId[rm.Executer]
 		tb.rcookWriteDb(user, int(rm.ValidateReplay), vender_api.PaymentMethod_Balance)
 	case vender_api.CookReplay_cookInaccessible:
@@ -461,6 +466,7 @@ func (tb *tgbotapiot) tgSend(chatid int64, s string) {
 		tb.g.Log.Errorf("error send telegramm message (%v)", err)
 		return
 	}
+	tb.g.Log.Infof("send telegram message iserid: %d text: %s", m.From.ID, m.Text)
 	tb.logTgDb(m)
 }
 
