@@ -113,22 +113,20 @@ func (self *tele) Addrs() []string {
 
 func (self *tele) Chan() <-chan tele_api.Packet { return self.pch }
 
-func (self *tele) SendCommand(vmid int32, c *vender_api.Command) error {
+func (self *tele) SendCommand(vmid int32, c *vender_api.Command)  {
 	payload, err := proto.Marshal(c)
 	if err != nil {
-		return errors.Trace(err)
+		self.log.Errorf("tele.SendCommand error(%v)",err)
+		return 
 	}
 	p := tele_api.Packet{Kind: tele_api.PacketCommand, VmId: vmid, Payload: payload}
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSendTimeout)
-	defer cancel()
-	err = self.mqttSend(ctx, p)
-	return errors.Annotate(err, "tele.SendCommand")
+	if err = self.mqttSend(p);err != nil {
+		self.log.Errorf("tele.SendCommand error(%v)",err)
+	}
 }
 
 func (self *tele) CommandTx(vmid int32, c *vender_api.Command) (*vender_api.Response, error) {
-	if err := self.SendCommand(vmid, c); err != nil {
-		return nil, errors.Annotate(err, "CommandTx")
-	}
+	self.SendCommand(vmid, c)
 
 	tmr := time.NewTimer(5 * time.Second)
 	defer tmr.Stop()

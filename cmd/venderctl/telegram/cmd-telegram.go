@@ -268,9 +268,7 @@ func (tb *tgbotapiot) commandCook(m tgbotapi.Message, client tgUser) {
 		return
 	}
 	tb.chatId[client.id] = client
-	if err := tb.sendCookCmd(client.id); err != nil {
-		tb.g.Log.Errorf("send cook error (%v", err)
-	}
+	tb.sendCookCmd(client.id)
 }
 
 func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
@@ -278,7 +276,7 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 	// приготовить робот:88 код:3 cream:4 sugar:4 (сливики/сахар необязательные)
 	// 1 - robo, 2 - code , 3 - valid creame, 4 - value creme, 5 - valid sugar, 6 value sugar
 	// var cs cookSruct
-	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m(.+)(_c([0-6]))?(_s([0-8]))?$`)
+	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m(.+?)(_c([0-6]))?(_s([0-8]))?$`)
 	parts := reCmdMake.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
 		return cs, false
@@ -305,7 +303,7 @@ func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
 		cmd := &vender_api.Command{
 			Task: &vender_api.Command_GetState{},
 		}
-		_ = tb.g.Tele.SendCommand(vmid, cmd)
+		tb.g.Tele.SendCommand(vmid, cmd)
 	}
 	if tb.g.Vmc[vmid].State != vender_api.State_Nominal {
 		errm := "автомат сейчас не может выполнить заказ."
@@ -349,12 +347,12 @@ func (tb *tgbotapiot) logTgDb(m tgbotapi.Message) {
 	tb.g.Alive.Done()
 }
 
-func (tb *tgbotapiot) sendCookCmd(chatId int64) error {
+func (tb *tgbotapiot) sendCookCmd(chatId int64) {
 	cl := tb.chatId[chatId]
 
 	Cook := &vender_api.Command_ArgCook{
 		Menucode:      cl.rcook.code,
-		Balance:       int32(cl.Balance) + int32(cl.Credit),
+		Balance:       int32(cl.Balance) + int32(cl.Credit*100),
 		PaymentMethod: vender_api.PaymentMethod_Balance,
 	}
 	if cl.rcook.cream != 0 {
@@ -372,7 +370,7 @@ func (tb *tgbotapiot) sendCookCmd(chatId int64) error {
 		},
 	}
 	tb.g.Log.Infof("client (%v) send remote cook code:%s", cl, cl.rcook.code)
-	return tb.g.Tele.SendCommand(cl.rcook.vmid, cmd)
+	tb.g.Tele.SendCommand(cl.rcook.vmid, cmd)
 }
 
 func (tb *tgbotapiot) onMqtt(p tele_api.Packet) error {
@@ -403,6 +401,7 @@ func (tb *tgbotapiot) onMqtt(p tele_api.Packet) error {
 		return nil
 
 	default:
+		fmt.Printf("\n\033[41m %s \033[0m\n\n", p.Kind.String())
 		// TgSendError(fmt.Sprintf("code error invalid packet=%s", p.Kind.String()))
 		return nil
 	}
