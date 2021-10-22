@@ -153,7 +153,7 @@ func (self *tele) connectLostHandler(c mqtt.Client, err error) {
 	self.log.Debugf("broker connection lost.")
 }
 
-func (self *tele) mqttSend(ctx context.Context, p tele_api.Packet) error {
+func (self *tele) mqttSend(p tele_api.Packet) error {
 	if p.Kind != tele_api.PacketCommand {
 		return errors.Errorf("code error mqtt not implemented Send packet=%v", p)
 	}
