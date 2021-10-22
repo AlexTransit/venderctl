@@ -113,15 +113,15 @@ func (self *tele) Addrs() []string {
 
 func (self *tele) Chan() <-chan tele_api.Packet { return self.pch }
 
-func (self *tele) SendCommand(vmid int32, c *vender_api.Command)  {
+func (self *tele) SendCommand(vmid int32, c *vender_api.Command) {
 	payload, err := proto.Marshal(c)
 	if err != nil {
-		self.log.Errorf("tele.SendCommand error(%v)",err)
-		return 
+		self.log.Errorf("tele.SendCommand error(%v)", err)
+		return
 	}
 	p := tele_api.Packet{Kind: tele_api.PacketCommand, VmId: vmid, Payload: payload}
-	if err = self.mqttSend(p);err != nil {
-		self.log.Errorf("tele.SendCommand error(%v)",err)
+	if err = self.mqttSend(p); err != nil {
+		self.log.Errorf("tele.SendCommand error(%v)", err)
 	}
 }
 
