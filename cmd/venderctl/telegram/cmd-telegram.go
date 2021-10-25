@@ -231,11 +231,7 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 
 func parseCommad(cmd string) tgCommand {
 	// https://extendsclass.com/regex-tester.html#js
-	rm := `^(/(-?\d+_m?[-.0-9]+.+?)|` +
-		`(/balance)|` +
-		`(/help)|` +
-		`(.+)|` +
-		`)$`
+	rm := `^((/-?\d+_m?[-.0-9]+(.+?)?)|(/balance)|(/help)|(.+)|)$`
 	cmdR := regexp.MustCompile(rm)
 	parts := cmdR.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
@@ -245,11 +241,11 @@ func parseCommad(cmd string) tgCommand {
 	switch {
 	case parts[2] != "":
 		return tgCommandCook
-	case parts[3] != "":
-		return tgCommandBalance
 	case parts[4] != "":
-		return tgCommandHelp
+		return tgCommandBalance
 	case parts[5] != "":
+		return tgCommandHelp
+	case parts[6] != "":
 		return tgCommandOther
 	default:
 		return tgCommandInvalid
@@ -418,9 +414,21 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) bool {
 		tb.tgSend(int64(rm.Executer), msg)
 		return false
 	case vender_api.CookReplay_cookFinish:
-		msg = fmt.Sprintf("заказ стоимостью: %s выполнен. \nприятного аппетита.", amoutToString(int64(rm.ValidateReplay)))
 		user := tb.chatId[rm.Executer]
-		tb.rcookWriteDb(user, int(rm.ValidateReplay), vender_api.PaymentMethod_Balance)
+		price := int(rm.ValidateReplay)
+		msg = fmt.Sprintf("автомат : %d приготовил код: %s цена: %s", user.rcook.vmid, user.rcook.code, amoutToString(int64(price)))
+		tb.tgSend(user.id, msg)
+		msg = "приятного аппетита."
+		go func() {
+			time.Sleep(10 * time.Second)
+			bonus := (price * 3) / 100
+			cl, _ := tb.getClient(user.id)
+			user.Balance = user.Balance - int64(price)
+			tb.tgSend(user.id, fmt.Sprintf("начислен бонус: %s", amoutToString(int64(bonus))))
+			cl.rcook.code = "bonus"
+			tb.rcookWriteDb(cl, -bonus, vender_api.PaymentMethod_Balance)
+		}()
+		tb.rcookWriteDb(user, price, vender_api.PaymentMethod_Balance)
 	case vender_api.CookReplay_cookInaccessible:
 		msg = "код недоступен"
 	case vender_api.CookReplay_cookOverdraft:
