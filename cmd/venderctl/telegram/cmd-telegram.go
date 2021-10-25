@@ -231,7 +231,7 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 
 func parseCommad(cmd string) tgCommand {
 	// https://extendsclass.com/regex-tester.html#js
-	rm := `^(/(-?\d+_m?[-.0-9]+)|` +
+	rm := `^(/(-?\d+_m?[-.0-9]+.+?)|` +
 		`(/balance)|` +
 		`(/help)|` +
 		`(.+)|` +
@@ -296,7 +296,7 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 
 func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
 	if !tb.g.Vmc[vmid].Connect {
-		tb.tgSend(user, "автомат не в сети.")
+		tb.tgSend(user, "автомат не в сети.\nили отключено электричество, или недоступен интернет.")
 		return false
 	}
 	if tb.g.Vmc[vmid].State == vender_api.State_Invalid {
