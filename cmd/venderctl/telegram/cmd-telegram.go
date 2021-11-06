@@ -53,6 +53,7 @@ type tgbotapiot struct {
 }
 
 type tgUser struct {
+	tOut    bool
 	Ban     bool
 	Credit  int32
 	Balance int64
@@ -82,6 +83,15 @@ func telegramMain(ctx context.Context, flags *flag.FlagSet) error {
 	}
 	return tb.telegramLoop()
 
+}
+
+func (tb *tgbotapiot) RunCookTimer(cl int64) {
+	time.Sleep(200 * time.Second)
+	aa := tb.chatId[cl]
+	if aa.id == cl {
+		aa.tOut = true
+		tb.chatId[cl] = aa
+	}
 }
 
 func telegramInit(ctx context.Context) error {
@@ -182,6 +192,9 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 		}
 		tb.tgSend(cl.id, msg)
 	case tgCommandCook:
+		if tb.chatId[cl.id].tOut {
+			delete(tb.chatId, cl.id)
+		}
 		if tb.chatId[cl.id].id != 0 {
 			return nil
 		}
@@ -265,6 +278,7 @@ func (tb *tgbotapiot) commandCook(m tgbotapi.Message, client tgUser) {
 	}
 	tb.chatId[client.id] = client
 	tb.sendCookCmd(client.id)
+	go tb.RunCookTimer(client.id)
 }
 
 func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
