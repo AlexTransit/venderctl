@@ -57,6 +57,7 @@ type tgUser struct {
 	Ban     bool
 	Credit  int32
 	Balance int64
+	Diskont int
 	id      int64
 	rcook   cookSruct
 }
@@ -433,15 +434,17 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) bool {
 		msg = fmt.Sprintf("автомат : %d приготовил код: %s цена: %s", user.rcook.vmid, user.rcook.code, amoutToString(int64(price)))
 		tb.tgSend(user.id, msg)
 		msg = "приятного аппетита."
-		go func() {
-			time.Sleep(10 * time.Second)
-			bonus := (price * 3) / 100
-			cl, _ := tb.getClient(user.id)
-			user.Balance = user.Balance - int64(price)
-			tb.tgSend(user.id, fmt.Sprintf("начислен бонус: %s", amoutToString(int64(bonus))))
-			cl.rcook.code = "bonus"
-			tb.rcookWriteDb(cl, -bonus, vender_api.PaymentMethod_Balance)
-		}()
+		if tb.chatId[rm.Executer].Diskont != 0 {
+			go func() {
+				time.Sleep(10 * time.Second)
+				bonus := (price * tb.chatId[rm.Executer].Diskont) / 100
+				cl, _ := tb.getClient(user.id)
+				user.Balance = user.Balance - int64(price)
+				tb.tgSend(user.id, fmt.Sprintf("начислен бонус: %s", amoutToString(int64(bonus))))
+				cl.rcook.code = "bonus"
+				tb.rcookWriteDb(cl, -bonus, vender_api.PaymentMethod_Balance)
+			}()
+		}
 		tb.rcookWriteDb(user, price, vender_api.PaymentMethod_Balance)
 	case vender_api.CookReplay_cookInaccessible:
 		msg = "код недоступен"
