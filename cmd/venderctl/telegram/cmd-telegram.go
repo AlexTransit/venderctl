@@ -53,9 +53,11 @@ type tgbotapiot struct {
 }
 
 type tgUser struct {
+	tOut    bool
 	Ban     bool
 	Credit  int32
 	Balance int64
+	Diskont int
 	id      int64
 	rcook   cookSruct
 }
@@ -82,6 +84,15 @@ func telegramMain(ctx context.Context, flags *flag.FlagSet) error {
 	}
 	return tb.telegramLoop()
 
+}
+
+func (tb *tgbotapiot) RunCookTimer(cl int64) {
+	time.Sleep(200 * time.Second)
+	aa := tb.chatId[cl]
+	if aa.id == cl {
+		aa.tOut = true
+		tb.chatId[cl] = aa
+	}
 }
 
 func telegramInit(ctx context.Context) error {
@@ -182,6 +193,9 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 		}
 		tb.tgSend(cl.id, msg)
 	case tgCommandCook:
+		if tb.chatId[cl.id].tOut {
+			delete(tb.chatId, cl.id)
+		}
 		if tb.chatId[cl.id].id != 0 {
 			return nil
 		}
@@ -231,11 +245,7 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 
 func parseCommad(cmd string) tgCommand {
 	// https://extendsclass.com/regex-tester.html#js
-	rm := `((/\d+_m.+)|` +
-		`(/balance)|` +
-		`(/help)|` +
-		`(.+)|` +
-		`)$`
+	rm := `^((/-?\d+_m?[-.0-9]+(.+?)?)|(/balance)|(/help)|(.+)|)$`
 	cmdR := regexp.MustCompile(rm)
 	parts := cmdR.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
@@ -245,11 +255,11 @@ func parseCommad(cmd string) tgCommand {
 	switch {
 	case parts[2] != "":
 		return tgCommandCook
-	case parts[3] != "":
-		return tgCommandBalance
 	case parts[4] != "":
-		return tgCommandHelp
+		return tgCommandBalance
 	case parts[5] != "":
+		return tgCommandHelp
+	case parts[6] != "":
 		return tgCommandOther
 	default:
 		return tgCommandInvalid
@@ -269,6 +279,7 @@ func (tb *tgbotapiot) commandCook(m tgbotapi.Message, client tgUser) {
 	}
 	tb.chatId[client.id] = client
 	tb.sendCookCmd(client.id)
+	go tb.RunCookTimer(client.id)
 }
 
 func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
@@ -276,7 +287,7 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 	// приготовить робот:88 код:3 cream:4 sugar:4 (сливики/сахар необязательные)
 	// 1 - robo, 2 - code , 3 - valid creame, 4 - value creme, 5 - valid sugar, 6 value sugar
 	// var cs cookSruct
-	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m(.+?)(_c([0-6]))?(_s([0-8]))?$`)
+	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m?([-.0-9]+)(_c([0-6]))?(_s([0-8]))?$`)
 	parts := reCmdMake.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
 		return cs, false
@@ -296,7 +307,7 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 
 func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
 	if !tb.g.Vmc[vmid].Connect {
-		tb.tgSend(user, "автомат не в сети.")
+		tb.tgSend(user, "автомат не в сети.\nили отключено электричество, или недоступен интернет.")
 		return false
 	}
 	if tb.g.Vmc[vmid].State == vender_api.State_Invalid {
@@ -418,9 +429,23 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) bool {
 		tb.tgSend(int64(rm.Executer), msg)
 		return false
 	case vender_api.CookReplay_cookFinish:
-		msg = fmt.Sprintf("заказ стоимостью: %s выполнен. \nприятного аппетита.", amoutToString(int64(rm.ValidateReplay)))
 		user := tb.chatId[rm.Executer]
-		tb.rcookWriteDb(user, int(rm.ValidateReplay), vender_api.PaymentMethod_Balance)
+		price := int(rm.ValidateReplay)
+		msg = fmt.Sprintf("автомат : %d приготовил код: %s цена: %s", user.rcook.vmid, user.rcook.code, amoutToString(int64(price)))
+		tb.tgSend(user.id, msg)
+		msg = "приятного аппетита."
+		if tb.chatId[rm.Executer].Diskont != 0 {
+			go func() {
+				time.Sleep(10 * time.Second)
+				bonus := (price * tb.chatId[rm.Executer].Diskont) / 100
+				cl, _ := tb.getClient(user.id)
+				user.Balance = user.Balance - int64(price)
+				tb.tgSend(user.id, fmt.Sprintf("начислен бонус: %s", amoutToString(int64(bonus))))
+				cl.rcook.code = "bonus"
+				tb.rcookWriteDb(cl, -bonus, vender_api.PaymentMethod_Balance)
+			}()
+		}
+		tb.rcookWriteDb(user, price, vender_api.PaymentMethod_Balance)
 	case vender_api.CookReplay_cookInaccessible:
 		msg = "код недоступен"
 	case vender_api.CookReplay_cookOverdraft:
@@ -528,9 +553,9 @@ func (tb *tgbotapiot) replayCommandHelp(cl int64) error {
 	msg := "пока это работает так:\n" +
 		"для заказа напитка нужно указать номер автомата (номер указан в право верхнем углу автомата), код напитка и, если требуется, тюнинг сливок и сахара\n" +
 		"пример: хочется заказать атомату 5 напиток с кодом 23. для этого боту надо написать (используя латиницу)\n" +
-		"/5_m23\n" +
+		"/5_23\n" +
 		"для тюнинга сливок и сахара надо добавить _с (это cream = сливки) и/или _s (это sugar = сахар ) например:\n" +
-		"/5_m23_c3_s2\n" +
+		"/5_23_c3_s2\n" +
 		"это означает, автомату=5, приготовить код=23, сливки=3, сахар=2\n" +
 		"если непонятно, позвоните/напишите @Alexey_Milko, он расскажет.\n" +
 		"\n" +

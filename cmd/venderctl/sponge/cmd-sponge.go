@@ -92,8 +92,7 @@ func spongeLoop(ctx context.Context) error {
 	for {
 		select {
 		case p := <-ch:
-			g.Log.Debugf("sponge packet=%s", p.String())
-
+			// g.Log.Debugf("sponge packet=%s", p.String())
 			g.Alive.Add(1)
 			err := onPacket(ctx, p)
 			g.Alive.Done()
@@ -145,6 +144,7 @@ func onPacket(ctx context.Context, p tele_api.Packet) error {
 		if err != nil {
 			return err
 		}
+		g.Log.Debugf("sponge packet PacketTelemetry = %s", t.String())
 		return onTelemetry(ctx, dbConn, p.VmId, t)
 
 	default:
