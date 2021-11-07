@@ -436,10 +436,11 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) bool {
 		msg = "приятного аппетита."
 		if tb.chatId[rm.Executer].Diskont != 0 {
 			go func() {
-				time.Sleep(10 * time.Second)
 				bonus := (price * tb.chatId[rm.Executer].Diskont) / 100
+				p := int64(price)
+				time.Sleep(10 * time.Second)
 				cl, _ := tb.getClient(user.id)
-				user.Balance = user.Balance - int64(price)
+				user.Balance = user.Balance - p
 				tb.tgSend(user.id, fmt.Sprintf("начислен бонус: %s", amoutToString(int64(bonus))))
 				cl.rcook.code = "bonus"
 				tb.rcookWriteDb(cl, -bonus, vender_api.PaymentMethod_Balance)
@@ -498,7 +499,7 @@ func (tb *tgbotapiot) getClient(c int64) (tgUser, error) {
 	tb.g.Alive.Add(1)
 	db := tb.g.DB.Conn()
 	var cl tgUser
-	_, err := db.QueryOne(&cl, `SELECT Ban, Balance, Credit FROM tg_user WHERE userid = ?;`, c)
+	_, err := db.QueryOne(&cl, `SELECT Ban, Balance, Credit, Diskont FROM tg_user WHERE userid = ?;`, c)
 	_ = db.Close()
 	tb.g.Alive.Done()
 	if err == pg.ErrNoRows {
