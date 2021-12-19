@@ -88,10 +88,10 @@ func telegramMain(ctx context.Context, flags *flag.FlagSet) error {
 
 func (tb *tgbotapiot) RunCookTimer(cl int64) {
 	time.Sleep(200 * time.Second)
-	aa := tb.chatId[cl]
-	if aa.id == cl {
-		aa.tOut = true
-		tb.chatId[cl] = aa
+	c := tb.chatId[cl]
+	if c.id == cl {
+		c.tOut = true
+		tb.chatId[cl] = c
 	}
 }
 
@@ -151,7 +151,7 @@ func (tb *tgbotapiot) telegramLoop() error {
 				break
 			}
 
-			if int(time.Now().Unix())-tgm.Message.Date > 10 {
+			if int(time.Now().Unix())-tgm.Message.Date > 1000 {
 				tb.tgSend(tgm.Message.From.ID, "была проблема со связью.\nкоманда поступила c опозданием.\nесли актуально повторите еще раз.")
 				break
 			}
@@ -215,7 +215,13 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 			tb.forvardMsg = parts
 			break
 		}
-		if m.Message.ForwardFrom != nil && len(tb.forvardMsg) != 0 {
+		if len(tb.forvardMsg) != 0 {
+			defer clerForwardMessga()
+			if m.Message.ForwardFrom == nil {
+				tb.tgSend(tb.admin, "client ID не доступен")
+				tb.forvardMsg[1] = `-` + tb.forvardMsg[1]
+				return nil
+			}
 			client, err := tb.getClient(m.Message.ForwardFrom.ID)
 			if err != nil {
 				TgSendError(fmt.Sprintf("error get client for put bablo (%v)", err))
@@ -234,13 +240,15 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 				tb.tgSend(client.id, fmt.Sprintf("появилась возможность делать отрицательный баланс на : %d", credit))
 				tb.tgSend(tb.admin, fmt.Sprintf("установлен кредит на: %d для: %d", credit, client.id))
 			default:
-				break
+				tb.tgSend(client.id, fmt.Sprintf("не пон: %v", tb.forvardMsg))
 			}
-			tb.forvardMsg = nil
 		}
 	}
-
+	
 	return nil
+}
+func clerForwardMessga(){
+	tb.forvardMsg = nil
 }
 
 func parseCommad(cmd string) tgCommand {
