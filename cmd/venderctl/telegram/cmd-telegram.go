@@ -147,7 +147,9 @@ func (tb *tgbotapiot) telegramLoop() error {
 				tb.logTgDbChange(*tgm.EditedMessage)
 				break
 			}
-			if tgm.Message.From.IsBot {
+			notBot := !tgm.Message.From.IsBot
+			if !notBot {
+				tb.g.Log.Infof("ignore telegramm message from bot (%v)", tgm.Message)
 				break
 			}
 
@@ -244,10 +246,10 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
-func clerForwardMessga(){
+func clerForwardMessga() {
 	tb.forvardMsg = nil
 }
 
