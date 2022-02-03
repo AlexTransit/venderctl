@@ -1,9 +1,11 @@
 package tgbotapi
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"strconv"
 )
 
@@ -18,17 +20,14 @@ const (
 
 // Constant values for ChatActions
 const (
-	ChatTyping      = "typing"
-	ChatUploadPhoto = "upload_photo"
-	ChatRecordVideo = "record_video"
-	ChatUploadVideo = "upload_video"
-	ChatRecordVoice = "record_voice"
-	ChatUploadVoice = "upload_voice"
-	// Deprecated: use ChatRecordVoice instead.
-	ChatRecordAudio = "record_audio"
-	// Deprecated: use ChatUploadVoice instead.
-	ChatUploadAudio     = "upload_audio"
+	ChatTyping          = "typing"
+	ChatUploadPhoto     = "upload_photo"
+	ChatRecordVideo     = "record_video"
+	ChatUploadVideo     = "upload_video"
+	ChatRecordVoice     = "record_voice"
+	ChatUploadVoice     = "upload_voice"
 	ChatUploadDocument  = "upload_document"
+	ChatChooseSticker   = "choose_sticker"
 	ChatFindLocation    = "find_location"
 	ChatRecordVideoNote = "record_video_note"
 	ChatUploadVideoNote = "upload_video_note"
@@ -49,57 +48,55 @@ const (
 
 // Constant values for update types
 const (
-	// New incoming message of any kind — text, photo, sticker, etc.
+	// UpdateTypeMessage is new incoming message of any kind — text, photo, sticker, etc.
 	UpdateTypeMessage = "message"
 
-	// New version of a message that is known to the bot and was edited
+	// UpdateTypeEditedMessage is new version of a message that is known to the bot and was edited
 	UpdateTypeEditedMessage = "edited_message"
 
-	// New incoming channel post of any kind — text, photo, sticker, etc.
+	// UpdateTypeChannelPost is new incoming channel post of any kind — text, photo, sticker, etc.
 	UpdateTypeChannelPost = "channel_post"
 
-	// New version of a channel post that is known to the bot and was edited
+	// UpdateTypeEditedChannelPost is new version of a channel post that is known to the bot and was edited
 	UpdateTypeEditedChannelPost = "edited_channel_post"
 
-	// New incoming inline query
+	// UpdateTypeInlineQuery is new incoming inline query
 	UpdateTypeInlineQuery = "inline_query"
 
-	// The result of an inline query that was chosen by a user and sent to their
+	// UpdateTypeChosenInlineResult i the result of an inline query that was chosen by a user and sent to their
 	// chat partner. Please see the documentation on the feedback collecting for
 	// details on how to enable these updates for your bot.
 	UpdateTypeChosenInlineResult = "chosen_inline_result"
 
-	// New incoming callback query
+	// UpdateTypeCallbackQuery is new incoming callback query
 	UpdateTypeCallbackQuery = "callback_query"
 
-	// New incoming shipping query. Only for invoices with flexible price
+	// UpdateTypeShippingQuery is new incoming shipping query. Only for invoices with flexible price
 	UpdateTypeShippingQuery = "shipping_query"
 
-	// New incoming pre-checkout query. Contains full information about checkout
+	// UpdateTypePreCheckoutQuery is new incoming pre-checkout query. Contains full information about checkout
 	UpdateTypePreCheckoutQuery = "pre_checkout_query"
 
-	// New poll state. Bots receive only updates about stopped polls and polls
+	// UpdateTypePoll is new poll state. Bots receive only updates about stopped polls and polls
 	// which are sent by the bot
 	UpdateTypePoll = "poll"
 
-	// A user changed their answer in a non-anonymous poll. Bots receive new votes
+	// UpdateTypePollAnswer is when user changed their answer in a non-anonymous poll. Bots receive new votes
 	// only in polls that were sent by the bot itself.
 	UpdateTypePollAnswer = "poll_answer"
 
-	// The bot's chat member status was updated in a chat. For private chats, this
+	// UpdateTypeMyChatMember is when the bot's chat member status was updated in a chat. For private chats, this
 	// update is received only when the bot is blocked or unblocked by the user.
 	UpdateTypeMyChatMember = "my_chat_member"
 
-	// The bot must be an administrator in the chat and must explicitly specify
+	// UpdateTypeChatMember is when the bot must be an administrator in the chat and must explicitly specify
 	// this update in the list of allowed_updates to receive these updates.
 	UpdateTypeChatMember = "chat_member"
 )
 
 // Library errors
 const (
-	// ErrBadFileType happens when you pass an unknown type
-	ErrBadFileType = "bad file type"
-	ErrBadURL      = "bad or empty url"
+	ErrBadURL = "bad or empty url"
 )
 
 // Chattable is any config type that can be sent.
@@ -108,19 +105,134 @@ type Chattable interface {
 	method() string
 }
 
-// RequestFile represents a file associated with a request. May involve
-// uploading a file, or passing an existing ID.
-type RequestFile struct {
-	// The multipart upload field name.
-	Name string
-	// The file to upload.
-	File interface{}
-}
-
 // Fileable is any config type that can be sent that includes a file.
 type Fileable interface {
 	Chattable
 	files() []RequestFile
+}
+
+// RequestFile represents a file associated with a field name.
+type RequestFile struct {
+	// The file field name.
+	Name string
+	// The file data to include.
+	Data RequestFileData
+}
+
+// RequestFileData represents the data to be used for a file.
+type RequestFileData interface {
+	// NeedsUpload shows if the file needs to be uploaded.
+	NeedsUpload() bool
+
+	// UploadData gets the file name and an `io.Reader` for the file to be uploaded. This
+	// must only be called when the file needs to be uploaded.
+	UploadData() (string, io.Reader, error)
+	// SendData gets the file data to send when a file does not need to be uploaded. This
+	// must only be called when the file does not need to be uploaded.
+	SendData() string
+}
+
+// FileBytes contains information about a set of bytes to upload
+// as a File.
+type FileBytes struct {
+	Name  string
+	Bytes []byte
+}
+
+func (fb FileBytes) NeedsUpload() bool {
+	return true
+}
+
+func (fb FileBytes) UploadData() (string, io.Reader, error) {
+	return fb.Name, bytes.NewReader(fb.Bytes), nil
+}
+
+func (fb FileBytes) SendData() string {
+	panic("FileBytes must be uploaded")
+}
+
+// FileReader contains information about a reader to upload as a File.
+type FileReader struct {
+	Name   string
+	Reader io.Reader
+}
+
+func (fr FileReader) NeedsUpload() bool {
+	return true
+}
+
+func (fr FileReader) UploadData() (string, io.Reader, error) {
+	return fr.Name, fr.Reader, nil
+}
+
+func (fr FileReader) SendData() string {
+	panic("FileReader must be uploaded")
+}
+
+// FilePath is a path to a local file.
+type FilePath string
+
+func (fp FilePath) NeedsUpload() bool {
+	return true
+}
+
+func (fp FilePath) UploadData() (string, io.Reader, error) {
+	fileHandle, err := os.Open(string(fp))
+	if err != nil {
+		return "", nil, err
+	}
+
+	name := fileHandle.Name()
+	return name, fileHandle, err
+}
+
+func (fp FilePath) SendData() string {
+	panic("FilePath must be uploaded")
+}
+
+// FileURL is a URL to use as a file for a request.
+type FileURL string
+
+func (fu FileURL) NeedsUpload() bool {
+	return false
+}
+
+func (fu FileURL) UploadData() (string, io.Reader, error) {
+	panic("FileURL cannot be uploaded")
+}
+
+func (fu FileURL) SendData() string {
+	return string(fu)
+}
+
+// FileID is an ID of a file already uploaded to Telegram.
+type FileID string
+
+func (fi FileID) NeedsUpload() bool {
+	return false
+}
+
+func (fi FileID) UploadData() (string, io.Reader, error) {
+	panic("FileID cannot be uploaded")
+}
+
+func (fi FileID) SendData() string {
+	return string(fi)
+}
+
+// fileAttach is an internal file type used for processed media groups.
+type fileAttach string
+
+func (fa fileAttach) NeedsUpload() bool {
+	return false
+}
+
+func (fa fileAttach) UploadData() (string, io.Reader, error) {
+	panic("fileAttach cannot be uploaded")
+}
+
+func (fa fileAttach) SendData() string {
+	return string(fa)
 }
 
 // LogOutConfig is a request to log out of the cloud Bot API server.
@@ -176,7 +288,7 @@ func (chat *BaseChat) params() (Params, error) {
 // BaseFile is a base type for all file config types.
 type BaseFile struct {
 	BaseChat
-	File interface{}
+	File RequestFileData
 }
 
 func (file BaseFile) params() (Params, error) {
@@ -291,7 +403,7 @@ func (config CopyMessageConfig) method() string {
 // PhotoConfig contains information about a SendPhoto request.
 type PhotoConfig struct {
 	BaseFile
-	Thumb           interface{}
+	Thumb           RequestFileData
 	Caption         string
 	ParseMode       string
 	CaptionEntities []MessageEntity
@@ -317,13 +429,13 @@ func (config PhotoConfig) method() string {
 func (config PhotoConfig) files() []RequestFile {
 	files := []RequestFile{{
 		Name: "photo",
-		File: config.File,
+		Data: config.File,
 	}}
 
 	if config.Thumb != nil {
 		files = append(files, RequestFile{
 			Name: "thumb",
-			File: config.Thumb,
+			Data: config.Thumb,
 		})
 	}
 
@@ -333,7 +445,7 @@ func (config PhotoConfig) files() []RequestFile {
 // AudioConfig contains information about a SendAudio request.
 type AudioConfig struct {
 	BaseFile
-	Thumb           interface{}
+	Thumb           RequestFileData
 	Caption         string
 	ParseMode       string
 	CaptionEntities []MessageEntity
@@ -365,13 +477,13 @@ func (config AudioConfig) method() string {
 func (config AudioConfig) files() []RequestFile {
 	files := []RequestFile{{
 		Name: "audio",
-		File: config.File,
+		Data: config.File,
 	}}
 
 	if config.Thumb != nil {
 		files = append(files, RequestFile{
 			Name: "thumb",
-			File: config.Thumb,
+			Data: config.Thumb,
 		})
 	}
 
@@ -381,7 +493,7 @@ func (config AudioConfig) files() []RequestFile {
 // DocumentConfig contains information about a SendDocument request.
 type DocumentConfig struct {
 	BaseFile
-	Thumb                       interface{}
+	Thumb                       RequestFileData
 	Caption                     string
 	ParseMode                   string
 	CaptionEntities             []MessageEntity
@@ -405,13 +517,13 @@ func (config DocumentConfig) method() string {
 func (config DocumentConfig) files() []RequestFile {
 	files := []RequestFile{{
 		Name: "document",
-		File: config.File,
+		Data: config.File,
 	}}
 
 	if config.Thumb != nil {
 		files = append(files, RequestFile{
 			Name: "thumb",
-			File: config.Thumb,
+			Data: config.Thumb,
 		})
 	}
 
@@ -434,14 +546,14 @@ func (config StickerConfig) method() string {
 func (config StickerConfig) files() []RequestFile {
 	return []RequestFile{{
 		Name: "sticker",
-		File: config.File,
+		Data: config.File,
 	}}
 }
 
 // VideoConfig contains information about a SendVideo request.
 type VideoConfig struct {
 	BaseFile
-	Thumb             interface{}
+	Thumb             RequestFileData
 	Duration          int
 	Caption           string
 	ParseMode         string
@@ -471,13 +583,13 @@ func (config VideoConfig) method() string {
 func (config VideoConfig) files() []RequestFile {
 	files := []RequestFile{{
 		Name: "video",
-		File: config.File,
+		Data: config.File,
 	}}
 
 	if config.Thumb != nil {
 		files = append(files, RequestFile{
 			Name: "thumb",
-			File: config.Thumb,
+			Data: config.Thumb,
 		})
 	}
 
@@ -488,7 +600,7 @@ func (config VideoConfig) files() []RequestFile {
 type AnimationConfig struct {
 	BaseFile
 	Duration        int
-	Thumb           interface{}
+	Thumb           RequestFileData
 	Caption         string
 	ParseMode       string
 	CaptionEntities []MessageEntity
@@ -515,13 +627,13 @@ func (config AnimationConfig) method() string {
 func (config AnimationConfig) files() []RequestFile {
 	files := []RequestFile{{
 		Name: "animation",
-		File: config.File,
+		Data: config.File,
 	}}
 
 	if config.Thumb != nil {
 		files = append(files, RequestFile{
 			Name: "thumb",
-			File: config.Thumb,
+			Data: config.Thumb,
 		})
 	}
 
@@ -531,7 +643,7 @@ func (config AnimationConfig) files() []RequestFile {
 // VideoNoteConfig contains information about a SendVideoNote request.
 type VideoNoteConfig struct {
 	BaseFile
-	Thumb    interface{}
+	Thumb    RequestFileData
 	Duration int
 	Length   int
 }
@@ -552,13 +664,13 @@ func (config VideoNoteConfig) method() string {
 func (config VideoNoteConfig) files() []RequestFile {
 	files := []RequestFile{{
 		Name: "video_note",
-		File: config.File,
+		Data: config.File,
 	}}
 
 	if config.Thumb != nil {
 		files = append(files, RequestFile{
 			Name: "thumb",
-			File: config.Thumb,
+			Data: config.Thumb,
 		})
 	}
 
@@ -568,7 +680,7 @@ func (config VideoNoteConfig) files() []RequestFile {
 // VoiceConfig contains information about a SendVoice request.
 type VoiceConfig struct {
 	BaseFile
-	Thumb           interface{}
+	Thumb           RequestFileData
 	Caption         string
 	ParseMode       string
 	CaptionEntities []MessageEntity
@@ -596,13 +708,13 @@ func (config VoiceConfig) method() string {
 func (config VoiceConfig) files() []RequestFile {
 	files := []RequestFile{{
 		Name: "voice",
-		File: config.File,
+		Data: config.File,
 	}}
 
 	if config.Thumb != nil {
 		files = append(files, RequestFile{
 			Name: "thumb",
-			File: config.Thumb,
+			Data: config.Thumb,
 		})
 	}
 
@@ -1045,7 +1157,7 @@ func (config UpdateConfig) params() (Params, error) {
 // WebhookConfig contains information about a SetWebhook request.
 type WebhookConfig struct {
 	URL                *url.URL
-	Certificate        interface{}
+	Certificate        RequestFileData
 	IPAddress          string
 	MaxConnections     int
 	AllowedUpdates     []string
@@ -1075,7 +1187,7 @@ func (config WebhookConfig) files() []RequestFile {
 	if config.Certificate != nil {
 		return []RequestFile{{
 			Name: "certificate",
-			File: config.Certificate,
+			Data: config.Certificate,
 		}}
 	}
 
@@ -1098,25 +1210,6 @@ func (config DeleteWebhookConfig) params() (Params, error) {
 
 	return params, nil
 }
-
-// FileBytes contains information about a set of bytes to upload
-// as a File.
-type FileBytes struct {
-	Name  string
-	Bytes []byte
-}
-
-// FileReader contains information about a reader to upload as a File.
-type FileReader struct {
-	Name   string
-	Reader io.Reader
-}
-
-// FileURL is a URL to use as a file for a request.
-type FileURL string
-
-// FileID is an ID of a file already uploaded to Telegram.
-type FileID string
 
 // InlineConfig contains information on making an InlineQuery response.
 type InlineConfig struct {
@@ -1201,18 +1294,18 @@ func (config UnbanChatMemberConfig) params() (Params, error) {
 	return params, nil
 }
 
-// KickChatMemberConfig contains extra fields to kick user
-type KickChatMemberConfig struct {
+// BanChatMemberConfig contains extra fields to kick user.
+type BanChatMemberConfig struct {
 	ChatMemberConfig
 	UntilDate      int64
 	RevokeMessages bool
 }
 
-func (config KickChatMemberConfig) method() string {
-	return "kickChatMember"
+func (config BanChatMemberConfig) method() string {
+	return "banChatMember"
 }
 
-func (config KickChatMemberConfig) params() (Params, error) {
+func (config BanChatMemberConfig) params() (Params, error) {
 	params := make(Params)
 
 	params.AddFirstValid("chat_id", config.ChatID, config.SuperGroupUsername)
@@ -1222,6 +1315,11 @@ func (config KickChatMemberConfig) params() (Params, error) {
 
 	return params, nil
 }
+
+// KickChatMemberConfig contains extra fields to ban user.
+//
+// This was renamed to BanChatMember in later versions of the Telegram Bot API.
+type KickChatMemberConfig = BanChatMemberConfig
 
 // RestrictChatMemberConfig contains fields to restrict members of chat
 type RestrictChatMemberConfig struct {
@@ -1304,6 +1402,54 @@ func (config SetChatAdministratorCustomTitle) params() (Params, error) {
 	params.AddFirstValid("chat_id", config.ChatID, config.SuperGroupUsername, config.ChannelUsername)
 	params.AddNonZero64("user_id", config.UserID)
 	params.AddNonEmpty("custom_title", config.CustomTitle)
+
+	return params, nil
+}
+
+// BanChatSenderChatConfig bans a channel chat in a supergroup or a channel. The
+// owner of the chat will not be able to send messages and join live streams on
+// behalf of the chat, unless it is unbanned first. The bot must be an
+// administrator in the supergroup or channel for this to work and must have the
+// appropriate administrator rights.
+type BanChatSenderChatConfig struct {
+	ChatID          int64
+	ChannelUsername string
+	SenderChatID    int64
+	UntilDate       int
+}
+
+func (config BanChatSenderChatConfig) method() string {
+	return "banChatSenderChat"
+}
+
+func (config BanChatSenderChatConfig) params() (Params, error) {
+	params := make(Params)
+
+	_ = params.AddFirstValid("chat_id", config.ChatID, config.ChannelUsername)
+	params.AddNonZero64("sender_chat_id", config.SenderChatID)
+	params.AddNonZero("until_date", config.UntilDate)
+
+	return params, nil
+}
+
+// UnbanChatSenderChatConfig unbans a previously banned channel chat in a
+// supergroup or channel. The bot must be an administrator for this to work and
+// must have the appropriate administrator rights.
+type UnbanChatSenderChatConfig struct {
+	ChatID          int64
+	ChannelUsername string
+	SenderChatID    int64
+}
+
+func (config UnbanChatSenderChatConfig) method() string {
+	return "unbanChatSenderChat"
+}
+
+func (config UnbanChatSenderChatConfig) params() (Params, error) {
+	params := make(Params)
+
+	_ = params.AddFirstValid("chat_id", config.ChatID, config.ChannelUsername)
+	params.AddNonZero64("sender_chat_id", config.SenderChatID)
 
 	return params, nil
 }
@@ -1395,8 +1541,10 @@ func (config ChatInviteLinkConfig) params() (Params, error) {
 // RevokeChatInviteLinkConfig.
 type CreateChatInviteLinkConfig struct {
 	ChatConfig
-	ExpireDate  int
-	MemberLimit int
+	Name               string
+	ExpireDate         int
+	MemberLimit        int
+	CreatesJoinRequest bool
 }
 
 func (CreateChatInviteLinkConfig) method() string {
@@ -1406,9 +1554,11 @@ func (CreateChatInviteLinkConfig) method() string {
 func (config CreateChatInviteLinkConfig) params() (Params, error) {
 	params := make(Params)
 
+	params.AddNonEmpty("name", config.Name)
 	params.AddFirstValid("chat_id", config.ChatID, config.SuperGroupUsername)
 	params.AddNonZero("expire_date", config.ExpireDate)
 	params.AddNonZero("member_limit", config.MemberLimit)
+	params.AddBool("creates_join_request", config.CreatesJoinRequest)
 
 	return params, nil
 }
@@ -1418,9 +1568,11 @@ func (config CreateChatInviteLinkConfig) params() (Params, error) {
 // must have the appropriate admin rights.
 type EditChatInviteLinkConfig struct {
 	ChatConfig
-	InviteLink  string
-	ExpireDate  int
-	MemberLimit int
+	InviteLink         string
+	Name               string
+	ExpireDate         int
+	MemberLimit        int
+	CreatesJoinRequest bool
 }
 
 func (EditChatInviteLinkConfig) method() string {
@@ -1431,9 +1583,11 @@ func (config EditChatInviteLinkConfig) params() (Params, error) {
 	params := make(Params)
 
 	params.AddFirstValid("chat_id", config.ChatID, config.SuperGroupUsername)
+	params.AddNonEmpty("name", config.Name)
 	params["invite_link"] = config.InviteLink
 	params.AddNonZero("expire_date", config.ExpireDate)
 	params.AddNonZero("member_limit", config.MemberLimit)
+	params.AddBool("creates_join_request", config.CreatesJoinRequest)
 
 	return params, nil
 }
@@ -1456,6 +1610,44 @@ func (config RevokeChatInviteLinkConfig) params() (Params, error) {
 
 	params.AddFirstValid("chat_id", config.ChatID, config.SuperGroupUsername)
 	params["invite_link"] = config.InviteLink
+
+	return params, nil
+}
+
+// ApproveChatJoinRequestConfig allows you to approve a chat join request.
+type ApproveChatJoinRequestConfig struct {
+	ChatConfig
+	UserID int64
+}
+
+func (ApproveChatJoinRequestConfig) method() string {
+	return "approveChatJoinRequest"
+}
+
+func (config ApproveChatJoinRequestConfig) params() (Params, error) {
+	params := make(Params)
+
+	params.AddFirstValid("chat_id", config.ChatID, config.SuperGroupUsername)
+	params.AddNonZero("user_id", int(config.UserID))
+
+	return params, nil
+}
+
+// DeclineChatJoinRequest allows you to decline a chat join request.
+type DeclineChatJoinRequest struct {
+	ChatConfig
+	UserID int64
+}
+
+func (DeclineChatJoinRequest) method() string {
+	return "declineChatJoinRequest"
+}
+
+func (config DeclineChatJoinRequest) params() (Params, error) {
+	params := make(Params)
+
+	params.AddFirstValid("chat_id", config.ChatID, config.SuperGroupUsername)
+	params.AddNonZero("user_id", int(config.UserID))
 
 	return params, nil
 }
@@ -1706,7 +1898,7 @@ func (config SetChatPhotoConfig) method() string {
 func (config SetChatPhotoConfig) files() []RequestFile {
 	return []RequestFile{{
 		Name: "photo",
-		File: config.File,
+		Data: config.File,
 	}}
 }
 
@@ -1790,7 +1982,7 @@ func (config GetStickerSetConfig) params() (Params, error) {
 // UploadStickerConfig allows you to upload a sticker for use in a set later.
 type UploadStickerConfig struct {
 	UserID     int64
-	PNGSticker interface{}
+	PNGSticker RequestFileData
 }
 
 func (config UploadStickerConfig) method() string {
@@ -1808,7 +2000,7 @@ func (config UploadStickerConfig) params() (Params, error) {
 func (config UploadStickerConfig) files() []RequestFile {
 	return []RequestFile{{
 		Name: "png_sticker",
-		File: config.PNGSticker,
+		Data: config.PNGSticker,
 	}}
 }
 
@@ -1819,8 +2011,8 @@ type NewStickerSetConfig struct {
 	UserID        int64
 	Name          string
 	Title         string
-	PNGSticker    interface{}
-	TGSSticker    interface{}
+	PNGSticker    RequestFileData
+	TGSSticker    RequestFileData
 	Emojis        string
 	ContainsMasks bool
 	MaskPosition  *MaskPosition
@@ -1850,13 +2042,13 @@ func (config NewStickerSetConfig) files() []RequestFile {
 	if config.PNGSticker != nil {
 		return []RequestFile{{
 			Name: "png_sticker",
-			File: config.PNGSticker,
+			Data: config.PNGSticker,
 		}}
 	}
 
 	return []RequestFile{{
 		Name: "tgs_sticker",
-		File: config.TGSSticker,
+		Data: config.TGSSticker,
 	}}
 }
 
@@ -1864,8 +2056,8 @@ func (config NewStickerSetConfig) files() []RequestFile {
 type AddStickerConfig struct {
 	UserID       int64
 	Name         string
-	PNGSticker   interface{}
-	TGSSticker   interface{}
+	PNGSticker   RequestFileData
+	TGSSticker   RequestFileData
 	Emojis       string
 	MaskPosition *MaskPosition
 }
@@ -1890,13 +2082,13 @@ func (config AddStickerConfig) files() []RequestFile {
 	if config.PNGSticker != nil {
 		return []RequestFile{{
 			Name: "png_sticker",
-			File: config.PNGSticker,
+			Data: config.PNGSticker,
 		}}
 	}
 
 	return []RequestFile{{
 		Name: "tgs_sticker",
-		File: config.TGSSticker,
+		Data: config.TGSSticker,
 	}}
 
 }
@@ -1941,7 +2133,7 @@ func (config DeleteStickerConfig) params() (Params, error) {
 type SetStickerSetThumbConfig struct {
 	Name   string
 	UserID int64
-	Thumb  interface{}
+	Thumb  RequestFileData
 }
 
 func (config SetStickerSetThumbConfig) method() string {
@@ -1960,7 +2152,7 @@ func (config SetStickerSetThumbConfig) params() (Params, error) {
 func (config SetStickerSetThumbConfig) files() []RequestFile {
 	return []RequestFile{{
 		Name: "thumb",
-		File: config.Thumb,
+		Data: config.Thumb,
 	}}
 }
 
@@ -2134,45 +2326,38 @@ func (config DeleteMyCommandsConfig) params() (Params, error) {
 func prepareInputMediaParam(inputMedia interface{}, idx int) interface{} {
 	switch m := inputMedia.(type) {
 	case InputMediaPhoto:
-		switch m.Media.(type) {
-		case string, FileBytes, FileReader:
-			m.Media = fmt.Sprintf("attach://file-%d", idx)
+		if m.Media.NeedsUpload() {
+			m.Media = fileAttach(fmt.Sprintf("attach://file-%d", idx))
 		}
 
 		return m
 	case InputMediaVideo:
-		switch m.Media.(type) {
-		case string, FileBytes, FileReader:
-			m.Media = fmt.Sprintf("attach://file-%d", idx)
+		if m.Media.NeedsUpload() {
+			m.Media = fileAttach(fmt.Sprintf("attach://file-%d", idx))
 		}
 
-		switch m.Thumb.(type) {
-		case string, FileBytes, FileReader:
-			m.Thumb = fmt.Sprintf("attach://file-%d-thumb", idx)
+		if m.Thumb != nil && m.Thumb.NeedsUpload() {
+			m.Thumb = fileAttach(fmt.Sprintf("attach://file-%d-thumb", idx))
 		}
 
 		return m
 	case InputMediaAudio:
-		switch m.Media.(type) {
-		case string, FileBytes, FileReader:
-			m.Media = fmt.Sprintf("attach://file-%d", idx)
+		if m.Media.NeedsUpload() {
+			m.Media = fileAttach(fmt.Sprintf("attach://file-%d", idx))
 		}
 
-		switch m.Thumb.(type) {
-		case string, FileBytes, FileReader:
-			m.Thumb = fmt.Sprintf("attach://file-%d-thumb", idx)
+		if m.Thumb != nil && m.Thumb.NeedsUpload() {
+			m.Thumb = fileAttach(fmt.Sprintf("attach://file-%d-thumb", idx))
 		}
 
 		return m
 	case InputMediaDocument:
-		switch m.Media.(type) {
-		case string, FileBytes, FileReader:
-			m.Media = fmt.Sprintf("attach://file-%d", idx)
+		if m.Media.NeedsUpload() {
+			m.Media = fileAttach(fmt.Sprintf("attach://file-%d", idx))
 		}
 
-		switch m.Thumb.(type) {
-		case string, FileBytes, FileReader:
-			m.Thumb = fmt.Sprintf("attach://file-%d-thumb", idx)
+		if m.Thumb != nil && m.Thumb.NeedsUpload() {
+			m.Thumb = fileAttach(fmt.Sprintf("attach://file-%d-thumb", idx))
 		}
 
 		return m
@@ -2194,59 +2379,52 @@ func prepareInputMediaFile(inputMedia interface{}, idx int) []RequestFile {
 
 	switch m := inputMedia.(type) {
 	case InputMediaPhoto:
-		switch f := m.Media.(type) {
-		case string, FileBytes, FileReader:
+		if m.Media.NeedsUpload() {
 			files = append(files, RequestFile{
 				Name: fmt.Sprintf("file-%d", idx),
-				File: f,
+				Data: m.Media,
 			})
 		}
 	case InputMediaVideo:
-		switch f := m.Media.(type) {
-		case string, FileBytes, FileReader:
+		if m.Media.NeedsUpload() {
 			files = append(files, RequestFile{
 				Name: fmt.Sprintf("file-%d", idx),
-				File: f,
+				Data: m.Media,
 			})
 		}
 
-		switch f := m.Thumb.(type) {
-		case string, FileBytes, FileReader:
+		if m.Thumb != nil && m.Thumb.NeedsUpload() {
 			files = append(files, RequestFile{
-				Name: fmt.Sprintf("file-%d-thumb", idx),
-				File: f,
+				Name: fmt.Sprintf("file-%d", idx),
+				Data: m.Thumb,
 			})
 		}
 	case InputMediaDocument:
-		switch f := m.Media.(type) {
-		case string, FileBytes, FileReader:
+		if m.Media.NeedsUpload() {
 			files = append(files, RequestFile{
 				Name: fmt.Sprintf("file-%d", idx),
-				File: f,
+				Data: m.Media,
 			})
 		}
 
-		switch f := m.Thumb.(type) {
-		case string, FileBytes, FileReader:
+		if m.Thumb != nil && m.Thumb.NeedsUpload() {
 			files = append(files, RequestFile{
 				Name: fmt.Sprintf("file-%d", idx),
-				File: f,
+				Data: m.Thumb,
 			})
 		}
 	case InputMediaAudio:
-		switch f := m.Media.(type) {
-		case string, FileBytes, FileReader:
+		if m.Media.NeedsUpload() {
 			files = append(files, RequestFile{
 				Name: fmt.Sprintf("file-%d", idx),
-				File: f,
+				Data: m.Media,
 			})
 		}
 
-		switch f := m.Thumb.(type) {
-		case string, FileBytes, FileReader:
+		if m.Thumb != nil && m.Thumb.NeedsUpload() {
 			files = append(files, RequestFile{
 				Name: fmt.Sprintf("file-%d", idx),
-				File: f,
+				Data: m.Thumb,
 			})
 		}
 	}

@@ -13,6 +13,7 @@
             // "buildFlags": "-ldflags=' -X main.BuildVersion=debug'",
             "buildFlags": "-ldflags=' -X main.BuildVersion=debug'",
             "args": ["-config","/home/alexm/dev.hcl","telegram"]
+            // "args": ["-config","/home/alexm/prod.hcl","telegram"]
             // "args": ["-config","/home/alexm/dev.hcl","tax"]
         },
     ]

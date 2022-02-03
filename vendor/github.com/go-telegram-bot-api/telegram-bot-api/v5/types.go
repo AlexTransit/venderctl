@@ -108,6 +108,61 @@ type Update struct {
 	//
 	// optional
 	ChatMember *ChatMemberUpdated `json:"chat_member"`
+	// ChatJoinRequest is a request to join the chat has been sent. The bot must
+	// have the can_invite_users administrator right in the chat to receive
+	// these updates.
+	//
+	// optional
+	ChatJoinRequest *ChatJoinRequest `json:"chat_join_request"`
+}
+
+// SentFrom returns the user who sent an update. Can be nil, if Telegram did not provide information
+// about the user in the update object.
+func (u *Update) SentFrom() *User {
+	switch {
+	case u.Message != nil:
+		return u.Message.From
+	case u.EditedMessage != nil:
+		return u.EditedMessage.From
+	case u.InlineQuery != nil:
+		return u.InlineQuery.From
+	case u.ChosenInlineResult != nil:
+		return u.ChosenInlineResult.From
+	case u.CallbackQuery != nil:
+		return u.CallbackQuery.From
+	case u.ShippingQuery != nil:
+		return u.ShippingQuery.From
+	case u.PreCheckoutQuery != nil:
+		return u.PreCheckoutQuery.From
+	default:
+		return nil
+	}
+}
+
+// CallbackData returns the callback query data, if it exists.
+func (u *Update) CallbackData() string {
+	if u.CallbackQuery != nil {
+		return u.CallbackQuery.Data
+	}
+	return ""
+}
+
+// FromChat returns the chat where an update occurred.
+func (u *Update) FromChat() *Chat {
+	switch {
+	case u.Message != nil:
+		return u.Message.Chat
+	case u.EditedMessage != nil:
+		return u.EditedMessage.Chat
+	case u.ChannelPost != nil:
+		return u.ChannelPost.Chat
+	case u.EditedChannelPost != nil:
+		return u.EditedChannelPost.Chat
+	case u.CallbackQuery != nil:
+		return u.CallbackQuery.Message.Chat
+	default:
+		return nil
+	}
 }
 
 // UpdatesChannel is the channel for getting updates.
@@ -209,6 +264,12 @@ type Chat struct {
 	//
 	// optional
 	Bio string `json:"bio,omitempty"`
+	// HasPrivateForwards is true if privacy settings of the other party in the
+	// private chat allows to use tg://user?id=<user_id> links only in chats
+	// with the user. Returned only in getChat.
+	//
+	// optional
+	HasPrivateForwards bool `json:"has_private_forwards,omitempty"`
 	// Description for groups, supergroups and channel chats
 	//
 	// optional
@@ -223,7 +284,7 @@ type Chat struct {
 	//
 	// optional
 	PinnedMessage *Message `json:"pinned_message,omitempty"`
-	// Permissions is default chat member permissions, for groups and
+	// Permissions are default chat member permissions, for groups and
 	// supergroups. Returned only in getChat.
 	//
 	// optional
@@ -234,6 +295,16 @@ type Chat struct {
 	//
 	// optional
 	SlowModeDelay int `json:"slow_mode_delay,omitempty"`
+	// MessageAutoDeleteTime is the time after which all messages sent to the
+	// chat will be automatically deleted; in seconds. Returned only in getChat.
+	//
+	// optional
+	MessageAutoDeleteTime int `json:"message_auto_delete_time,omitempty"`
+	// HasProtectedContent is true if messages from the chat can't be forwarded
+	// to other chats. Returned only in getChat.
+	//
+	// optional
+	HasProtectedContent bool `json:"has_protected_content,omitempty"`
 	// StickerSetName is for supergroups, name of group sticker set.Returned
 	// only in getChat.
 	//
@@ -329,6 +400,11 @@ type Message struct {
 	//
 	// optional
 	ForwardDate int `json:"forward_date,omitempty"`
+	// IsAutomaticForward is true if the message is a channel post that was
+	// automatically forwarded to the connected discussion group.
+	//
+	// optional
+	IsAutomaticForward bool `json:"is_automatic_forward,omitempty"`
 	// ReplyToMessage for replies, the original message.
 	// Note that the Message object in this field will not contain further ReplyToMessage fields
 	// even if it itself is a reply;
@@ -343,6 +419,10 @@ type Message struct {
 	//
 	// optional
 	EditDate int `json:"edit_date,omitempty"`
+	// HasProtectedContent is true if the message can't be forwarded.
+	//
+	// optional
+	HasProtectedContent bool `json:"has_protected_content,omitempty"`
 	// MediaGroupID is the unique identifier of a media message group this message belongs to;
 	//
 	// optional
@@ -355,7 +435,7 @@ type Message struct {
 	//
 	// optional
 	Text string `json:"text,omitempty"`
-	// Entities is for text messages, special entities like usernames,
+	// Entities are for text messages, special entities like usernames,
 	// URLs, bot commands, etc. that appear in the text;
 	//
 	// optional
@@ -477,7 +557,7 @@ type Message struct {
 	// MigrateToChatID is the group has been migrated to a supergroup with the specified identifier.
 	// This number may be greater than 32 bits and some programming languages
 	// may have difficulty/silent defects in interpreting it.
-	// But it is smaller than 52 bits, so a signed 64 bit integer
+	// But it is smaller than 52 bits, so a signed 64-bit integer
 	// or double-precision float type are safe for storing this identifier;
 	//
 	// optional
@@ -485,7 +565,7 @@ type Message struct {
 	// MigrateFromChatID is the supergroup has been migrated from a group with the specified identifier.
 	// This number may be greater than 32 bits and some programming languages
 	// may have difficulty/silent defects in interpreting it.
-	// But it is smaller than 52 bits, so a signed 64 bit integer
+	// But it is smaller than 52 bits, so a signed 64-bit integer
 	// or double-precision float type are safe for storing this identifier;
 	//
 	// optional
@@ -505,7 +585,7 @@ type Message struct {
 	//
 	// optional
 	SuccessfulPayment *SuccessfulPayment `json:"successful_payment,omitempty"`
-	// ConnectedWebsite is Tthe domain name of the website on which the user has
+	// ConnectedWebsite is the domain name of the website on which the user has
 	// logged in;
 	//
 	// optional
@@ -735,7 +815,7 @@ type PhotoSize struct {
 
 // Animation represents an animation file.
 type Animation struct {
-	// FileID odentifier for this file, which can be used to download or reuse
+	// FileID is the identifier for this file, which can be used to download or reuse
 	// the file
 	FileID string `json:"file_id"`
 	// FileUniqueID is the unique identifier for this file, which is supposed to
@@ -805,7 +885,7 @@ type Audio struct {
 
 // Document represents a general file.
 type Document struct {
-	// FileID is a identifier for this file, which can be used to download or
+	// FileID is an identifier for this file, which can be used to download or
 	// reuse the file
 	FileID string `json:"file_id"`
 	// FileUniqueID is the unique identifier for this file, which is supposed to
@@ -983,7 +1063,7 @@ type Poll struct {
 	//
 	// optional
 	Explanation string `json:"explanation,omitempty"`
-	// ExplainationEntities are special entities like usernames, URLs, bot
+	// ExplanationEntities are special entities like usernames, URLs, bot
 	// commands, etc. that appear in the explanation
 	//
 	// optional
@@ -993,7 +1073,7 @@ type Poll struct {
 	//
 	// optional
 	OpenPeriod int `json:"open_period,omitempty"`
-	// Closedate is the point in time (unix timestamp) when the poll will be
+	// CloseDate is the point in time (unix timestamp) when the poll will be
 	// automatically closed
 	//
 	// optional
@@ -1203,7 +1283,7 @@ type KeyboardButton struct {
 	RequestPoll *KeyboardButtonPollType `json:"request_poll,omitempty"`
 }
 
-// KeyboardButtonPollType represents type of a poll, which is allowed to
+// KeyboardButtonPollType represents type of poll, which is allowed to
 // be created and sent when the corresponding button is pressed.
 type KeyboardButtonPollType struct {
 	// Type is if quiz is passed, the user will be allowed to create only polls
@@ -1421,10 +1501,19 @@ type ChatInviteLink struct {
 	InviteLink string `json:"invite_link"`
 	// Creator of the link.
 	Creator User `json:"creator"`
+	// CreatesJoinRequest is true if users joining the chat via the link need to
+	// be approved by chat administrators.
+	//
+	// optional
+	CreatesJoinRequest bool `json:"creates_join_request"`
 	// IsPrimary is true, if the link is primary.
 	IsPrimary bool `json:"is_primary"`
 	// IsRevoked is true, if the link is revoked.
 	IsRevoked bool `json:"is_revoked"`
+	// Name is the name of the invite link.
+	//
+	// optional
+	Name string `json:"name"`
 	// ExpireDate is the point in time (Unix timestamp) when the link will
 	// expire or has been expired.
 	//
@@ -1435,6 +1524,11 @@ type ChatInviteLink struct {
 	//
 	// optional
 	MemberLimit int `json:"member_limit"`
+	// PendingJoinRequestCount is the number of pending join requests created
+	// using this link.
+	//
+	// optional
+	PendingJoinRequestCount int `json:"pending_join_request_count"`
 }
 
 // ChatMember contains information about one member of a chat.
@@ -1473,7 +1567,7 @@ type ChatMember struct {
 	// CanManageChat administrators only.
 	// True, if the administrator can access the chat event log, chat
 	// statistics, message statistics in channels, see channel members, see
-	// anonymous administrators in supergoups and ignore slow mode. Implied by
+	// anonymous administrators in supergroups and ignore slow mode. Implied by
 	// any other administrator privilege.
 	//
 	// optional
@@ -1588,6 +1682,24 @@ type ChatMemberUpdated struct {
 	InviteLink *ChatInviteLink `json:"invite_link"`
 }
 
+// ChatJoinRequest represents a join request sent to a chat.
+type ChatJoinRequest struct {
+	// Chat to which the request was sent.
+	Chat Chat `json:"chat"`
+	// User that sent the join request.
+	From User `json:"from"`
+	// Date the request was sent in Unix time.
+	Date int `json:"date"`
+	// Bio of the user.
+	//
+	// optional
+	Bio string `json:"bio"`
+	// InviteLink is the link that was used by the user to send the join request.
+	//
+	// optional
+	InviteLink *ChatInviteLink `json:"invite_link"`
+}
+
 // ChatPermissions describes actions that a non-administrator user is
 // allowed to take in a chat. All fields are optional.
 type ChatPermissions struct {
@@ -1685,7 +1797,7 @@ type BaseInputMedia struct {
 	// pass an HTTP URL for Telegram to get a file from the Internet,
 	// or pass “attach://<file_attach_name>” to upload a new one
 	// using multipart/form-data under <file_attach_name> name.
-	Media interface{} `json:"media"`
+	Media RequestFileData `json:"media"`
 	// thumb intentionally missing as it is not currently compatible
 
 	// Caption of the video to be sent, 0-1024 characters after entities parsing.
@@ -1717,7 +1829,7 @@ type InputMediaVideo struct {
 	// the file is supported server-side.
 	//
 	// optional
-	Thumb interface{} `json:"thumb,omitempty"`
+	Thumb RequestFileData `json:"thumb,omitempty"`
 	// Width video width
 	//
 	// optional
@@ -1743,7 +1855,7 @@ type InputMediaAnimation struct {
 	// the file is supported server-side.
 	//
 	// optional
-	Thumb interface{} `json:"thumb,omitempty"`
+	Thumb RequestFileData `json:"thumb,omitempty"`
 	// Width video width
 	//
 	// optional
@@ -1758,14 +1870,14 @@ type InputMediaAnimation struct {
 	Duration int `json:"duration,omitempty"`
 }
 
-// InputMediaAudio is a audio to send as part of a media group.
+// InputMediaAudio is an audio to send as part of a media group.
 type InputMediaAudio struct {
 	BaseInputMedia
 	// Thumbnail of the file sent; can be ignored if thumbnail generation for
 	// the file is supported server-side.
 	//
 	// optional
-	Thumb interface{} `json:"thumb,omitempty"`
+	Thumb RequestFileData `json:"thumb,omitempty"`
 	// Duration of the audio in seconds
 	//
 	// optional
@@ -1787,7 +1899,7 @@ type InputMediaDocument struct {
 	// the file is supported server-side.
 	//
 	// optional
-	Thumb interface{} `json:"thumb,omitempty"`
+	Thumb RequestFileData `json:"thumb,omitempty"`
 	// DisableContentTypeDetection disables automatic server-side content type
 	// detection for files uploaded using multipart/form-data. Always true, if
 	// the document is sent as part of an album
@@ -1801,7 +1913,7 @@ type Sticker struct {
 	// FileID is an identifier for this file, which can be used to download or
 	// reuse the file
 	FileID string `json:"file_id"`
-	// FileUniqueID is an unique identifier for this file,
+	// FileUniqueID is a unique identifier for this file,
 	// which is supposed to be the same over time and for different bots.
 	// Can't be used to download or reuse the file.
 	FileUniqueID string `json:"file_unique_id"`
@@ -1889,7 +2001,7 @@ type Game struct {
 	//
 	// optional
 	TextEntities []MessageEntity `json:"text_entities,omitempty"`
-	// Animation animation that will be displayed in the game message in chats.
+	// Animation is an animation that will be displayed in the game message in chats.
 	// Upload via BotFather (https://t.me/botfather).
 	//
 	// optional
@@ -2007,7 +2119,7 @@ type InlineQueryResultCachedAudio struct {
 
 // InlineQueryResultCachedDocument is an inline query response with cached document.
 type InlineQueryResultCachedDocument struct {
-	// Type of the result, must be document
+	// Type of the result, must be a document
 	Type string `json:"type"`
 	// ID unique identifier for this result, 1-64 bytes
 	ID string `json:"id"`
@@ -2124,7 +2236,7 @@ type InlineQueryResultCachedMPEG4GIF struct {
 
 // InlineQueryResultCachedPhoto is an inline query response with cached photo.
 type InlineQueryResultCachedPhoto struct {
-	// Type of the result, must be photo.
+	// Type of the result, must be a photo.
 	Type string `json:"type"`
 	// ID unique identifier for this result, 1-64 bytes.
 	ID string `json:"id"`
@@ -2165,7 +2277,7 @@ type InlineQueryResultCachedPhoto struct {
 
 // InlineQueryResultCachedSticker is an inline query response with cached sticker.
 type InlineQueryResultCachedSticker struct {
-	// Type of the result, must be sticker
+	// Type of the result, must be a sticker
 	Type string `json:"type"`
 	// ID unique identifier for this result, 1-64 bytes
 	ID string `json:"id"`
@@ -2371,7 +2483,7 @@ type InlineQueryResultGame struct {
 
 // InlineQueryResultDocument is an inline query response document.
 type InlineQueryResultDocument struct {
-	// Type of the result, must be document
+	// Type of the result, must be a document
 	Type string `json:"type"`
 	// ID unique identifier for this result, 1-64 bytes
 	ID string `json:"id"`
@@ -2389,7 +2501,7 @@ type InlineQueryResultDocument struct {
 	//
 	// optional
 	Description string `json:"description,omitempty"`
-	// ReplyMarkup nline keyboard attached to the message
+	// ReplyMarkup inline keyboard attached to the message
 	//
 	// optional
 	ReplyMarkup *InlineKeyboardMarkup `json:"reply_markup,omitempty"`

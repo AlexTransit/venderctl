@@ -3,7 +3,6 @@
 package tgbotapi
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 )
@@ -145,22 +143,22 @@ func (bot *BotAPI) MakeRequest(endpoint string, params Params) (*APIResponse, er
 // decodeAPIResponse decode response and return slice of bytes if debug enabled.
 // If debug disabled, just decode http.Response.Body stream to APIResponse struct
 // for efficient memory usage
-func (bot *BotAPI) decodeAPIResponse(responseBody io.Reader, resp *APIResponse) (_ []byte, err error) {
+func (bot *BotAPI) decodeAPIResponse(responseBody io.Reader, resp *APIResponse) ([]byte, error) {
 	if !bot.Debug {
 		dec := json.NewDecoder(responseBody)
-		err = dec.Decode(resp)
-		return
+		err := dec.Decode(resp)
+		return nil, err
 	}
 
-	// if debug, read reponse body
+	// if debug, read response body
 	data, err := ioutil.ReadAll(responseBody)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	err = json.Unmarshal(data, resp)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	return data, nil
@@ -185,54 +183,37 @@ func (bot *BotAPI) UploadFiles(endpoint string, params Params, files []RequestFi
 		}
 
 		for _, file := range files {
-			switch f := file.File.(type) {
-			case string:
-				fileHandle, err := os.Open(f)
-				if err != nil {
-					w.CloseWithError(err)
-					return
-				}
-				defer fileHandle.Close()
-
-				part, err := m.CreateFormFile(file.Name, fileHandle.Name())
+			if file.Data.NeedsUpload() {
+				name, reader, err := file.Data.UploadData()
 				if err != nil {
 					w.CloseWithError(err)
 					return
 				}
 
-				io.Copy(part, fileHandle)
-			case FileBytes:
-				part, err := m.CreateFormFile(file.Name, f.Name)
+				part, err := m.CreateFormFile(file.Name, name)
 				if err != nil {
 					w.CloseWithError(err)
 					return
 				}
 
-				buf := bytes.NewBuffer(f.Bytes)
-				io.Copy(part, buf)
-			case FileReader:
-				part, err := m.CreateFormFile(file.Name, f.Name)
-				if err != nil {
+				if _, err := io.Copy(part, reader); err != nil {
 					w.CloseWithError(err)
 					return
 				}
 
-				io.Copy(part, f.Reader)
-			case FileURL:
-				val := string(f)
-				if err := m.WriteField(file.Name, val); err != nil {
+				if closer, ok := reader.(io.ReadCloser); ok {
+					if err = closer.Close(); err != nil {
+						w.CloseWithError(err)
+						return
+					}
+				}
+			} else {
+				value := file.Data.SendData()
+
+				if err := m.WriteField(file.Name, value); err != nil {
 					w.CloseWithError(err)
 					return
 				}
-			case FileID:
-				val := string(f)
-				if err := m.WriteField(file.Name, val); err != nil {
-					w.CloseWithError(err)
-					return
-				}
-			default:
-				w.CloseWithError(errors.New(ErrBadFileType))
-				return
 			}
 		}
 	}()
@@ -321,8 +302,7 @@ func (bot *BotAPI) IsMessageToMe(message Message) bool {
 
 func hasFilesNeedingUpload(files []RequestFile) bool {
 	for _, file := range files {
-		switch file.File.(type) {
-		case string, FileBytes, FileReader:
+		if file.Data.NeedsUpload() {
 			return true
 		}
 	}
@@ -349,20 +329,7 @@ func (bot *BotAPI) Request(c Chattable) (*APIResponse, error) {
 		// However, if there are no files to be uploaded, there's likely things
 		// that need to be turned into params instead.
 		for _, file := range files {
-			var s string
-
-			switch f := file.File.(type) {
-			case string:
-				s = f
-			case FileID:
-				s = string(f)
-			case FileURL:
-				s = string(f)
-			default:
-				return nil, errors.New(ErrBadFileType)
-			}
-
-			params[file.Name] = s
+			params[file.Name] = file.Data.SendData()
 		}
 	}
 
@@ -432,7 +399,7 @@ func (bot *BotAPI) GetFile(config FileConfig) (File, error) {
 //
 // Offset, Limit, Timeout, and AllowedUpdates are optional.
 // To avoid stale items, set Offset to one higher than the previous item.
-// Set Timeout to a large number to reduce requests so you can get updates
+// Set Timeout to a large number to reduce requests, so you can get updates
 // instantly instead of having to wait between requests.
 func (bot *BotAPI) GetUpdates(config UpdateConfig) ([]Update, error) {
 	resp, err := bot.Request(config)
@@ -518,6 +485,27 @@ func (bot *BotAPI) ListenForWebhook(pattern string) UpdatesChannel {
 
 		ch <- *update
 	})
+
+	return ch
+}
+
+// ListenForWebhookRespReqFormat registers a http handler for a single incoming webhook.
+func (bot *BotAPI) ListenForWebhookRespReqFormat(w http.ResponseWriter, r *http.Request) UpdatesChannel {
+	ch := make(chan Update, bot.Buffer)
+
+	func(w http.ResponseWriter, r *http.Request) {
+		update, err := bot.HandleUpdate(r)
+		if err != nil {
+			errMsg, _ := json.Marshal(map[string]string{"error": err.Error()})
+			w.WriteHeader(http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(errMsg)
+			return
+		}
+
+		ch <- *update
+		close(ch)
+	}(w, r)
 
 	return ch
 }
