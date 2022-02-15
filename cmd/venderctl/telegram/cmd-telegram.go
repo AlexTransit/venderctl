@@ -326,7 +326,7 @@ func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
 		}
 		tb.g.Tele.SendCommand(vmid, cmd)
 	}
-	if tb.g.Vmc[vmid].State != vender_api.State_Nominal {
+	if tb.g.Vmc[vmid].State != vender_api.State_Nominal && tb.g.Vmc[vmid].State != vender_api.State_WaitingForExternalPayment {
 		errm := "автомат сейчас не может выполнить заказ."
 		tb.tgSend(user, errm)
 		return false
@@ -441,7 +441,11 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) bool {
 	case vender_api.CookReplay_cookFinish:
 		user := tb.chatId[rm.Executer]
 		price := int(rm.ValidateReplay)
-		msg = fmt.Sprintf("автомат : %d приготовил код: %s цена: %s", user.rcook.vmid, user.rcook.code, amoutToString(int64(price)))
+		codeOrder := rm.Data
+		if codeOrder == "" {
+			codeOrder = user.rcook.code
+		}
+		msg = fmt.Sprintf("автомат : %d приготовил код: %s цена: %s", user.rcook.vmid, codeOrder, amoutToString(int64(price)))
 		tb.tgSend(user.id, msg)
 		msg = "приятного аппетита."
 		if tb.chatId[rm.Executer].Diskont != 0 {
@@ -569,6 +573,7 @@ func (tb *tgbotapiot) replayCommandHelp(cl int64) error {
 		"/5_23_c3_s2\n" +
 		"это означает, автомату=5, приготовить код=23, сливки=3, сахар=2\n" +
 		"если непонятно, позвоните/напишите @Alexey_Milko, он расскажет.\n" +
+		"для оплаты выбранного напитка надо написать /5_-" +
 		"\n" +
 		"PS позднее будет сделан более удобный механизм заказа"
 	tb.tgSend(cl, msg)
