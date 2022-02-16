@@ -255,6 +255,7 @@ func clerForwardMessga() {
 
 func parseCommad(cmd string) tgCommand {
 	// https://extendsclass.com/regex-tester.html#js
+	// https://regexr.com/
 	rm := `^((/-?\d+_m?[-.0-9]+(.+?)?)|(/balance)|(/help)|(.+)|)$`
 	cmdR := regexp.MustCompile(rm)
 	parts := cmdR.FindStringSubmatch(cmd)
