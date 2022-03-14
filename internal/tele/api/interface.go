@@ -13,7 +13,7 @@ type Teler interface {
 	Close() error
 	Addrs() []string
 	Chan() <-chan Packet
-	CommandTx(vmid int32, c *vender_api.Command) (*vender_api.Response, error)
+	CommandTx(vmid int32, c *vender_api.Command)
 	SendCommand(vmid int32, c *vender_api.Command)
 }
 
@@ -29,7 +29,5 @@ func (stub) Addrs() []string { return nil }
 
 func (stub) Chan() <-chan Packet { return nil }
 
-func (stub) CommandTx(vmid int32, c *vender_api.Command) (*vender_api.Response, error) {
-	return nil, nil
-}
+func (stub) CommandTx(vmid int32, c *vender_api.Command)   {}
 func (stub) SendCommand(vmid int32, c *vender_api.Command) {}

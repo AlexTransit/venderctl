@@ -70,8 +70,8 @@ func controlMain(ctx context.Context, flags *flag.FlagSet) error {
 			XXX_unrecognized:     []byte{},
 			XXX_sizecache:        0,
 		}
-		_, err := g.Tele.CommandTx(targetId, cmd)
-		return err
+		g.Tele.CommandTx(targetId, cmd)
+		return nil
 
 	case "ping":
 		cmd := &vender_api.Command{
@@ -80,8 +80,8 @@ func controlMain(ctx context.Context, flags *flag.FlagSet) error {
 				// Lock:     false,
 			}},
 		}
-		_, err := g.Tele.CommandTx(targetId, cmd)
-		return err
+		g.Tele.CommandTx(targetId, cmd)
+		return nil
 
 	case "set-inventory":
 		g.Log.Fatal("TODO send set-inventory, show response")
@@ -105,8 +105,8 @@ func controlMain(ctx context.Context, flags *flag.FlagSet) error {
 			XXX_unrecognized:     []byte{},
 			XXX_sizecache:        0,
 		}
-		_, err := g.Tele.CommandTx(targetId, cmd)
-		return err
+		g.Tele.CommandTx(targetId, cmd)
+		return nil
 
 	// case "lock":
 	// 	durationString := flags.Arg(argOffset + 2)
@@ -134,8 +134,8 @@ func controlMain(ctx context.Context, flags *flag.FlagSet) error {
 			// Deadline: time.Now().Add(2 * time.Minute).UnixNano(),
 			Task: &vender_api.Command_Show_QR{Show_QR: &vender_api.Command_ArgShowQR{QrText: qrText}},
 		}
-		_, err := g.Tele.CommandTx(targetId, cmd)
-		return err
+		g.Tele.CommandTx(targetId, cmd)
+		return nil
 
 	default:
 		flags.Usage()

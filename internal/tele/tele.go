@@ -116,41 +116,44 @@ func (self *tele) Chan() <-chan tele_api.Packet { return self.pch }
 func (self *tele) SendCommand(vmid int32, c *vender_api.Command) {
 	payload, err := proto.Marshal(c)
 	if err != nil {
-		self.log.Errorf("tele.SendCommand error(%v)", err)
+		self.log.Errorf("tele.SendCommand marshal error(%v)", err)
 		return
 	}
 	p := tele_api.Packet{Kind: tele_api.PacketCommand, VmId: vmid, Payload: payload}
 	if err = self.mqttSend(p); err != nil {
-		self.log.Errorf("tele.SendCommand error(%v)", err)
+		self.log.Errorf("tele.SendCommand mqtt send error(%v)", err)
+		return
 	}
+	return
 }
 
-func (self *tele) CommandTx(vmid int32, c *vender_api.Command) (*vender_api.Response, error) {
+func (self *tele) CommandTx(vmid int32, c *vender_api.Command) {
 	self.SendCommand(vmid, c)
 
-	tmr := time.NewTimer(5 * time.Second)
-	defer tmr.Stop()
-	for {
-		select {
-		case p := <-self.pch:
-			// if p.Kind == tele.PacketCommandReply {
-			if r, err := p.CommandResponse(); err != nil {
-				// if r.CommandId == c.Id {
-				// 	if r.Error == "" {
-				// 		return r, nil
-				// 	}
-				// 	return r, fmt.Errorf(r.Error)
-				// } else {
-				// self.log.Errorf("current command.id=%d unexpected response=%#v", c.Id, r)
-				// self.log.Errorf("current command unexpected response=%#v", r)
-				// }
-				self.log.Errorf("command response error =%#v", r)
-			}
+	// tmr := time.NewTimer(5 * time.Second)
+	// defer tmr.Stop()
+	// for {
+	// 	select {
+	// 	case p := <-self.pch:
+	// 		// if p.Kind == tele.PacketCommandReply {
+	// 		if r, err := p.CommandResponse(); err != nil {
+	// 			// if r.CommandId == c.Id {
+	// 			// 	if r.Error == "" {
+	// 			// 		return r, nil
+	// 			// 	}
+	// 			// 	return r, fmt.Errorf(r.Error)
+	// 			// } else {
+	// 			// self.log.Errorf("current command.id=%d unexpected response=%#v", c.Id, r)
+	// 			// self.log.Errorf("current command unexpected response=%#v", r)
+	// 			// }
+	// 			self.log.Errorf("command response error =%#v", r)
+	// 		}
 
-		case <-tmr.C:
-			return nil, errors.Timeoutf("response")
-		}
-	}
+	// 	case <-tmr.C:
+	// 		return nil, errors.Timeoutf("response")
+	// 	}
+	// }
+	// return nil
 }
 
 func (self *tele) msgInvalidMode() string {
