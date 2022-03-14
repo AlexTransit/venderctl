@@ -423,7 +423,7 @@ func (tb *tgbotapiot) onMqtt(p tele_api.Packet) error {
 		return nil
 
 	default:
-		fmt.Printf("\n\033[41m %s \033[0m\n\n", p.Kind.String())
+		// fmt.Printf("\n\033[41m (cmd-telegram 426)%s \033[0m\n\n", p.Kind.String())
 		// TgSendError(fmt.Sprintf("code error invalid packet=%s", p.Kind.String()))
 		return nil
 	}
@@ -506,7 +506,7 @@ func (tb *tgbotapiot) tgSend(chatid int64, s string) {
 		tb.g.Log.Errorf("error send telegramm message (%v)", err)
 		return
 	}
-	tb.g.Log.Infof("send telegram message iserid: %d text: %s", m.From.ID, m.Text)
+	tb.g.Log.Infof("send telegram message userid: %d text: %s", m.From.ID, m.Text)
 	tb.logTgDb(m)
 }
 
