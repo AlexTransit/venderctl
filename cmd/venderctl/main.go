@@ -125,8 +125,8 @@ func main() {
 			if err != nil {
 				log.Fatalf("%s\nTrace:\n%s", err.Error(), errors.ErrorStack(err))
 			}
-			// os.Exit(0) // success path
-			g.CtlStop(ctx)
+			os.Exit(0) // success path
+
 		}
 	}
 	// unknown command
