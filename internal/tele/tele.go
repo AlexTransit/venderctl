@@ -150,7 +150,8 @@ func (self *tele) CommandTx(vmid int32, c *vender_api.Command) {
 	// 		}
 
 	// 	case <-tmr.C:
-	// 		return nil, errors.Timeoutf("response")
+	// 		return
+	// 		// 		return nil, errors.Timeoutf("response")
 	// 	}
 	// }
 	// return nil
