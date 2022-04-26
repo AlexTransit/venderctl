@@ -2,7 +2,6 @@ package orm
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"net"
 	"reflect"
@@ -11,23 +10,27 @@ import (
 	"sync"
 	"time"
 
+	"github.com/segmentio/encoding/json"
+
 	"github.com/jinzhu/inflection"
 	"github.com/vmihailenco/tagparser"
 
 	"github.com/go-pg/pg/v9/internal"
+	"github.com/go-pg/pg/v9/pgjson"
 	"github.com/go-pg/pg/v9/types"
 	"github.com/go-pg/zerochecker"
 )
 
 const (
-	AfterScanHookFlag = uint16(1) << iota
-	AfterSelectHookFlag
-	BeforeInsertHookFlag
-	AfterInsertHookFlag
-	BeforeUpdateHookFlag
-	AfterUpdateHookFlag
-	BeforeDeleteHookFlag
-	AfterDeleteHookFlag
+	beforeScanHookFlag = uint16(1) << iota
+	afterScanHookFlag
+	afterSelectHookFlag
+	beforeInsertHookFlag
+	afterInsertHookFlag
+	beforeUpdateHookFlag
+	afterUpdateHookFlag
+	beforeDeleteHookFlag
+	afterDeleteHookFlag
 	discardUnknownColumnsFlag
 )
 
@@ -82,7 +85,8 @@ type Table struct {
 	Relations map[string]*Relation
 	Unique    map[string][]*Field
 
-	SoftDeleteField *Field
+	SoftDeleteField    *Field
+	SetSoftDeleteField func(fv reflect.Value)
 
 	flags uint16
 }
@@ -98,29 +102,32 @@ func newTable(typ reflect.Type) *Table {
 	t.Alias = quoteIdent(t.ModelName)
 
 	typ = reflect.PtrTo(t.Type)
+	if typ.Implements(beforeScanHookType) {
+		t.setFlag(beforeScanHookFlag)
+	}
 	if typ.Implements(afterScanHookType) {
-		t.setFlag(AfterScanHookFlag)
+		t.setFlag(afterScanHookFlag)
 	}
 	if typ.Implements(afterSelectHookType) {
-		t.setFlag(AfterSelectHookFlag)
+		t.setFlag(afterSelectHookFlag)
 	}
 	if typ.Implements(beforeInsertHookType) {
-		t.setFlag(BeforeInsertHookFlag)
+		t.setFlag(beforeInsertHookFlag)
 	}
 	if typ.Implements(afterInsertHookType) {
-		t.setFlag(AfterInsertHookFlag)
+		t.setFlag(afterInsertHookFlag)
 	}
 	if typ.Implements(beforeUpdateHookType) {
-		t.setFlag(BeforeUpdateHookFlag)
+		t.setFlag(beforeUpdateHookFlag)
 	}
 	if typ.Implements(afterUpdateHookType) {
-		t.setFlag(AfterUpdateHookFlag)
+		t.setFlag(afterUpdateHookFlag)
 	}
 	if typ.Implements(beforeDeleteHookType) {
-		t.setFlag(BeforeDeleteHookFlag)
+		t.setFlag(beforeDeleteHookFlag)
 	}
 	if typ.Implements(afterDeleteHookType) {
-		t.setFlag(AfterDeleteHookFlag)
+		t.setFlag(afterDeleteHookFlag)
 	}
 
 	for _, hook := range oldHooks {
@@ -464,9 +471,6 @@ func (t *Table) newField(f reflect.StructField, index []int) *Field {
 	} else if _, ok := pgTag.Options["hstore"]; ok {
 		field.append = types.HstoreAppender(f.Type)
 		field.scan = types.HstoreScanner(f.Type)
-	} else if _, ok := pgTag.Options["hstore"]; ok {
-		field.append = types.HstoreAppender(f.Type)
-		field.scan = types.HstoreScanner(f.Type)
 	} else if field.SQLType == pgTypeBigint && field.Type.Kind() == reflect.Uint64 {
 		if f.Type.Kind() == reflect.Ptr {
 			field.append = appendUintPtrAsInt
@@ -474,6 +478,9 @@ func (t *Table) newField(f reflect.StructField, index []int) *Field {
 			field.append = appendUintAsInt
 		}
 		field.scan = types.Scanner(f.Type)
+	} else if _, ok := pgTag.Options["msgpack"]; ok {
+		field.append = msgpackAppender(f.Type)
+		field.scan = msgpackScanner(f.Type)
 	} else {
 		field.append = types.Appender(f.Type)
 		field.scan = types.Scanner(f.Type)
@@ -493,14 +500,13 @@ func (t *Table) newField(f reflect.StructField, index []int) *Field {
 	}
 
 	if _, ok := pgTag.Options["soft_delete"]; ok {
-		switch field.Type {
-		case timeType, nullTimeType:
-			t.SoftDeleteField = field
-		default:
+		t.SetSoftDeleteField = setSoftDeleteFieldFunc(f.Type)
+		if t.SetSoftDeleteField == nil {
 			err := fmt.Errorf(
-				"soft_delete is only supported for time.Time and pg.NullTime")
+				"pg: soft_delete is only supported for time.Time, pg.NullTime, sql.NullInt64 and int64")
 			panic(err)
 		}
+		t.SoftDeleteField = field
 	}
 
 	return field
@@ -992,12 +998,15 @@ func scanJSONValue(v reflect.Value, rd types.Reader, n int) error {
 		return fmt.Errorf("pg: Scan(non-pointer %s)", v.Type())
 	}
 
+	// Zero value so it works with SelectOrInsert.
+	//TODO: better handle slices
+	v.Set(reflect.New(v.Type()).Elem())
+
 	if n == -1 {
-		v.Set(reflect.New(v.Type()).Elem())
 		return nil
 	}
 
-	dec := json.NewDecoder(rd)
+	dec := pgjson.NewDecoder(rd)
 	dec.UseNumber()
 	return dec.Decode(v.Addr().Interface())
 }
@@ -1030,4 +1039,56 @@ func logSQLTagDeprecated() {
 	sqlTagDeprecatedOnce.Do(func() {
 		internal.Logger.Printf(`DEPRECATED: use pg:"..." struct field tag instead of sql:"..." `)
 	})
+}
+
+func setSoftDeleteFieldFunc(typ reflect.Type) func(fv reflect.Value) {
+	switch typ {
+	case timeType:
+		return func(fv reflect.Value) {
+			ptr := fv.Addr().Interface().(*time.Time)
+			*ptr = time.Now()
+		}
+	case nullTimeType:
+		return func(fv reflect.Value) {
+			ptr := fv.Addr().Interface().(*types.NullTime)
+			*ptr = types.NullTime{Time: time.Now()}
+		}
+	case nullIntType:
+		return func(fv reflect.Value) {
+			ptr := fv.Addr().Interface().(*sql.NullInt64)
+			*ptr = sql.NullInt64{Int64: time.Now().UnixNano()}
+		}
+	}
+
+	switch typ.Kind() { //nolint:gocritic
+	case reflect.Int64:
+		return func(fv reflect.Value) {
+			ptr := fv.Addr().Interface().(*int64)
+			*ptr = time.Now().UnixNano()
+		}
+	}
+
+	if typ.Kind() != reflect.Ptr {
+		return nil
+	}
+
+	typ = typ.Elem()
+
+	switch typ { //nolint:gocritic
+	case timeType:
+		return func(fv reflect.Value) {
+			now := time.Now()
+			fv.Set(reflect.ValueOf(&now))
+		}
+	}
+
+	switch typ.Kind() { //nolint:gocritic
+	case reflect.Int64:
+		return func(fv reflect.Value) {
+			utime := time.Now().UnixNano()
+			fv.Set(reflect.ValueOf(&utime))
+		}
+	}
+
+	return nil
 }

@@ -78,7 +78,11 @@ type Query struct {
 }
 
 func NewQuery(db DB, model ...interface{}) *Query {
-	q := &Query{ctx: context.Background()}
+	ctx := context.Background()
+	if db != nil {
+		ctx = db.Context()
+	}
+	q := &Query{ctx: ctx}
 	return q.DB(db).Model(model...)
 }
 
@@ -121,6 +125,7 @@ func (q *Query) Clone() *Query {
 		columns:     q.columns[:len(q.columns):len(q.columns)],
 		set:         q.set[:len(q.set):len(q.set)],
 		modelValues: modelValues,
+		extraValues: q.extraValues[:len(q.extraValues):len(q.extraValues)],
 		where:       q.where[:len(q.where):len(q.where)],
 		updWhere:    q.updWhere[:len(q.updWhere):len(q.updWhere)],
 		joins:       q.joins[:len(q.joins):len(q.joins)],
@@ -294,7 +299,7 @@ func (q *Query) Column(columns ...string) *Query {
 			continue
 		}
 
-		//TODO: remove
+		// TODO: remove
 		if q.model != nil {
 			if j := q.model.Join(column, nil); j != nil {
 				internal.Logger.Printf("DEPRECATED: replace Column(%q) with Relation(%q)",
@@ -1006,7 +1011,7 @@ func (q *Query) Insert(values ...interface{}) (Result, error) {
 
 	c := q.ctx
 
-	if q.model != nil && q.model.Table().hasFlag(BeforeInsertHookFlag) {
+	if q.model != nil && q.model.Table().hasFlag(beforeInsertHookFlag) {
 		c, err = q.model.BeforeInsert(c)
 		if err != nil {
 			return nil, err
@@ -1143,7 +1148,7 @@ func (q *Query) update(scan []interface{}, omitZero bool) (Result, error) {
 }
 
 func (q *Query) returningQuery(c context.Context, model Model, query interface{}) (Result, error) {
-	if len(q.returning) == 0 {
+	if !q.hasReturning() {
 		return q.db.QueryContext(c, model, query, q.model)
 	}
 	if _, ok := model.(useQueryOne); ok {
@@ -1166,7 +1171,11 @@ func (q *Query) Delete(values ...interface{}) (Result, error) {
 
 	clone := q.Clone()
 	if q.model.IsNil() {
-		clone = clone.Set("? = ?", table.SoftDeleteField.Column, time.Now())
+		if table.SoftDeleteField.SQLType == pgTypeBigint {
+			clone = clone.Set("? = ?", table.SoftDeleteField.Column, time.Now().UnixNano())
+		} else {
+			clone = clone.Set("? = ?", table.SoftDeleteField.Column, time.Now())
+		}
 	} else {
 		clone.model.setSoftDeleteField()
 		clone = clone.Column(table.SoftDeleteField.SQLName)
@@ -1464,12 +1473,22 @@ func (q *Query) appendSet(fmter QueryFormatter, b []byte) (_ []byte, err error) 
 	return b, nil
 }
 
-func (q *Query) appendReturning(fmter QueryFormatter, b []byte) (_ []byte, err error) {
-	if len(q.returning) == 1 && q.returning[0].params == nil {
-		query := q.returning[0].query
-		if query == "NULL" || query == "null" {
-			return b, nil
+func (q *Query) hasReturning() bool {
+	if len(q.returning) == 0 {
+		return false
+	}
+	if len(q.returning) == 1 {
+		switch q.returning[0].query {
+		case "null", "NULL":
+			return false
 		}
+	}
+	return true
+}
+
+func (q *Query) appendReturning(fmter QueryFormatter, b []byte) (_ []byte, err error) {
+	if !q.hasReturning() {
+		return b, nil
 	}
 
 	b = append(b, " RETURNING "...)

@@ -72,18 +72,32 @@ func callHookSlice2(
 	hook func(context.Context, reflect.Value) error,
 ) error {
 	var firstErr error
-	for i := 0; i < slice.Len(); i++ {
-		v := slice.Index(i)
-		if !ptr {
-			v = v.Addr()
-		}
+	if slice.IsValid() {
+		for i := 0; i < slice.Len(); i++ {
+			v := slice.Index(i)
+			if !ptr {
+				v = v.Addr()
+			}
 
-		err := hook(c, v)
-		if err != nil && firstErr == nil {
-			firstErr = err
+			err := hook(c, v)
+			if err != nil && firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
 	return firstErr
+}
+
+//------------------------------------------------------------------------------
+
+type BeforeScanHook interface {
+	BeforeScan(context.Context) error
+}
+
+var beforeScanHookType = reflect.TypeOf((*BeforeScanHook)(nil)).Elem()
+
+func callBeforeScanHook(c context.Context, v reflect.Value) error {
+	return v.Interface().(BeforeScanHook).BeforeScan(c)
 }
 
 //------------------------------------------------------------------------------
@@ -96,10 +110,6 @@ var afterScanHookType = reflect.TypeOf((*AfterScanHook)(nil)).Elem()
 
 func callAfterScanHook(c context.Context, v reflect.Value) error {
 	return v.Interface().(AfterScanHook).AfterScan(c)
-}
-
-func callAfterScanHookSlice(c context.Context, slice reflect.Value, ptr bool) error {
-	return callHookSlice2(c, slice, ptr, callAfterScanHook)
 }
 
 //------------------------------------------------------------------------------

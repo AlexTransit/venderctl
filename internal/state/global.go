@@ -24,7 +24,6 @@ type Global struct {
 	Log          *log2.Log
 	Tele         tele_api.Teler
 	Vmc          map[int32]vmcStruct
-	// Vmc map[int32]bool
 }
 
 type vmcStruct struct {
@@ -101,3 +100,10 @@ func (q queryHook) BeforeQuery(ctx context.Context, e *pg.QueryEvent) (context.C
 }
 
 func (queryHook) AfterQuery(context.Context, *pg.QueryEvent) error { return nil }
+
+func ByteToInt8(b []byte) int8 {
+	if len(b) != 0 {
+		return int8(b[0])
+	}
+	return 0
+}

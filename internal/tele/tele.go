@@ -10,11 +10,8 @@ import (
 	"context"
 	"fmt"
 
-	// "math/rand"
 	"sync"
-	"time"
 
-	// "github.com/256dpi/gomqtt/packet"
 	"github.com/AlexTransit/vender/log2"
 	vender_api "github.com/AlexTransit/vender/tele"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -22,12 +19,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/temoto/alive/v2"
 
-	// mqtt1 "github.com/AlexTransit/vender/tele/mqtt"
 	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	tele_config "github.com/AlexTransit/venderctl/internal/tele/config"
 )
-
-const defaultSendTimeout = 30 * time.Second
 
 type tele struct { //nolint:maligned
 	sync.RWMutex
@@ -86,12 +80,9 @@ func (self *tele) Init(ctx context.Context, log *log2.Log, teleConfig tele_confi
 }
 
 func (self *tele) Close() error {
-	// fmt.Printf("\n\033[41m mqtt unsubscribe \033[0m\n\n")
 	self.log.Infof("mqtt unsubscribe")
 	if token := self.m.Unsubscribe("#"); token.Wait() && token.Error() != nil {
-		// fmt.Printf("\n\033[41m mqtt unsubscribe error \033[0m\n\n")
 		self.log.Infof("mqtt unsubscribe error")
-		// global.Log.Infof("mqtt unsubscribe error")
 		return token.Error()
 	}
 	return nil
@@ -129,34 +120,17 @@ func (self *tele) SendCommand(vmid int32, c *vender_api.Command) {
 
 func (self *tele) CommandTx(vmid int32, c *vender_api.Command) {
 	self.SendCommand(vmid, c)
-
-	// tmr := time.NewTimer(5 * time.Second)
-	// defer tmr.Stop()
-	// for {
-	// 	select {
-	// 	case p := <-self.pch:
-	// 		// if p.Kind == tele.PacketCommandReply {
-	// 		if r, err := p.CommandResponse(); err != nil {
-	// 			// if r.CommandId == c.Id {
-	// 			// 	if r.Error == "" {
-	// 			// 		return r, nil
-	// 			// 	}
-	// 			// 	return r, fmt.Errorf(r.Error)
-	// 			// } else {
-	// 			// self.log.Errorf("current command.id=%d unexpected response=%#v", c.Id, r)
-	// 			// self.log.Errorf("current command unexpected response=%#v", r)
-	// 			// }
-	// 			self.log.Errorf("command response error =%#v", r)
-	// 		}
-
-	// 	case <-tmr.C:
-	// 		return
-	// 		// 		return nil, errors.Timeoutf("response")
-	// 	}
-	// }
-	// return nil
 }
 
 func (self *tele) msgInvalidMode() string {
 	return fmt.Sprintf("code error tele Config.Mode='%s'", self.conf.Mode)
+}
+
+func (t *tele) SendToRobo(vmid int32, m *vender_api.ToRoboMessage) {
+	payload, err := proto.Marshal(m)
+	if err != nil {
+		t.log.Errorf("tele.SendCommand marshal error(%v)", err)
+		return
+	}
+	t.mqttSendToRobo(vmid, payload)
 }
