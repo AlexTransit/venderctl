@@ -31,6 +31,12 @@ tax {
   }
 }
 
+cashless {
+  terminalkey = "terminal key"
+  terminalPass = "terminal password"
+  terminalTimeOutSec = 300 // waiting for payment
+}
+
 tele {
   // Only these variables passed as environment:
   // db_updated=true  if state successfully written to database

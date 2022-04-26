@@ -4,7 +4,9 @@
 package errors
 
 import (
+	stderrors "errors"
 	"fmt"
+	"runtime"
 	"strings"
 )
 
@@ -30,6 +32,18 @@ func Errorf(format string, args ...interface{}) error {
 	err := &Err{message: fmt.Sprintf(format, args...)}
 	err.SetLocation(1)
 	return err
+}
+
+// getLocation records the package path-qualified function name of the error at
+// callDepth stack frames above the call.
+func getLocation(callDepth int) (string, int) {
+	rpc := make([]uintptr, 1)
+	n := runtime.Callers(callDepth+2, rpc[:])
+	if n < 1 {
+		return "", 0
+	}
+	frame, _ := runtime.CallersFrames(rpc).Next()
+	return frame.Function, frame.Line
 }
 
 // Trace adds the location of the Trace call to the stack.  The Cause of the
@@ -211,13 +225,9 @@ type wrapper interface {
 	Underlying() error
 }
 
-type locationer interface {
-	Location() (string, int)
-}
-
 var (
 	_ wrapper    = (*Err)(nil)
-	_ locationer = (*Err)(nil)
+	_ Locationer = (*Err)(nil)
 	_ causer     = (*Err)(nil)
 )
 
@@ -235,7 +245,7 @@ func Details(err error) string {
 	s = append(s, '[')
 	for {
 		s = append(s, '{')
-		if err, ok := err.(locationer); ok {
+		if err, ok := err.(Locationer); ok {
 			file, line := err.Location()
 			if file != "" {
 				s = append(s, fmt.Sprintf("%s:%d", file, line)...)
@@ -286,10 +296,9 @@ func errorStack(err error) []string {
 	var lines []string
 	for {
 		var buff []byte
-		if err, ok := err.(locationer); ok {
+		if err, ok := err.(Locationer); ok {
 			file, line := err.Location()
 			// Strip off the leading GOPATH/src path elements.
-			file = trimSourcePath(file)
 			if file != "" {
 				buff = append(buff, fmt.Sprintf("%s:%d", file, line)...)
 				buff = append(buff, ": "...)
@@ -327,4 +336,34 @@ func errorStack(err error) []string {
 		result = append(result, lines[i-1])
 	}
 	return result
+}
+
+// Unwrap is a proxy for the Unwrap function in Go's standard `errors` library
+// (pkg.go.dev/errors).
+func Unwrap(err error) error {
+	return stderrors.Unwrap(err)
+}
+
+// Is is a proxy for the Is function in Go's standard `errors` library
+// (pkg.go.dev/errors).
+func Is(err, target error) bool {
+	return stderrors.Is(err, target)
+}
+
+// As is a proxy for the As function in Go's standard `errors` library
+// (pkg.go.dev/errors).
+func As(err error, target interface{}) bool {
+	return stderrors.As(err, target)
+}
+
+// SetLocation takes a given error and records where in the stack SetLocation
+// was called from and returns the wrapped error with the location information
+// set. The returned error implements the Locationer interface. If err is nil
+// then a nil error is returned.
+func SetLocation(err error, callDepth int) error {
+	if err == nil {
+		return nil
+	}
+
+	return newLocationError(err, callDepth)
 }

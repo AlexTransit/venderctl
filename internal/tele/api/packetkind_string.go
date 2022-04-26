@@ -14,8 +14,8 @@ func _() {
 	_ = x[PacketTelemetry-3]
 	_ = x[PacketCommand-4]
 	_ = x[PacketCommandReply-5]
-	_ = x[PacketCommandAccepted-6]
-	_ = x[PacketCommandDone-7]
+	// _ = x[PacketCommandAccepted-6]
+	// _ = x[PacketCommandDone-7]
 }
 
 const _PacketKind_name = "InvalidConnectStateTelemetryCommandCommandReplyCommandAcceptedCommandDone"

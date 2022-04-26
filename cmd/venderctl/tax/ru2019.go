@@ -80,7 +80,7 @@ func processRu2019(ctx context.Context, db *pg.Conn, tj *MTaxJob) error {
 
 		// TODO continue with umka, set relevant tags
 		// OR skip processing because payment terminal already sent tax data
-		// case vender_api.PaymentMethod_Cashless:
+		case vender_api.PaymentMethod_Cashless:
 
 		case vender_api.PaymentMethod_Gift:
 			return processRu2019Final(ctx, db, tj, fmt.Sprintf("skip payment method=%s", op.Method.String()))

@@ -1,7 +1,7 @@
 # PostgreSQL client and ORM for Golang
 
 [![Build Status](https://travis-ci.org/go-pg/pg.svg?branch=master)](https://travis-ci.org/go-pg/pg)
-[![GoDoc](https://godoc.org/github.com/go-pg/pg?status.svg)](https://godoc.org/github.com/go-pg/pg)
+[![GoDoc](https://godoc.org/github.com/go-pg/pg?status.svg)](https://pkg.go.dev/github.com/go-pg/pg/v9?tab=doc)
 
 ## Features
 
@@ -45,6 +45,7 @@
 go-pg requires a Go version with [Modules](https://github.com/golang/go/wiki/Modules) support and uses import versioning. So please make sure to initialize a Go module before installing go-pg:
 
 ```shell
+go mod init github.com/my/repo
 go get github.com/go-pg/pg/v9
 ```
 

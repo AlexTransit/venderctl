@@ -16,6 +16,7 @@ import (
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
 	"github.com/AlexTransit/venderctl/internal/state"
+	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/go-pg/pg/v9"
 	"github.com/juju/errors"
@@ -52,6 +53,10 @@ func taxMain(ctx context.Context, flags *flag.FlagSet) error {
 
 func taxInit(ctx context.Context) error {
 	g := state.GetGlobal(ctx)
+	g.InitVMC()
+	CashLessInit(ctx)
+
+	// g.Vmc = make(map[int32]vmcStruct)
 	if err := g.InitDB(CmdName); err != nil {
 		return errors.Annotate(err, "InitDB")
 	}
@@ -64,9 +69,11 @@ func taxInit(ctx context.Context) error {
 func taxLoop(ctx context.Context) error {
 	const pollInterval = 53 * time.Second
 	g := state.GetGlobal(ctx)
+	mqttch := g.Tele.Chan()
 	stopch := g.Alive.StopChan()
 	hostname, _ := os.Hostname()
 	worker := fmt.Sprintf("%s:%d:%d", hostname, os.Getpid(), rand.Int31())
+	// mqttch := tb.g.Tele.Chan()
 
 	llSched := g.DB.Listen("tax_job_sched")
 	defer llSched.Close()
@@ -85,9 +92,37 @@ func taxLoop(ctx context.Context) error {
 	for {
 		if !try {
 			select {
+			case p := <-mqttch:
+				if p.Kind == tele_api.FromRobo {
+					rm := g.ParseFromRobo(p)
+					if rm.Order != nil {
+						if rm.Order.OrderStatus == vender_api.OrderStatus_complete {
+							if a, ok := CashLessPay[p.VmId]; ok {
+								if a.PaymentID == rm.Order.OwnerStr {
+									a.witeDBOrderComplete()
+									delete(CashLessPay, p.VmId)
+								}
+							}
+						}
+					}
+					switch rm.State {
+					case vender_api.State_WaitingForExternalPayment:
+						MakeQr(ctx, p.VmId, rm)
+					case vender_api.State_Nominal:
+						// if o, valid := CashLessPay[p.VmId]; valid {
+						// 	fmt.Printf("\n\033[41m cmd-tax p := <-mqttch %v \033[0m\n\n", o)
+						// 	// CashLess.Stop <- o.vmid
+						// }
+					default:
+
+						// if ch, valid := CashLessPay[p.VmId]; valid && ch.StatrtCooking.IsZero() {
+						// 	g.Log.Debugf("change state. delete preview preorder. :%v", CashLessPay[p.VmId])
+						// 	delete(CashLessPay, p.VmId)
+						// }
+					}
+				}
 			case <-chSched:
 				g.Log.Debugf("notified tax_job_sched")
-
 			case <-time.After(pollInterval):
 
 			case <-stopch:
