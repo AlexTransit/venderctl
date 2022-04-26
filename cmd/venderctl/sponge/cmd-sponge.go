@@ -6,25 +6,20 @@ import (
 	"flag"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/coreos/go-systemd/daemon"
-	"github.com/go-pg/pg/v9"
-	pg_types "github.com/go-pg/pg/v9/types"
-
-	"github.com/golang/protobuf/proto"
 
 	"github.com/AlexTransit/vender/helpers"
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
 	"github.com/AlexTransit/venderctl/internal/state"
 	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
+	"github.com/coreos/go-systemd/daemon"
+	"github.com/go-pg/pg/v9"
+	pg_types "github.com/go-pg/pg/v9/types"
+	"github.com/golang/protobuf/proto"
 	"github.com/juju/errors"
-
-	// tele_config "github.com/AlexTransit/venderctl/internal/tele/config"
-	"strconv"
-	// "github.com/AlexTransit/venderctl/internal/tele"
 )
 
 const CmdName = "sponge"

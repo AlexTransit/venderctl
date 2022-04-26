@@ -8,30 +8,9 @@ import (
 	"time"
 
 	"github.com/AlexTransit/vender/helpers"
-	"github.com/AlexTransit/vender/log2"
-	vender_api "github.com/AlexTransit/vender/tele"
-	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	"github.com/go-pg/pg/v9"
 	"github.com/juju/errors"
-	"github.com/temoto/alive/v2"
 )
-
-type Global struct {
-	Alive        *alive.Alive
-	BuildVersion string
-	Config       *Config
-	DB           *pg.DB
-	Log          *log2.Log
-	Tele         tele_api.Teler
-	Vmc          map[int32]vmcStruct
-}
-
-type vmcStruct struct {
-	Connect bool
-	State   vender_api.State
-}
-
-const ContextKey = "run/state-global"
 
 func (g *Global) InitVMC() {
 	g.Vmc = make(map[int32]vmcStruct)
