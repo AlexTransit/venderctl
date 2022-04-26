@@ -3,7 +3,7 @@ module github.com/AlexTransit/venderctl
 go 1.18
 
 require (
-	github.com/AlexTransit/vender v0.220329.1-0.20220424145525-32b8a416c368
+	github.com/AlexTransit/vender v0.220329.1-0.20220426072906-8ccd523c1ed1
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/go-pg/pg/v9 v9.2.1

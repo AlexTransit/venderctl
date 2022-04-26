@@ -21,6 +21,8 @@ github.com/AlexTransit/vender v0.220329.1-0.20220419074846-77ef078096e2 h1:rct0I
 github.com/AlexTransit/vender v0.220329.1-0.20220419074846-77ef078096e2/go.mod h1:ZCy2EdghJxhmZKnZVgJzsf7efU7FZXr7+ULlOTKqRzc=
 github.com/AlexTransit/vender v0.220329.1-0.20220424145525-32b8a416c368 h1:J/mLUk8bTs3NwZkynUQy5Buo82nc+kodCA1A/65Zpuw=
 github.com/AlexTransit/vender v0.220329.1-0.20220424145525-32b8a416c368/go.mod h1:ZCy2EdghJxhmZKnZVgJzsf7efU7FZXr7+ULlOTKqRzc=
+github.com/AlexTransit/vender v0.220329.1-0.20220426072906-8ccd523c1ed1 h1:88IhlRbPef2nk/fs3oTbviMHQZbLbKzf4EJmsZyg6Xo=
+github.com/AlexTransit/vender v0.220329.1-0.20220426072906-8ccd523c1ed1/go.mod h1:ZCy2EdghJxhmZKnZVgJzsf7efU7FZXr7+ULlOTKqRzc=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/c-bata/go-prompt v0.2.3/go.mod h1:VzqtzE2ksDBcdln8G7mk2RX9QyGjH+OVqOCSiVIqS34=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
