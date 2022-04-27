@@ -40,6 +40,7 @@ type CashLessOrderStruct struct {
 }
 
 var terminalClient *tinkoff.Client
+var terminalKey string
 
 func CashLessInit(ctx context.Context) bool {
 	CashLess.g = state.GetGlobal(ctx)
@@ -54,7 +55,8 @@ func CashLessInit(ctx context.Context) bool {
 	if CashLess.g.Config.CashLess.TerminalMinimalAmount == 0 {
 		CashLess.g.Config.CashLess.TerminalMinimalAmount = 1000
 	}
-	if tk := CashLess.g.Config.CashLess.TerminalKey; tk == "" {
+
+	if terminalKey = CashLess.g.Config.CashLess.TerminalKey; terminalKey == "" {
 		CashLess.g.Log.Info("tekminal key not foud. cashless system not start")
 		return false
 	}
@@ -63,12 +65,12 @@ func CashLessInit(ctx context.Context) bool {
 		return false
 	}
 	// terminalClient = &tinkoff.Client{}
-	terminalClient = tinkoff.NewClient(CashLess.g.Config.CashLess.TerminalKey, CashLess.g.Config.CashLess.TerminalPass)
+	terminalClient = tinkoff.NewClient(terminalKey, CashLess.g.Config.CashLess.TerminalPass)
 	return true
 }
 
 func CashLessStop() {
-	CashLess.g.Log.Info("stop cashless system")
+	CashLess.g.Log.Debug("stop cashless system")
 	CashLess.Stop <- 0 // send stop to all open transactions
 }
 
@@ -169,8 +171,8 @@ func menuGetName(vmid int32, code string) string {
 }
 
 func (o *CashLessOrderStruct) qrWrite() {
-	const q = `INSERT INTO cashless (vmid, create_date, payment_id, order_id, amount) VALUES ( ?0, ?1, ?2, ?3, ?4 );`
-	_, err := CashLess.g.DB.Exec(q, o.Vmid, o.Date, o.PaymentID, o.OrderID, o.Amount)
+	const q = `INSERT INTO cashless (vmid, create_date, payment_id, order_id, amount, terminal) VALUES ( ?0, ?1, ?2, ?3, ?4, ?5 );`
+	_, err := CashLess.g.DB.Exec(q, o.Vmid, o.Date, o.PaymentID, o.OrderID, o.Amount, terminalKey)
 	if err != nil {
 		CashLess.g.Log.Errorf("qr db write:%v", err)
 	}
