@@ -1,4 +1,4 @@
-# github.com/AlexTransit/vender v0.220329.1-0.20220426072906-8ccd523c1ed1
+# github.com/AlexTransit/vender v0.220427.1
 ## explicit; go 1.18
 github.com/AlexTransit/vender/currency
 github.com/AlexTransit/vender/helpers
@@ -60,7 +60,7 @@ github.com/jinzhu/inflection
 # github.com/juju/errors v0.0.0-20220331221717-b38fca44723b
 ## explicit; go 1.17
 github.com/juju/errors
-# github.com/nikita-vanyasin/tinkoff v1.0.4
+# github.com/nikita-vanyasin/tinkoff v1.0.5
 ## explicit; go 1.13
 github.com/nikita-vanyasin/tinkoff
 # github.com/pmezard/go-difflib v1.0.0

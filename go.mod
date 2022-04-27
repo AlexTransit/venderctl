@@ -3,7 +3,7 @@ module github.com/AlexTransit/venderctl
 go 1.18
 
 require (
-	github.com/AlexTransit/vender v0.220329.1-0.20220426072906-8ccd523c1ed1
+	github.com/AlexTransit/vender v0.220427.1
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/go-pg/pg/v9 v9.2.1
@@ -27,7 +27,7 @@ require (
 	github.com/go-pg/zerochecker v0.2.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
-	github.com/nikita-vanyasin/tinkoff v1.0.4 // indirect
+	github.com/nikita-vanyasin/tinkoff v1.0.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/segmentio/encoding v0.1.15 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect

@@ -273,7 +273,7 @@ func (o *CashLessOrderStruct) cancelOrder() {
 	cRes, err := terminalClient.Cancel(cReq)
 	q := `UPDATE cashless SET finish_date = now() WHERE payment_id = ?0 and order_id = ?1;`
 	switch cRes.Status {
-	case "ASYNC_REFUNDING", tinkoff.StatusCanceled:
+	case tinkoff.StatusQRRefunding:
 		q = `UPDATE cashless SET state = 'order_cancel', finish_date = now(), credited = 0 WHERE payment_id = ?0 and order_id = ?1;`
 	default:
 		CashLess.g.Log.Errorf("tinkoff fail cancel (%v) error:%v", o, err)
