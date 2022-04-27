@@ -16,6 +16,7 @@ import (
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
 	"github.com/AlexTransit/venderctl/internal/state"
+	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/go-pg/pg/v9"
 	"github.com/juju/errors"
@@ -47,11 +48,17 @@ func taxMain(ctx context.Context, flags *flag.FlagSet) error {
 	if err := taxInit(ctx); err != nil {
 		return errors.Annotate(err, "taxInit")
 	}
+	if CashLessInit(ctx) {
+		go cashLessLoop(ctx)
+	}
 	return taxLoop(ctx)
 }
 
 func taxInit(ctx context.Context) error {
 	g := state.GetGlobal(ctx)
+	g.InitVMC()
+
+	// g.Vmc = make(map[int32]vmcStruct)
 	if err := g.InitDB(CmdName); err != nil {
 		return errors.Annotate(err, "InitDB")
 	}
@@ -67,6 +74,7 @@ func taxLoop(ctx context.Context) error {
 	stopch := g.Alive.StopChan()
 	hostname, _ := os.Hostname()
 	worker := fmt.Sprintf("%s:%d:%d", hostname, os.Getpid(), rand.Int31())
+	// mqttch := tb.g.Tele.Chan()
 
 	llSched := g.DB.Listen("tax_job_sched")
 	defer llSched.Close()
@@ -79,7 +87,7 @@ func taxLoop(ctx context.Context) error {
 	_ = db.Close()
 	g.Alive.Done()
 	if err != nil {
-		return err
+		g.Log.Error("taxStep try")
 	}
 
 	for {
@@ -87,7 +95,6 @@ func taxLoop(ctx context.Context) error {
 			select {
 			case <-chSched:
 				g.Log.Debugf("notified tax_job_sched")
-
 			case <-time.After(pollInterval):
 
 			case <-stopch:
@@ -101,7 +108,38 @@ func taxLoop(ctx context.Context) error {
 		_ = db.Close()
 		g.Alive.Done()
 		if err != nil {
-			g.Error(err)
+			g.Log.Error("taxStep try")
+			// g.Error(err)
+		}
+	}
+}
+
+func cashLessLoop(ctx context.Context) {
+	g := state.GetGlobal(ctx)
+	stopch := g.Alive.StopChan()
+	mqttch := g.Tele.Chan()
+	for {
+		select {
+		case p := <-mqttch:
+			if p.Kind == tele_api.FromRobo {
+				rm := g.ParseFromRobo(p)
+				if rm.State == vender_api.State_WaitingForExternalPayment {
+					MakeQr(ctx, p.VmId, rm)
+				}
+				if clp, ok := CashLessPay[p.VmId]; ok {
+					if rm.Order != nil && clp.PaymentID == rm.Order.OwnerStr {
+						switch rm.Order.OrderStatus {
+						case vender_api.OrderStatus_complete:
+							clp.writeDBOrderComplete()
+						case vender_api.OrderStatus_orderError:
+							delete(CashLessPay, p.VmId)
+						default:
+						}
+					}
+				}
+			}
+		case <-stopch:
+			return
 		}
 	}
 }

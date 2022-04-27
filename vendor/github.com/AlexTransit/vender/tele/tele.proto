@@ -1,4 +1,3 @@
-// go:generate protoc --go_out=./ tele.proto
 syntax = "proto3";
 package tele;
 
@@ -18,21 +17,6 @@ enum Priority {
   Now = 1;
   IdleEngine = 2;
   IdleUser = 4;
-}
-
-enum State {
-  Invalid = 0;
-  Boot = 1;
-  Nominal = 2;
-  Disconnected = 3;
-  Problem = 4;
-  Service = 5;
-  Lock = 6;
-  Client = 7;
-  TempProblem = 8;
-  Shutdown = 9;
-  RemoteControl = 10;
-  WaitingForExternalPayment = 11;
 }
 
 message Telemetry {
@@ -79,13 +63,6 @@ message Telemetry {
     uint32 coin_slug = 18;
   }
 }
-enum PaymentMethod {
-  Nothing = 0;
-  Cash = 1;
-  Cashless = 2;
-  Gift = 3;
-  Balance = 4;
-}
 
 message Command {
   int64 executer = 5;
@@ -101,10 +78,10 @@ message Command {
     ArgValidateCode validate_code = 23;
     ArgCook cook = 24;
   }
-
-message ArgReport {}
-message ArgGetState {}
-message ArgExec {
+  
+  message ArgReport {}
+  message ArgGetState {}
+  message ArgExec {
     string scenario = 1;
   }
   message ArgSetInventory { Inventory new = 1; }
@@ -155,4 +132,112 @@ message Response {
   CookReplay cook_replay = 6;
   uint32 validateReplay = 7;
   string INTERNAL_topic = 2048; // convenience
+}
+
+message WaitingForRemotePayment {
+  string menucode  = 1;
+  bytes cream = 2;
+  bytes sugar = 3;
+  uint32 amount = 4;
+}
+
+// ----------
+enum State {
+  Invalid = 0;
+  Boot = 1;
+  Nominal = 2;
+  Disconnected = 3;
+  Broken = 4;
+  Service = 5;
+  Lock = 6;
+  Process = 7;
+  TemperatureProblem = 8;
+  Shutdown = 9;
+  RemoteControl = 10;
+  WaitingForExternalPayment = 11;
+  
+  RequestState = 64;
+}
+
+enum PaymentMethod {
+  Nothing = 0;
+  Cash = 1;
+  Cashless = 2;
+  Gift = 3;
+  Balance = 4;
+}
+
+enum OwnerType {
+  noOwnerType = 0;
+  telegramUser = 1;
+  qrCashLessUser = 2;
+}
+
+enum OrderStatus {
+  noStatus = 0;
+  executionStart = 1;
+  complete = 2;
+  overdraft = 3;
+  executionInaccessible = 4;
+  orderError = 5;
+  robotIsBusy = 6;
+  waitingForPayment = 7;
+
+  doSelected = 64;
+  doTransferred = 65;
+}
+
+message FromRoboMessage {
+  State state = 1;
+  int64 roboTime = 2;
+  Order Order = 3;
+  Err err = 4;
+  RoboHardware RoboHardware = 5;
+}
+
+message Err {
+  uint32 code = 1;
+  string message = 2;
+}
+
+message ShowQR {
+  enum QRType {
+    invalid = 0;
+    receipt = 1;
+    order = 2;
+    errorOverdraft = 3;
+    error = 4;
+  }
+  QRType qrType= 1;
+  string qrText = 2;
+  string dataStr = 3;
+  int32 dataInt = 4;
+}
+
+message ToRoboMessage {
+  MessageType cmd = 1;
+  int64 serverTime = 2;
+  Order makeOrder = 3;
+  ShowQR showQR = 4;
+
+} 
+enum MessageType {
+  invalid = 0;
+  showQR = 1;
+  makeOrder = 2;
+}
+message RoboHardware { 
+  int32 temperature = 3;
+}
+message Order {
+  string menuCode = 1;
+  bytes cream = 2;         // default = 0
+  bytes sugar = 3;             // default = 0
+  uint32 amount = 4;           // цена в копейках
+  OrderStatus orderStatus = 6;
+  PaymentMethod paymentMethod = 7;
+  int64 ownerInt = 8;          // id клиента
+  string ownerStr = 9;  //  
+  OwnerType ownerType = 10;
+  int64 redirectDueDate = 11;
 }

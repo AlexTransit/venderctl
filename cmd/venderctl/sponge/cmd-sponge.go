@@ -6,24 +6,20 @@ import (
 	"flag"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
-
-	"github.com/coreos/go-systemd/daemon"
-	"github.com/go-pg/pg/v9"
-	pg_types "github.com/go-pg/pg/v9/types"
-
-	"github.com/golang/protobuf/proto"
+	"time"
 
 	"github.com/AlexTransit/vender/helpers"
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
 	"github.com/AlexTransit/venderctl/internal/state"
 	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
+	"github.com/coreos/go-systemd/daemon"
+	"github.com/go-pg/pg/v9"
+	pg_types "github.com/go-pg/pg/v9/types"
+	"github.com/golang/protobuf/proto"
 	"github.com/juju/errors"
-
-	// tele_config "github.com/AlexTransit/venderctl/internal/tele/config"
-	"strconv"
-	// "github.com/AlexTransit/venderctl/internal/tele"
 )
 
 const CmdName = "sponge"
@@ -36,7 +32,7 @@ var Cmd = cli.Cmd{
 
 func spongeMain(ctx context.Context, flags *flag.FlagSet) error {
 	g := state.GetGlobal(ctx)
-
+	g.InitVMC()
 	configPath := flags.Lookup("config").Value.String()
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
 	g.Config.Tele.SetMode("sponge")
@@ -94,8 +90,14 @@ func spongeLoop(ctx context.Context) error {
 		case p := <-ch:
 			// g.Log.Debugf("sponge packet=%s", p.String())
 			g.Alive.Add(1)
-			err := onPacket(ctx, p)
-			g.Alive.Done()
+			var err error
+			// старый и новый обработчик
+			if p.Kind == tele_api.FromRobo || p.Kind == tele_api.PacketConnect {
+				packetFromRobo(ctx, p)
+			} else {
+				err = onPacket(ctx, p)
+			}
+			defer g.Alive.Done()
 			if err != nil {
 				g.Log.Error(errors.ErrorStack(err))
 			}
@@ -120,14 +122,14 @@ func onPacket(ctx context.Context, p tele_api.Packet) error {
 	switch p.Kind {
 
 	case tele_api.PacketConnect:
-		c := false
-		if p.Payload[0] == 1 {
-			c = true
+		r := g.Vmc[p.VmId]
+		c := true
+		if p.Payload[0] == 0 {
+			c = false
 		}
-		// r := g.Vmc[p.VmId]
-		// r.Connect = c
-		// g.Vmc[p.VmId] = r
-		return onConnect(ctx, dbConn, p.VmId, c)
+		r.Connect = c
+		g.Vmc[p.VmId] = r
+		return onConnect(ctx, dbConn, p.VmId)
 
 	case tele_api.PacketState:
 		s, err := p.State()
@@ -148,17 +150,9 @@ func onPacket(ctx context.Context, p tele_api.Packet) error {
 		return onTelemetry(ctx, dbConn, p.VmId, t)
 
 	default:
-		return errors.Errorf("code error invalid packet=%v", p)
+		// return errors.Errorf("code error invalid packet=%v", p)
+		return nil
 	}
-}
-func onConnect(ctx context.Context, dbConn *pg.Conn, vmid int32, connect bool) error {
-	g := state.GetGlobal(ctx)
-	g.Log.Infof("vm=%d connect=%t", vmid, connect)
-	dbConn = dbConn.WithParam("vmid", vmid).WithParam("connect", connect)
-	var nn bool
-	_, err := dbConn.Query(pg.Scan(&nn), "select connect_update(?vmid, ?connect)")
-	err = errors.Annotatef(err, "db connect_update")
-	return err
 }
 
 func onState(ctx context.Context, dbConn *pg.Conn, vmid int32, s vender_api.State) error {
@@ -273,4 +267,62 @@ func mapUint32ToHstore(from map[uint32]uint32) *pg_types.Hstore {
 		m[strconv.FormatInt(int64(k), 10)] = strconv.FormatInt(int64(v), 10)
 	}
 	return pg.Hstore(m)
+}
+
+//---------------------
+
+func packetFromRobo(ctx context.Context, p tele_api.Packet) {
+	g := state.GetGlobal(ctx)
+	rm := g.ParseFromRobo(p)
+	dbConn := g.DB.Conn()
+	defer dbConn.Close()
+	if p.Kind == tele_api.PacketConnect {
+		_ = onConnect(ctx, dbConn, p.VmId)
+		return
+	}
+	rTime := time.Now().Unix()
+	// rTime := time.Now()
+	if rm.RoboTime != 0 {
+		rTime = rm.RoboTime
+	}
+	if rm.State != 0 {
+		s := rm.State
+		onStateN(ctx, dbConn, p.VmId, s)
+	}
+
+	dbConn = dbConn.WithParam("vmid", p.VmId).WithParam("vmtime", rTime)
+	if rm.Order == nil {
+		return
+	}
+	if rm.Order.OrderStatus == vender_api.OrderStatus_complete {
+		o := rm.Order
+		const q = `insert into trans (vmid,vmtime,received,menu_code,options,price,method,executer,executer_str) 
+		values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1,?2,?3,?4,?5)
+		on conflict (vmid,vmtime) do nothing`
+
+		_, err := dbConn.Exec(q, o.MenuCode, pg.Array([]int8{state.ByteToInt8(o.Cream), state.ByteToInt8(o.Sugar)}), o.Amount, o.PaymentMethod, o.OwnerInt, o.OwnerStr)
+		if err != nil {
+			g.Log.Errorf("error db query=%s \nerror=%v", q, err)
+		}
+	}
+}
+
+func onStateN(ctx context.Context, dbConn *pg.Conn, vmid int32, s vender_api.State) {
+	g := state.GetGlobal(ctx)
+	g.Log.Infof("vm=%d state=%s", vmid, s.String())
+
+	dbConn = dbConn.WithParam("vmid", vmid).WithParam("state", s)
+	var oldState vender_api.State
+	_, _ = dbConn.Query(pg.Scan(&oldState), `select state_update(?vmid, ?state)`)
+}
+
+func onConnect(ctx context.Context, dbConn *pg.Conn, vmid int32) error {
+	g := state.GetGlobal(ctx)
+	connect := g.Vmc[vmid].Connect
+	g.Log.Infof("vm=%d connect=%t", vmid, connect)
+	dbConn = dbConn.WithParam("vmid", vmid).WithParam("connect", connect)
+	var nn bool
+	_, err := dbConn.Query(pg.Scan(&nn), "select connect_update(?vmid, ?connect)")
+	err = errors.Annotatef(err, "db connect_update")
+	return err
 }

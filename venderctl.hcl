@@ -31,6 +31,14 @@ tax {
   }
 }
 
+cashless {
+  terminalkey = "terminal key"
+  terminalPass = "terminal password"
+  terminalTimeOutSec = 300 // waiting for payment
+  terminalBankCommission = 40 // fixed point. 40 = 0.4%
+  terminalMinimalAmount = 1000 // minimal amount. fixed point 
+}
+
 tele {
   // Only these variables passed as environment:
   // db_updated=true  if state successfully written to database

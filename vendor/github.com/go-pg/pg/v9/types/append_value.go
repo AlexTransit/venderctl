@@ -2,7 +2,6 @@ package types
 
 import (
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 	"net"
 	"reflect"
@@ -10,7 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vmihailenco/bufpool"
+
 	"github.com/go-pg/pg/v9/internal"
+	"github.com/go-pg/pg/v9/pgjson"
 )
 
 var driverValuerType = reflect.TypeOf((*driver.Valuer)(nil)).Elem()
@@ -164,7 +166,19 @@ func appendBytesValue(b []byte, v reflect.Value, flags int) []byte {
 }
 
 func appendArrayBytesValue(b []byte, v reflect.Value, flags int) []byte {
-	return AppendBytes(b, v.Slice(0, v.Len()).Bytes(), flags)
+	if v.CanAddr() {
+		return AppendBytes(b, v.Slice(0, v.Len()).Bytes(), flags)
+	}
+
+	buf := bufpool.Get(v.Len())
+
+	tmp := buf.Bytes()
+	reflect.Copy(reflect.ValueOf(tmp), v)
+	b = AppendBytes(b, tmp, flags)
+
+	bufpool.Put(buf)
+
+	return b
 }
 
 func appendStringValue(b []byte, v reflect.Value, flags int) []byte {
@@ -179,11 +193,19 @@ func appendStructValue(b []byte, v reflect.Value, flags int) []byte {
 }
 
 func appendJSONValue(b []byte, v reflect.Value, flags int) []byte {
-	bytes, err := json.Marshal(v.Interface())
-	if err != nil {
+	buf := internal.GetBuffer()
+	defer internal.PutBuffer(buf)
+
+	if err := pgjson.NewEncoder(buf).Encode(v.Interface()); err != nil {
 		return AppendError(b, err)
 	}
-	return AppendJSONB(b, bytes, flags)
+
+	bb := buf.Bytes()
+	if len(bb) > 0 && bb[len(bb)-1] == '\n' {
+		bb = bb[:len(bb)-1]
+	}
+
+	return AppendJSONB(b, bb, flags)
 }
 
 func appendTimeValue(b []byte, v reflect.Value, flags int) []byte {

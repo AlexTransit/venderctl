@@ -19,7 +19,8 @@ const (
 	PacketCommand
 	PacketCommandReply
 	PacketCommandAccepted
-	PacketCommandDone
+	FromRoboPacketCommandDone
+	FromRobo
 )
 
 type Packet struct {
@@ -32,14 +33,24 @@ func (p *Packet) String() string {
 	return fmt.Sprintf("tele.Packet(Kind=%s VmId=%d Payload=%x)", p.Kind.String(), p.VmId, p.Payload)
 }
 
-func (p *Packet) CommandResponse() (*vender_api.Response, error) {
+func (p *Packet) CommandResponseUnmarshal() *vender_api.Response {
 	r := vender_api.Response{}
 	err := proto.Unmarshal(p.Payload, &r)
 	if err != nil {
-		err = errors.Annotatef(err, "raw=%x", p.Payload)
-		return nil, err
+		fmt.Printf("CommandResponseUnmarshal error:(%v)", err)
+		return nil
 	}
-	return &r, err
+	return &r
+}
+
+func (p *Packet) MessageFromRobotseUnmarshal() *vender_api.FromRoboMessage {
+	r := vender_api.FromRoboMessage{}
+	err := proto.Unmarshal(p.Payload, &r)
+	if err != nil {
+		fmt.Printf("CommandResponseUnmarshal error:(%v)", err)
+		return nil
+	}
+	return &r
 }
 
 func (p *Packet) State() (vender_api.State, error) {

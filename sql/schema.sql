@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS trans (
     options int[],
     price int4 NOT NULL,
     method int NOT NULL,
+    executer BIGINT,
+    exeputer_type INTEGER,
     tax_job_id bigint NULL REFERENCES tax_job (id) ON DELETE SET NULL ON UPDATE RESTRICT
 );
 

@@ -1,11 +1,15 @@
-# github.com/AlexTransit/vender v0.220315.0
-## explicit; go 1.17
+# github.com/AlexTransit/vender v0.220427.1
+## explicit; go 1.18
 github.com/AlexTransit/vender/currency
 github.com/AlexTransit/vender/helpers
 github.com/AlexTransit/vender/log2
 github.com/AlexTransit/vender/tele
 github.com/AlexTransit/vender/tele/config
-# github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f
+# github.com/codemodus/kace v0.5.1
+## explicit
+github.com/codemodus/kace
+github.com/codemodus/kace/ktrie
+# github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 ## explicit
 github.com/coreos/go-systemd/daemon
 # github.com/davecgh/go-spew v1.1.1
@@ -15,19 +19,19 @@ github.com/davecgh/go-spew/spew
 ## explicit; go 1.14
 github.com/eclipse/paho.mqtt.golang
 github.com/eclipse/paho.mqtt.golang/packets
-# github.com/go-pg/pg/v9 v9.0.3
+# github.com/go-pg/pg/v9 v9.2.1
 ## explicit; go 1.11
 github.com/go-pg/pg/v9
 github.com/go-pg/pg/v9/internal
 github.com/go-pg/pg/v9/internal/parser
 github.com/go-pg/pg/v9/internal/pool
+github.com/go-pg/pg/v9/internal/urlstruct
 github.com/go-pg/pg/v9/orm
+github.com/go-pg/pg/v9/pgjson
 github.com/go-pg/pg/v9/types
-# github.com/go-pg/urlstruct v0.2.6
+# github.com/go-pg/urlstruct v1.0.1
 ## explicit; go 1.13
-github.com/go-pg/urlstruct
-github.com/go-pg/urlstruct/internal
-# github.com/go-pg/zerochecker v0.1.1
+# github.com/go-pg/zerochecker v0.2.0
 ## explicit; go 1.13
 github.com/go-pg/zerochecker
 # github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
@@ -36,7 +40,7 @@ github.com/go-telegram-bot-api/telegram-bot-api/v5
 # github.com/golang/protobuf v1.5.2
 ## explicit; go 1.9
 github.com/golang/protobuf/proto
-# github.com/gorilla/websocket v1.4.2
+# github.com/gorilla/websocket v1.5.0
 ## explicit; go 1.12
 github.com/gorilla/websocket
 # github.com/hashicorp/hcl v1.0.0
@@ -53,13 +57,22 @@ github.com/hashicorp/hcl/json/token
 # github.com/jinzhu/inflection v1.0.0
 ## explicit
 github.com/jinzhu/inflection
-# github.com/juju/errors v0.0.0-20190930114154-d42613fe1ab9
-## explicit
+# github.com/juju/errors v0.0.0-20220331221717-b38fca44723b
+## explicit; go 1.17
 github.com/juju/errors
+# github.com/nikita-vanyasin/tinkoff v1.0.5
+## explicit; go 1.13
+github.com/nikita-vanyasin/tinkoff
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/stretchr/testify v1.5.1
+# github.com/segmentio/encoding v0.1.15
+## explicit; go 1.13
+github.com/segmentio/encoding/ascii
+github.com/segmentio/encoding/json
+# github.com/stretchr/objx v0.2.0
+## explicit; go 1.12
+# github.com/stretchr/testify v1.7.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
@@ -70,28 +83,49 @@ github.com/temoto/alive/v2
 ## explicit; go 1.11
 github.com/temoto/ru-nalog-go
 github.com/temoto/ru-nalog-go/umka
-# github.com/vmihailenco/tagparser v0.1.0
+# github.com/vmihailenco/bufpool v0.1.11
+## explicit; go 1.13
+github.com/vmihailenco/bufpool
+# github.com/vmihailenco/msgpack/v4 v4.3.12
+## explicit; go 1.11
+github.com/vmihailenco/msgpack/v4
+github.com/vmihailenco/msgpack/v4/codes
+# github.com/vmihailenco/tagparser v0.1.2
 ## explicit; go 1.13
 github.com/vmihailenco/tagparser
 github.com/vmihailenco/tagparser/internal
 github.com/vmihailenco/tagparser/internal/parser
-# golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-## explicit; go 1.11
+# golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
+## explicit; go 1.17
 golang.org/x/crypto/argon2
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blake2b
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/scrypt
-# golang.org/x/net v0.0.0-20210614182718-04defd469f4e
+# golang.org/x/net v0.0.0-20220403103023-749bd193bc2b
 ## explicit; go 1.17
+golang.org/x/net/context
 golang.org/x/net/internal/socks
 golang.org/x/net/proxy
-# golang.org/x/sys v0.0.0-20210423082822-04245dca01da
-## explicit; go 1.12
+# golang.org/x/sys v0.0.0-20220403205710-6acee93ad0eb
+## explicit; go 1.17
 golang.org/x/sys/cpu
-# google.golang.org/protobuf v1.27.1
-## explicit; go 1.9
+# google.golang.org/appengine v1.6.6
+## explicit; go 1.11
+google.golang.org/appengine
+google.golang.org/appengine/datastore
+google.golang.org/appengine/datastore/internal/cloudkey
+google.golang.org/appengine/datastore/internal/cloudpb
+google.golang.org/appengine/internal
+google.golang.org/appengine/internal/app_identity
+google.golang.org/appengine/internal/base
+google.golang.org/appengine/internal/datastore
+google.golang.org/appengine/internal/log
+google.golang.org/appengine/internal/modules
+google.golang.org/appengine/internal/remote_api
+# google.golang.org/protobuf v1.28.0
+## explicit; go 1.11
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
 google.golang.org/protobuf/internal/descfmt
@@ -125,7 +159,7 @@ gopkg.in/hlandau/easymetric.v1/cexp
 # gopkg.in/hlandau/measurable.v1 v1.0.1
 ## explicit
 gopkg.in/hlandau/measurable.v1
-# gopkg.in/hlandau/passlib.v1 v1.0.10
+# gopkg.in/hlandau/passlib.v1 v1.0.11
 ## explicit
 gopkg.in/hlandau/passlib.v1
 gopkg.in/hlandau/passlib.v1/abstract
@@ -139,9 +173,11 @@ gopkg.in/hlandau/passlib.v1/hash/scrypt
 gopkg.in/hlandau/passlib.v1/hash/scrypt/raw
 gopkg.in/hlandau/passlib.v1/hash/sha2crypt
 gopkg.in/hlandau/passlib.v1/hash/sha2crypt/raw
-# gopkg.in/yaml.v2 v2.2.8
+# gopkg.in/yaml.v2 v2.4.0
+## explicit; go 1.15
+# gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 ## explicit
-gopkg.in/yaml.v2
+gopkg.in/yaml.v3
 # mellium.im/sasl v0.2.1
 ## explicit
 mellium.im/sasl
