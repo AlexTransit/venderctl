@@ -221,8 +221,12 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 					o.bankQRReject()
 					return
 				case tinkoff.StatusNew:
+				case tinkoff.StatusQRRefunding:
+					return
+				case tinkoff.StatusCanceled:
+					o.bankQRError()
+					return
 				default:
-					// o.bankQRError()
 				}
 
 				refreshTimer.Reset(refreshTime)
