@@ -44,8 +44,8 @@ type Config struct {
 		TerminalKey            string
 		TerminalPass           string
 		TerminalTimeOutSec     int
-		TerminalBankCommission uint32
-		TerminalMinimalAmount  uint32
+		TerminalBankCommission int
+		TerminalMinimalAmount  int
 	}
 	Telegram struct {
 		TelegrammBotApi string `hcl:"telegram_bot_api"`
