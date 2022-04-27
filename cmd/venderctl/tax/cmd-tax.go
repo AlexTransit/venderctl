@@ -48,13 +48,15 @@ func taxMain(ctx context.Context, flags *flag.FlagSet) error {
 	if err := taxInit(ctx); err != nil {
 		return errors.Annotate(err, "taxInit")
 	}
+	if CashLessInit(ctx) {
+		go cashLessLoop(ctx)
+	}
 	return taxLoop(ctx)
 }
 
 func taxInit(ctx context.Context) error {
 	g := state.GetGlobal(ctx)
 	g.InitVMC()
-	CashLessInit(ctx)
 
 	// g.Vmc = make(map[int32]vmcStruct)
 	if err := g.InitDB(CmdName); err != nil {
@@ -84,10 +86,9 @@ func taxLoop(ctx context.Context) error {
 	g.Log.Debugf("taxStep try=%t err=%v", try, err)
 	_ = db.Close()
 	g.Alive.Done()
-	// if err != nil {
-	// 	return err
-	// }
-	go cashLessLoop(ctx)
+	if err != nil {
+		g.Log.Error("taxStep try")
+	}
 
 	for {
 		if !try {
@@ -107,7 +108,8 @@ func taxLoop(ctx context.Context) error {
 		_ = db.Close()
 		g.Alive.Done()
 		if err != nil {
-			g.Error(err)
+			g.Log.Error("taxStep try")
+			// g.Error(err)
 		}
 	}
 }
@@ -124,13 +126,13 @@ func cashLessLoop(ctx context.Context) {
 				if rm.State == vender_api.State_WaitingForExternalPayment {
 					MakeQr(ctx, p.VmId, rm)
 				}
-				if clp, ok := state.CashLessPay[p.VmId]; ok {
+				if clp, ok := CashLessPay[p.VmId]; ok {
 					if rm.Order != nil && clp.PaymentID == rm.Order.OwnerStr {
 						switch rm.Order.OrderStatus {
 						case vender_api.OrderStatus_complete:
-							writeDBOrderComplete(clp)
+							clp.writeDBOrderComplete()
 						case vender_api.OrderStatus_orderError:
-							delete(state.CashLessPay, p.VmId)
+							delete(CashLessPay, p.VmId)
 						default:
 						}
 					}
