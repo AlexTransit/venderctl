@@ -82,17 +82,8 @@ func telegramMain(ctx context.Context, flags *flag.FlagSet) error {
 	if err := telegramInit(ctx); err != nil {
 		return errors.Annotate(err, "telegramInit")
 	}
-	return tb.telegramLoop()
+	return tb.telegramLoop(ctx)
 
-}
-
-func (tb *tgbotapiot) RunCookTimer(cl int64) {
-	time.Sleep(200 * time.Second)
-	c := tb.chatId[cl]
-	if c.id == cl {
-		c.tOut = true
-		tb.chatId[cl] = c
-	}
 }
 
 func telegramInit(ctx context.Context) error {
@@ -119,11 +110,12 @@ func telegramInit(ctx context.Context) error {
 
 	cli.SdNotify(daemon.SdNotifyReady)
 	tb.g.Log.Infof("telegram init complete")
-	return tb.telegramLoop()
+	return tb.telegramLoop(ctx)
 
 }
 
-func (tb *tgbotapiot) telegramLoop() error {
+func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
+	// g := state.GetGlobal(ctx)
 	mqttch := tb.g.Tele.Chan()
 	stopch := tb.g.Alive.StopChan()
 	tb.updateConfig = tgbotapi.NewUpdate(10)
@@ -134,13 +126,15 @@ func (tb *tgbotapiot) telegramLoop() error {
 	for {
 		select {
 		case p := <-mqttch:
-			tb.g.Alive.Add(1)
-			err := tb.onMqtt(p)
-			tb.g.Alive.Done()
-			if err != nil {
-				tb.g.Log.Error(errors.ErrorStack(err))
+			// старый и новый обработчик
+			if p.Kind == tele_api.FromRobo || p.Kind == tele_api.PacketConnect {
+				// rm := g.ParseFromRobo(p)
+				// fmt.Printf("\n\033[41m mqttchmqttchmqttch %v \033[0m\n\n", rm)
 			}
-
+			tb.g.Alive.Add(1)
+			pp := tb.g.ParseMqttPacket(p)
+			tb.cookResponse(pp)
+			tb.g.Alive.Done()
 		case tgm := <-tgch:
 			if tgm.Message == nil && tgm.EditedMessage != nil {
 				tb.g.Log.Infof("telegramm message change (%v)", tgm.EditedMessage)
@@ -395,41 +389,10 @@ func (tb *tgbotapiot) sendCookCmd(chatId int64) {
 	tb.g.Tele.SendCommand(cl.rcook.vmid, cmd)
 }
 
-func (tb *tgbotapiot) onMqtt(p tele_api.Packet) error {
-	vmcid := p.VmId
-	r := tb.g.Vmc[vmcid]
-	switch p.Kind {
-	case tele_api.PacketConnect:
-		c := false
-		if p.Payload[0] == 1 {
-			c = true
-		}
-		r.Connect = c
-		tb.g.Vmc[vmcid] = r
-	case tele_api.PacketState:
-		s, err := p.State()
-		if err != nil {
-			return err
-		}
-		r.State = s
-		tb.g.Vmc[vmcid] = r
-	case tele_api.PacketCommandReply:
-		rm, _ := p.CommandResponse()
-		if rm.CookReplay > 0 {
-			if !tb.cookResponse(rm) {
-				break
-			}
-		}
-		return nil
-
-	default:
-		// fmt.Printf("\n\033[41m (cmd-telegram 426)%s \033[0m\n\n", p.Kind.String())
-		// TgSendError(fmt.Sprintf("code error invalid packet=%s", p.Kind.String()))
-		return nil
+func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) {
+	if rm == nil || rm.Executer == 0 {
+		return
 	}
-	return nil
-}
-func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) bool {
 	var msg string
 	client := rm.Executer
 	switch rm.CookReplay {
@@ -438,7 +401,7 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) bool {
 	case vender_api.CookReplay_cookStart:
 		msg = fmt.Sprintf("начинаю готовить. \nкод: %s автомат: %d", tb.chatId[client].rcook.code, tb.chatId[client].rcook.vmid)
 		tb.tgSend(int64(rm.Executer), msg)
-		return false
+		return
 	case vender_api.CookReplay_cookFinish:
 		user := tb.chatId[rm.Executer]
 		price := int(rm.ValidateReplay)
@@ -474,7 +437,6 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) bool {
 	}
 	tb.tgSend(int64(rm.Executer), msg)
 	delete(tb.chatId, rm.Executer)
-	return true
 }
 
 func (tb *tgbotapiot) rcookWriteDb(user tgUser, price int, payMethod vender_api.PaymentMethod) {
@@ -544,7 +506,7 @@ func (tb *tgbotapiot) registerNewUser(m tgbotapi.Update) error {
 	if m.Message.Text == "/start" {
 		msg = tgbotapi.NewMessage(m.Message.Chat.ID, regMess)
 		btn := tgbotapi.KeyboardButton{
-			Text:           "регистрация в системе",
+			Text:           "запрос номера телефона",
 			RequestContact: true,
 		}
 		msg.ReplyMarkup = tgbotapi.NewReplyKeyboard([]tgbotapi.KeyboardButton{btn})
@@ -563,6 +525,15 @@ func (tb *tgbotapiot) registerNewUser(m tgbotapi.Update) error {
 	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 	_, _ = tb.bot.Send(msg)
 	return nil
+}
+
+func (tb *tgbotapiot) RunCookTimer(cl int64) {
+	time.Sleep(200 * time.Second)
+	c := tb.chatId[cl]
+	if c.id == cl {
+		c.tOut = true
+		tb.chatId[cl] = c
+	}
 }
 
 func (tb *tgbotapiot) replayCommandHelp(cl int64) error {

@@ -2,7 +2,6 @@ package types
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -10,7 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/segmentio/encoding/json"
+
 	"github.com/go-pg/pg/v9/internal"
+	"github.com/go-pg/pg/v9/pgjson"
 )
 
 var valueScannerType = reflect.TypeOf((*ValueScanner)(nil)).Elem()
@@ -275,14 +277,14 @@ func scanJSONValue(v reflect.Value, rd Reader, n int) error {
 	}
 
 	// Zero value so it works with SelectOrInsert.
-	// TODO: better handle slices
+	//TODO: better handle slices
 	v.Set(reflect.New(v.Type()).Elem())
 
 	if n == -1 {
 		return nil
 	}
 
-	dec := json.NewDecoder(rd)
+	dec := pgjson.NewDecoder(rd)
 	return dec.Decode(v.Addr().Interface())
 }
 
@@ -296,7 +298,9 @@ func scanTimeValue(v reflect.Value, rd Reader, n int) error {
 		return err
 	}
 
-	v.Set(reflect.ValueOf(tm))
+	ptr := v.Addr().Interface().(*time.Time)
+	*ptr = tm
+
 	return nil
 }
 
@@ -319,7 +323,9 @@ func scanIPValue(v reflect.Value, rd Reader, n int) error {
 		return fmt.Errorf("pg: invalid ip=%q", tmp)
 	}
 
-	v.Set(reflect.ValueOf(ip))
+	ptr := v.Addr().Interface().(*net.IP)
+	*ptr = ip
+
 	return nil
 }
 
@@ -345,7 +351,9 @@ func scanIPNetValue(v reflect.Value, rd Reader, n int) error {
 		return err
 	}
 
-	v.Set(reflect.ValueOf(*ipnet))
+	ptr := v.Addr().Interface().(*net.IPNet)
+	*ptr = *ipnet
+
 	return nil
 }
 

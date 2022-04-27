@@ -74,6 +74,7 @@ func (self *tele) mqttInit(ctx context.Context, log *log2.Log) error {
 	token := self.m.Connect()
 	for !token.WaitTimeout(1 * time.Second) {
 	}
+
 	if err := token.Error(); err != nil {
 		panic(err)
 	}
@@ -84,21 +85,22 @@ func (self *tele) mqttInit(ctx context.Context, log *log2.Log) error {
 
 func (self *tele) messageHandler(c mqtt.Client, msg mqtt.Message) {
 	// self.log.Debugf("income message: (%s %x) ", msg.Topic(), msg.Payload())
-	p, err := parseTopic(msg)
-	switch err {
-	case nil:
-		if p.Kind == tele_api.PacketInvalid {
-			return
-		}
+	p, _ := parseTopic(msg)
+	// p, err := parseTopic(msg)
+	// switch err {
+	// case nil:
+	// 	if p.Kind == tele_api.PacketInvalid {
+	// 		return
+	// 	}
 
-	case errTopicIgnore:
-		return
+	// case errTopicIgnore:
+	// 	return
 
-	default:
-		// errors.Annotatef(err, "msg=%v", msg)
-		self.log.Debugf("msg=%v", msg)
-		return
-	}
+	// default:
+	// 	// errors.Annotatef(err, "msg=%v", msg)
+	// 	self.log.Debugf("msg=%v", msg)
+	// 	return
+	// }
 	select {
 	case self.pch <- p:
 		return
@@ -123,6 +125,8 @@ func parseTopic(msg mqtt.Message) (tele_api.Packet, error) {
 	switch {
 	case parts[2] == "c":
 		p.Kind = tele_api.PacketConnect
+	case parts[2] == "ro":
+		p.Kind = tele_api.FromRobo
 	case parts[2] == "r":
 		return tele_api.Packet{}, errTopicIgnore
 	case parts[2] == "cr":
@@ -158,8 +162,14 @@ func (self *tele) mqttSend(p tele_api.Packet) error {
 		return errors.Errorf("code error mqtt not implemented Send packet=%v", p)
 	}
 	topic := fmt.Sprintf("vm%d/r/c", p.VmId)
+	// self.m.Publish(topic, 1, false, p.Payload)
 	self.m.Publish(topic, 1, false, p.Payload)
 	return nil
+}
+
+func (t *tele) mqttSendToRobo(vmid int32, payload []byte) {
+	topic := fmt.Sprintf("vm%d/ri", vmid)
+	t.m.Publish(topic, 1, false, payload)
 }
 
 func init() {

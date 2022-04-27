@@ -99,8 +99,10 @@ func main() {
 			sigs := make(chan os.Signal, 1)
 			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 			go func() {
-				_ = <-sigs
+				si := <-sigs
+				fmt.Printf("income OS signal:%v", si)
 				g.CtlStop(ctx)
+				cmd_tax.CashLessStop()
 			}()
 
 			g.BuildVersion = BuildVersion
