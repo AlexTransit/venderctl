@@ -5,7 +5,7 @@
 -- Dumped from database version 11.15 (Debian 11.15-1.pgdg110+1)
 -- Dumped by pg_dump version 11.1
 
--- Started on 2022-04-07 13:30:40
+-- Started on 2022-04-27 18:41:37
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -17,76 +17,93 @@ SET check_function_bodies = false;
 SET client_min_messages = warning;
 SET row_security = off;
 
-ALTER TABLE ONLY public.trans DROP CONSTRAINT trans_tax_job_id_fkey;
-DROP TRIGGER trans_tax ON public.trans;
-DROP TRIGGER tax_job_modified ON public.tax_job;
-DROP TRIGGER tax_job_maint_before ON public.tax_job;
-DROP TRIGGER tax_job_maint_after ON public.tax_job;
-DROP INDEX public.trans_executer;
-DROP INDEX public.tgchat_idx2;
-DROP INDEX public.tgchat_idx1;
-DROP INDEX public.tgchat_idx;
-DROP INDEX public.idx_trans_vmtime;
-DROP INDEX public.idx_trans_vmid_vmtime;
-DROP INDEX public.idx_tax_job_sched;
-DROP INDEX public.idx_tax_job_help;
-DROP INDEX public.idx_state_vmid_state_received;
-DROP INDEX public.idx_inventory_vmid_service;
-DROP INDEX public.idx_inventory_vmid_not_service;
-DROP INDEX public.idx_ingest_received;
-DROP INDEX public.idx_error_vmid_vmtime_code;
-DROP INDEX public.idx_catalog_vmid_code_name;
-ALTER TABLE ONLY public.tg_user DROP CONSTRAINT tg_user_pkey;
-ALTER TABLE ONLY public.tax_job DROP CONSTRAINT tax_job_pkey;
-ALTER TABLE ONLY public.state DROP CONSTRAINT state_vmid_key;
-ALTER TABLE ONLY public.robot DROP CONSTRAINT robot_serial_num_key;
-ALTER TABLE ONLY public.robot DROP CONSTRAINT "robot-key";
-ALTER TABLE public.tax_job ALTER COLUMN id DROP DEFAULT;
-DROP SEQUENCE public.tg_user_user_id_seq;
-DROP TABLE public.tg_user;
-DROP TABLE public.tg_chat;
-DROP SEQUENCE public.tax_job_id_seq;
-DROP VIEW public.tax_job_help;
-DROP TABLE public.state;
-DROP TABLE public.robot;
-DROP TABLE public.old_state;
-DROP TABLE public.inventory;
-DROP TABLE public.ingest;
-DROP TABLE public.error;
-DROP TABLE public.catalog;
-DROP FUNCTION public.vmstate(s integer);
-DROP FUNCTION public.trans_tax_trigger();
-DROP FUNCTION public.tax_job_trans(t public.trans);
-DROP TABLE public.trans;
-DROP FUNCTION public.tax_job_take(arg_worker text);
-DROP TABLE public.tax_job;
-DROP FUNCTION public.tax_job_modified();
-DROP FUNCTION public.tax_job_maint_before();
-DROP FUNCTION public.tax_job_maint_after();
-DROP FUNCTION public.state_update(arg_vmid integer, arg_state integer);
-DROP FUNCTION public.connect_update(arg_vmid integer, arg_connect boolean);
-DROP TYPE public.tax_job_state;
-DROP EXTENSION hstore;
+ALTER TABLE IF EXISTS ONLY public.trans DROP CONSTRAINT IF EXISTS trans_tax_job_id_fkey;
+DROP TRIGGER IF EXISTS trans_tax ON public.trans;
+DROP TRIGGER IF EXISTS tax_job_modified ON public.tax_job;
+DROP TRIGGER IF EXISTS tax_job_maint_before ON public.tax_job;
+DROP TRIGGER IF EXISTS tax_job_maint_after ON public.tax_job;
+DROP INDEX IF EXISTS public.trans_executer;
+DROP INDEX IF EXISTS public.tgchat_idx2;
+DROP INDEX IF EXISTS public.tgchat_idx1;
+DROP INDEX IF EXISTS public.tgchat_idx;
+DROP INDEX IF EXISTS public.idx_trans_vmtime;
+DROP INDEX IF EXISTS public.idx_trans_vmid_vmtime;
+DROP INDEX IF EXISTS public.idx_tax_job_sched;
+DROP INDEX IF EXISTS public.idx_tax_job_help;
+DROP INDEX IF EXISTS public.idx_state_vmid_state_received;
+DROP INDEX IF EXISTS public.idx_inventory_vmid_service;
+DROP INDEX IF EXISTS public.idx_inventory_vmid_not_service;
+DROP INDEX IF EXISTS public.idx_ingest_received;
+DROP INDEX IF EXISTS public.idx_error_vmid_vmtime_code;
+DROP INDEX IF EXISTS public.idx_catalog_vmid_code_name;
+DROP INDEX IF EXISTS public.cashless_vmid_payment_id_order_id_key;
+DROP INDEX IF EXISTS public.cashless_idx;
+ALTER TABLE IF EXISTS ONLY public.tg_user DROP CONSTRAINT IF EXISTS tg_user_pkey;
+ALTER TABLE IF EXISTS ONLY public.tax_job DROP CONSTRAINT IF EXISTS tax_job_pkey;
+ALTER TABLE IF EXISTS ONLY public.state DROP CONSTRAINT IF EXISTS state_vmid_key;
+ALTER TABLE IF EXISTS ONLY public.robot DROP CONSTRAINT IF EXISTS robot_serial_num_key;
+ALTER TABLE IF EXISTS ONLY public.robot DROP CONSTRAINT IF EXISTS "robot-key";
+ALTER TABLE IF EXISTS public.tax_job ALTER COLUMN id DROP DEFAULT;
+DROP SEQUENCE IF EXISTS public.tg_user_user_id_seq;
+DROP TABLE IF EXISTS public.tg_user;
+DROP TABLE IF EXISTS public.tg_chat;
+DROP SEQUENCE IF EXISTS public.tax_job_id_seq;
+DROP VIEW IF EXISTS public.tax_job_help;
+DROP TABLE IF EXISTS public.state;
+DROP TABLE IF EXISTS public.robot;
+DROP TABLE IF EXISTS public.old_state;
+DROP TABLE IF EXISTS public.inventory;
+DROP TABLE IF EXISTS public.ingest;
+DROP TABLE IF EXISTS public.error;
+DROP TABLE IF EXISTS public.catalog;
+DROP TABLE IF EXISTS public.cashless;
+DROP FUNCTION IF EXISTS public.vmstate(s integer);
+DROP FUNCTION IF EXISTS public.trans_tax_trigger();
+DROP FUNCTION IF EXISTS public.tax_job_trans(t public.trans);
+DROP TABLE IF EXISTS public.trans;
+DROP FUNCTION IF EXISTS public.tax_job_take(arg_worker text);
+DROP TABLE IF EXISTS public.tax_job;
+DROP FUNCTION IF EXISTS public.tax_job_modified();
+DROP FUNCTION IF EXISTS public.tax_job_maint_before();
+DROP FUNCTION IF EXISTS public.tax_job_maint_after();
+DROP FUNCTION IF EXISTS public.state_update(arg_vmid integer, arg_state integer);
+DROP FUNCTION IF EXISTS public.connect_update(arg_vmid integer, arg_connect boolean);
+DROP TYPE IF EXISTS public.tax_job_state;
+DROP TYPE IF EXISTS public.cashless_state;
+DROP EXTENSION IF EXISTS hstore;
 --
 -- TOC entry 2 (class 3079 OID 24642)
--- Name: hstore; Type: EXTENSION; Schema: -; Owner: 
+-- Name: hstore; Type: EXTENSION; Schema: -; Owner: -
 --
 
 CREATE EXTENSION IF NOT EXISTS hstore WITH SCHEMA public;
 
 
 --
--- TOC entry 3077 (class 0 OID 0)
+-- TOC entry 3092 (class 0 OID 0)
 -- Dependencies: 2
--- Name: EXTENSION hstore; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION hstore; Type: COMMENT; Schema: -; Owner: -
 --
 
 COMMENT ON EXTENSION hstore IS 'data type for storing sets of (key, value) pairs';
 
 
 --
--- TOC entry 701 (class 1247 OID 26134)
--- Name: tax_job_state; Type: TYPE; Schema: public; Owner: vender_ctl
+-- TOC entry 692 (class 1247 OID 65591)
+-- Name: cashless_state; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.cashless_state AS ENUM (
+    'order_start',
+    'order_prepay',
+    'order_complete',
+    'order_cancel'
+);
+
+
+--
+-- TOC entry 707 (class 1247 OID 26134)
+-- Name: tax_job_state; Type: TYPE; Schema: public; Owner: -
 --
 
 CREATE TYPE public.tax_job_state AS ENUM (
@@ -97,11 +114,9 @@ CREATE TYPE public.tax_job_state AS ENUM (
 );
 
 
-ALTER TYPE public.tax_job_state OWNER TO vender_ctl;
-
 --
--- TOC entry 291 (class 1255 OID 55071)
--- Name: connect_update(integer, boolean); Type: FUNCTION; Schema: public; Owner: vender_ctl
+-- TOC entry 294 (class 1255 OID 55071)
+-- Name: connect_update(integer, boolean); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.connect_update(arg_vmid integer, arg_connect boolean) RETURNS integer
@@ -116,11 +131,9 @@ END;
 ';
 
 
-ALTER FUNCTION public.connect_update(arg_vmid integer, arg_connect boolean) OWNER TO vender_ctl;
-
 --
--- TOC entry 287 (class 1255 OID 25797)
--- Name: state_update(integer, integer); Type: FUNCTION; Schema: public; Owner: vender_ctl
+-- TOC entry 290 (class 1255 OID 25797)
+-- Name: state_update(integer, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.state_update(arg_vmid integer, arg_state integer) RETURNS integer
@@ -147,11 +160,9 @@ END;
 ';
 
 
-ALTER FUNCTION public.state_update(arg_vmid integer, arg_state integer) OWNER TO vender_ctl;
-
 --
--- TOC entry 288 (class 1255 OID 26171)
--- Name: tax_job_maint_after(); Type: FUNCTION; Schema: public; Owner: vender_ctl
+-- TOC entry 291 (class 1255 OID 26171)
+-- Name: tax_job_maint_after(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.tax_job_maint_after() RETURNS trigger
@@ -173,11 +184,9 @@ END;
 ';
 
 
-ALTER FUNCTION public.tax_job_maint_after() OWNER TO vender_ctl;
-
 --
--- TOC entry 289 (class 1255 OID 26173)
--- Name: tax_job_maint_before(); Type: FUNCTION; Schema: public; Owner: vender_ctl
+-- TOC entry 292 (class 1255 OID 26173)
+-- Name: tax_job_maint_before(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.tax_job_maint_before() RETURNS trigger
@@ -192,11 +201,9 @@ END;
 ';
 
 
-ALTER FUNCTION public.tax_job_maint_before() OWNER TO vender_ctl;
-
 --
--- TOC entry 290 (class 1255 OID 26175)
--- Name: tax_job_modified(); Type: FUNCTION; Schema: public; Owner: vender_ctl
+-- TOC entry 293 (class 1255 OID 26175)
+-- Name: tax_job_modified(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.tax_job_modified() RETURNS trigger
@@ -209,15 +216,13 @@ END;
 ';
 
 
-ALTER FUNCTION public.tax_job_modified() OWNER TO vender_ctl;
-
 SET default_tablespace = '';
 
 SET default_with_oids = false;
 
 --
--- TOC entry 207 (class 1259 OID 26219)
--- Name: tax_job; Type: TABLE; Schema: public; Owner: vender_dev
+-- TOC entry 209 (class 1259 OID 26219)
+-- Name: tax_job; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.tax_job (
@@ -238,11 +243,9 @@ CREATE TABLE public.tax_job (
 );
 
 
-ALTER TABLE public.tax_job OWNER TO vender_dev;
-
 --
--- TOC entry 292 (class 1255 OID 26249)
--- Name: tax_job_take(text); Type: FUNCTION; Schema: public; Owner: vender_ctl
+-- TOC entry 295 (class 1255 OID 26249)
+-- Name: tax_job_take(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.tax_job_take(arg_worker text) RETURNS SETOF public.tax_job
@@ -276,11 +279,9 @@ CREATE FUNCTION public.tax_job_take(arg_worker text) RETURNS SETOF public.tax_jo
 ';
 
 
-ALTER FUNCTION public.tax_job_take(arg_worker text) OWNER TO vender_ctl;
-
 --
--- TOC entry 208 (class 1259 OID 26232)
--- Name: trans; Type: TABLE; Schema: public; Owner: vender_dev
+-- TOC entry 210 (class 1259 OID 26232)
+-- Name: trans; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.trans (
@@ -293,15 +294,14 @@ CREATE TABLE public.trans (
     method integer NOT NULL,
     tax_job_id bigint,
     executer bigint,
-    exeputer_type integer
+    exeputer_type integer,
+    executer_str text
 );
 
 
-ALTER TABLE public.trans OWNER TO vender_dev;
-
 --
--- TOC entry 293 (class 1255 OID 26250)
--- Name: tax_job_trans(public.trans); Type: FUNCTION; Schema: public; Owner: vender_ctl
+-- TOC entry 296 (class 1255 OID 26250)
+-- Name: tax_job_trans(public.trans); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.tax_job_trans(t public.trans) RETURNS public.tax_job
@@ -359,11 +359,9 @@ END;
 ';
 
 
-ALTER FUNCTION public.tax_job_trans(t public.trans) OWNER TO vender_ctl;
-
 --
--- TOC entry 286 (class 1255 OID 26177)
--- Name: trans_tax_trigger(); Type: FUNCTION; Schema: public; Owner: vender_ctl
+-- TOC entry 289 (class 1255 OID 26177)
+-- Name: trans_tax_trigger(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.trans_tax_trigger() RETURNS trigger
@@ -379,11 +377,9 @@ END;
 ';
 
 
-ALTER FUNCTION public.trans_tax_trigger() OWNER TO vender_ctl;
-
 --
--- TOC entry 294 (class 1255 OID 26492)
--- Name: vmstate(integer); Type: FUNCTION; Schema: public; Owner: vender_ctl
+-- TOC entry 297 (class 1255 OID 26492)
+-- Name: vmstate(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.vmstate(s integer) RETURNS text
@@ -418,11 +414,32 @@ CREATE FUNCTION public.vmstate(s integer) RETURNS text
 ';
 
 
-ALTER FUNCTION public.vmstate(s integer) OWNER TO vender_ctl;
+--
+-- TOC entry 219 (class 1259 OID 65639)
+-- Name: cashless; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cashless (
+    state public.cashless_state DEFAULT 'order_start'::public.cashless_state NOT NULL,
+    vmid integer NOT NULL,
+    create_date timestamp with time zone NOT NULL,
+    credit_date timestamp with time zone,
+    finish_date timestamp with time zone,
+    payment_id character varying(20) NOT NULL,
+    order_id character varying NOT NULL,
+    amount integer NOT NULL,
+    credited integer DEFAULT 0 NOT NULL,
+    bank_commission integer DEFAULT 0 NOT NULL,
+    terminal text
+);
+ALTER TABLE ONLY public.cashless ALTER COLUMN credit_date SET STATISTICS 0;
+ALTER TABLE ONLY public.cashless ALTER COLUMN payment_id SET STATISTICS 0;
+ALTER TABLE ONLY public.cashless ALTER COLUMN credited SET STATISTICS 0;
+
 
 --
--- TOC entry 210 (class 1259 OID 26503)
--- Name: catalog; Type: TABLE; Schema: public; Owner: vender_dev
+-- TOC entry 212 (class 1259 OID 26503)
+-- Name: catalog; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.catalog (
@@ -432,11 +449,9 @@ CREATE TABLE public.catalog (
 );
 
 
-ALTER TABLE public.catalog OWNER TO vender_dev;
-
 --
--- TOC entry 204 (class 1259 OID 25437)
--- Name: error; Type: TABLE; Schema: public; Owner: vender_dev
+-- TOC entry 206 (class 1259 OID 25437)
+-- Name: error; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.error (
@@ -450,11 +465,9 @@ CREATE TABLE public.error (
 );
 
 
-ALTER TABLE public.error OWNER TO vender_dev;
-
 --
--- TOC entry 203 (class 1259 OID 25417)
--- Name: ingest; Type: TABLE; Schema: public; Owner: vender_dev
+-- TOC entry 205 (class 1259 OID 25417)
+-- Name: ingest; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.ingest (
@@ -465,11 +478,9 @@ CREATE TABLE public.ingest (
 );
 
 
-ALTER TABLE public.ingest OWNER TO vender_dev;
-
 --
--- TOC entry 205 (class 1259 OID 25482)
--- Name: inventory; Type: TABLE; Schema: public; Owner: vender_dev
+-- TOC entry 207 (class 1259 OID 25482)
+-- Name: inventory; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.inventory (
@@ -485,11 +496,9 @@ CREATE TABLE public.inventory (
 );
 
 
-ALTER TABLE public.inventory OWNER TO vender_dev;
-
 --
--- TOC entry 212 (class 1259 OID 55050)
--- Name: old_state; Type: TABLE; Schema: public; Owner: alexm
+-- TOC entry 214 (class 1259 OID 55050)
+-- Name: old_state; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.old_state (
@@ -497,11 +506,9 @@ CREATE TABLE public.old_state (
 );
 
 
-ALTER TABLE public.old_state OWNER TO alexm;
-
 --
--- TOC entry 211 (class 1259 OID 26578)
--- Name: robot; Type: TABLE; Schema: public; Owner: alexm
+-- TOC entry 213 (class 1259 OID 26578)
+-- Name: robot; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.robot (
@@ -518,20 +525,18 @@ CREATE TABLE public.robot (
 );
 
 
-ALTER TABLE public.robot OWNER TO alexm;
-
 --
--- TOC entry 3079 (class 0 OID 0)
--- Dependencies: 211
--- Name: COLUMN robot.in_robo; Type: COMMENT; Schema: public; Owner: alexm
+-- TOC entry 3093 (class 0 OID 0)
+-- Dependencies: 213
+-- Name: COLUMN robot.in_robo; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.robot.in_robo IS 'inventoiry inside robo';
 
 
 --
--- TOC entry 213 (class 1259 OID 55059)
--- Name: state; Type: TABLE; Schema: public; Owner: vender_dev
+-- TOC entry 215 (class 1259 OID 55059)
+-- Name: state; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.state (
@@ -543,11 +548,9 @@ CREATE TABLE public.state (
 );
 
 
-ALTER TABLE public.state OWNER TO vender_dev;
-
 --
--- TOC entry 209 (class 1259 OID 26245)
--- Name: tax_job_help; Type: VIEW; Schema: public; Owner: vender_dev
+-- TOC entry 211 (class 1259 OID 26245)
+-- Name: tax_job_help; Type: VIEW; Schema: public; Owner: -
 --
 
 CREATE VIEW public.tax_job_help AS
@@ -567,11 +570,9 @@ CREATE VIEW public.tax_job_help AS
   ORDER BY tax_job.modified;
 
 
-ALTER TABLE public.tax_job_help OWNER TO vender_dev;
-
 --
--- TOC entry 206 (class 1259 OID 26217)
--- Name: tax_job_id_seq; Type: SEQUENCE; Schema: public; Owner: vender_dev
+-- TOC entry 208 (class 1259 OID 26217)
+-- Name: tax_job_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.tax_job_id_seq
@@ -582,20 +583,18 @@ CREATE SEQUENCE public.tax_job_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.tax_job_id_seq OWNER TO vender_dev;
-
 --
--- TOC entry 3081 (class 0 OID 0)
--- Dependencies: 206
--- Name: tax_job_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: vender_dev
+-- TOC entry 3094 (class 0 OID 0)
+-- Dependencies: 208
+-- Name: tax_job_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.tax_job_id_seq OWNED BY public.tax_job.id;
 
 
 --
--- TOC entry 216 (class 1259 OID 65014)
--- Name: tg_chat; Type: TABLE; Schema: public; Owner: vender_dev
+-- TOC entry 218 (class 1259 OID 65014)
+-- Name: tg_chat; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.tg_chat (
@@ -614,11 +613,9 @@ ALTER TABLE ONLY public.tg_chat ALTER COLUMN toid SET STATISTICS 0;
 ALTER TABLE ONLY public.tg_chat ALTER COLUMN text SET STATISTICS 0;
 
 
-ALTER TABLE public.tg_chat OWNER TO vender_dev;
-
 --
--- TOC entry 215 (class 1259 OID 64971)
--- Name: tg_user; Type: TABLE; Schema: public; Owner: vender_dev
+-- TOC entry 217 (class 1259 OID 64971)
+-- Name: tg_user; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.tg_user (
@@ -637,11 +634,9 @@ ALTER TABLE ONLY public.tg_user ALTER COLUMN name SET STATISTICS 0;
 ALTER TABLE ONLY public.tg_user ALTER COLUMN phonenumber SET STATISTICS 0;
 
 
-ALTER TABLE public.tg_user OWNER TO vender_dev;
-
 --
--- TOC entry 214 (class 1259 OID 64969)
--- Name: tg_user_user_id_seq; Type: SEQUENCE; Schema: public; Owner: vender_dev
+-- TOC entry 216 (class 1259 OID 64969)
+-- Name: tg_user_user_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.tg_user_user_id_seq
@@ -652,28 +647,26 @@ CREATE SEQUENCE public.tg_user_user_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.tg_user_user_id_seq OWNER TO vender_dev;
-
 --
--- TOC entry 3082 (class 0 OID 0)
--- Dependencies: 214
--- Name: tg_user_user_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: vender_dev
+-- TOC entry 3095 (class 0 OID 0)
+-- Dependencies: 216
+-- Name: tg_user_user_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.tg_user_user_id_seq OWNED BY public.tg_user.userid;
 
 
 --
--- TOC entry 2912 (class 2604 OID 26222)
--- Name: tax_job id; Type: DEFAULT; Schema: public; Owner: vender_dev
+-- TOC entry 2922 (class 2604 OID 26222)
+-- Name: tax_job id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tax_job ALTER COLUMN id SET DEFAULT nextval('public.tax_job_id_seq'::regclass);
 
 
 --
--- TOC entry 2934 (class 2606 OID 26586)
--- Name: robot robot-key; Type: CONSTRAINT; Schema: public; Owner: alexm
+-- TOC entry 2947 (class 2606 OID 26586)
+-- Name: robot robot-key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.robot
@@ -681,8 +674,8 @@ ALTER TABLE ONLY public.robot
 
 
 --
--- TOC entry 2936 (class 2606 OID 26588)
--- Name: robot robot_serial_num_key; Type: CONSTRAINT; Schema: public; Owner: alexm
+-- TOC entry 2949 (class 2606 OID 26588)
+-- Name: robot robot_serial_num_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.robot
@@ -690,8 +683,8 @@ ALTER TABLE ONLY public.robot
 
 
 --
--- TOC entry 2939 (class 2606 OID 55075)
--- Name: state state_vmid_key; Type: CONSTRAINT; Schema: public; Owner: vender_dev
+-- TOC entry 2952 (class 2606 OID 55075)
+-- Name: state state_vmid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.state
@@ -699,8 +692,8 @@ ALTER TABLE ONLY public.state
 
 
 --
--- TOC entry 2928 (class 2606 OID 26229)
--- Name: tax_job tax_job_pkey; Type: CONSTRAINT; Schema: public; Owner: vender_dev
+-- TOC entry 2941 (class 2606 OID 26229)
+-- Name: tax_job tax_job_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tax_job
@@ -708,8 +701,8 @@ ALTER TABLE ONLY public.tax_job
 
 
 --
--- TOC entry 2941 (class 2606 OID 64984)
--- Name: tg_user tg_user_pkey; Type: CONSTRAINT; Schema: public; Owner: vender_dev
+-- TOC entry 2954 (class 2606 OID 64984)
+-- Name: tg_user tg_user_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tg_user
@@ -717,180 +710,175 @@ ALTER TABLE ONLY public.tg_user
 
 
 --
--- TOC entry 2932 (class 1259 OID 26509)
--- Name: idx_catalog_vmid_code_name; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2958 (class 1259 OID 65648)
+-- Name: cashless_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX cashless_idx ON public.cashless USING btree (payment_id, order_id);
+
+
+--
+-- TOC entry 2959 (class 1259 OID 65649)
+-- Name: cashless_vmid_payment_id_order_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX cashless_vmid_payment_id_order_id_key ON public.cashless USING btree (vmid, payment_id, order_id);
+
+
+--
+-- TOC entry 2945 (class 1259 OID 26509)
+-- Name: idx_catalog_vmid_code_name; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_catalog_vmid_code_name ON public.catalog USING btree (vmid, code, name);
 
 
 --
--- TOC entry 2922 (class 1259 OID 26132)
--- Name: idx_error_vmid_vmtime_code; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2935 (class 1259 OID 26132)
+-- Name: idx_error_vmid_vmtime_code; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_error_vmid_vmtime_code ON public.error USING btree (vmid, vmtime DESC) INCLUDE (code);
 
 
 --
--- TOC entry 2921 (class 1259 OID 26128)
--- Name: idx_ingest_received; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2934 (class 1259 OID 26128)
+-- Name: idx_ingest_received; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_ingest_received ON public.ingest USING btree (received) WHERE (NOT done);
 
 
 --
--- TOC entry 2923 (class 1259 OID 26131)
--- Name: idx_inventory_vmid_not_service; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2936 (class 1259 OID 26131)
+-- Name: idx_inventory_vmid_not_service; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_inventory_vmid_not_service ON public.inventory USING btree (vmid) WITH (fillfactor='10') WHERE (NOT at_service);
 
 
 --
--- TOC entry 2924 (class 1259 OID 26130)
--- Name: idx_inventory_vmid_service; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2937 (class 1259 OID 26130)
+-- Name: idx_inventory_vmid_service; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_inventory_vmid_service ON public.inventory USING btree (vmid) WITH (fillfactor='10') WHERE at_service;
 
 
 --
--- TOC entry 2937 (class 1259 OID 55062)
--- Name: idx_state_vmid_state_received; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2950 (class 1259 OID 55062)
+-- Name: idx_state_vmid_state_received; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_state_vmid_state_received ON public.state USING btree (vmid, state, received) WITH (fillfactor='10');
 
 
 --
--- TOC entry 2925 (class 1259 OID 26231)
--- Name: idx_tax_job_help; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2938 (class 1259 OID 26231)
+-- Name: idx_tax_job_help; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_tax_job_help ON public.tax_job USING btree (modified) WHERE (state = 'help'::public.tax_job_state);
 
 
 --
--- TOC entry 2926 (class 1259 OID 26230)
--- Name: idx_tax_job_sched; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2939 (class 1259 OID 26230)
+-- Name: idx_tax_job_sched; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_tax_job_sched ON public.tax_job USING btree (scheduled, modified) WHERE (state = 'sched'::public.tax_job_state);
 
 
 --
--- TOC entry 2929 (class 1259 OID 26244)
--- Name: idx_trans_vmid_vmtime; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2942 (class 1259 OID 26244)
+-- Name: idx_trans_vmid_vmtime; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_trans_vmid_vmtime ON public.trans USING btree (vmid, vmtime);
 
 
 --
--- TOC entry 2930 (class 1259 OID 26243)
--- Name: idx_trans_vmtime; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2943 (class 1259 OID 26243)
+-- Name: idx_trans_vmtime; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_trans_vmtime ON public.trans USING btree (vmtime);
 
 
 --
--- TOC entry 2942 (class 1259 OID 65021)
--- Name: tgchat_idx; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2955 (class 1259 OID 65021)
+-- Name: tgchat_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX tgchat_idx ON public.tg_chat USING btree (messageid, fromid, toid, date);
 
 
 --
--- TOC entry 2943 (class 1259 OID 65022)
--- Name: tgchat_idx1; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2956 (class 1259 OID 65022)
+-- Name: tgchat_idx1; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX tgchat_idx1 ON public.tg_chat USING btree (fromid);
 
 
 --
--- TOC entry 2944 (class 1259 OID 65023)
--- Name: tgchat_idx2; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2957 (class 1259 OID 65023)
+-- Name: tgchat_idx2; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX tgchat_idx2 ON public.tg_chat USING btree (toid);
 
 
 --
--- TOC entry 2931 (class 1259 OID 64901)
--- Name: trans_executer; Type: INDEX; Schema: public; Owner: vender_dev
+-- TOC entry 2944 (class 1259 OID 64901)
+-- Name: trans_executer; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX trans_executer ON public.trans USING btree (executer);
 
 
 --
--- TOC entry 2946 (class 2620 OID 26251)
--- Name: tax_job tax_job_maint_after; Type: TRIGGER; Schema: public; Owner: vender_dev
+-- TOC entry 2961 (class 2620 OID 26251)
+-- Name: tax_job tax_job_maint_after; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER tax_job_maint_after AFTER INSERT OR UPDATE ON public.tax_job FOR EACH ROW EXECUTE PROCEDURE public.tax_job_maint_after();
 
 
 --
--- TOC entry 2947 (class 2620 OID 26252)
--- Name: tax_job tax_job_maint_before; Type: TRIGGER; Schema: public; Owner: vender_dev
+-- TOC entry 2962 (class 2620 OID 26252)
+-- Name: tax_job tax_job_maint_before; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER tax_job_maint_before BEFORE INSERT OR UPDATE ON public.tax_job FOR EACH ROW EXECUTE PROCEDURE public.tax_job_maint_before();
 
 
 --
--- TOC entry 2948 (class 2620 OID 26253)
--- Name: tax_job tax_job_modified; Type: TRIGGER; Schema: public; Owner: vender_dev
+-- TOC entry 2963 (class 2620 OID 26253)
+-- Name: tax_job tax_job_modified; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER tax_job_modified BEFORE UPDATE ON public.tax_job FOR EACH ROW WHEN (((new.ext_id IS DISTINCT FROM old.ext_id) OR (new.data IS DISTINCT FROM old.data) OR (new.notes IS DISTINCT FROM old.notes))) EXECUTE PROCEDURE public.tax_job_modified();
 
 
 --
--- TOC entry 2949 (class 2620 OID 26254)
--- Name: trans trans_tax; Type: TRIGGER; Schema: public; Owner: vender_dev
+-- TOC entry 2964 (class 2620 OID 26254)
+-- Name: trans trans_tax; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trans_tax AFTER INSERT ON public.trans FOR EACH ROW EXECUTE PROCEDURE public.trans_tax_trigger();
 
 
 --
--- TOC entry 2945 (class 2606 OID 26238)
--- Name: trans trans_tax_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: vender_dev
+-- TOC entry 2960 (class 2606 OID 26238)
+-- Name: trans trans_tax_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.trans
     ADD CONSTRAINT trans_tax_job_id_fkey FOREIGN KEY (tax_job_id) REFERENCES public.tax_job(id) ON UPDATE RESTRICT ON DELETE SET NULL;
 
 
---
--- TOC entry 3078 (class 0 OID 0)
--- Dependencies: 207
--- Name: TABLE tax_job; Type: ACL; Schema: public; Owner: vender_dev
---
-
-REVOKE ALL ON TABLE public.tax_job FROM vender_dev;
-GRANT ALL ON TABLE public.tax_job TO vender_dev WITH GRANT OPTION;
-GRANT ALL ON TABLE public.tax_job TO vender_ctl WITH GRANT OPTION;
-
-
---
--- TOC entry 3080 (class 0 OID 0)
--- Dependencies: 211
--- Name: TABLE robot; Type: ACL; Schema: public; Owner: alexm
---
-
-GRANT ALL ON TABLE public.robot TO vender_ctl WITH GRANT OPTION;
-GRANT ALL ON TABLE public.robot TO vender_dev WITH GRANT OPTION;
-
-
--- Completed on 2022-04-07 13:30:41
+-- Completed on 2022-04-27 18:41:38
 
 --
 -- PostgreSQL database dump complete

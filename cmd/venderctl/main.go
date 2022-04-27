@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"time"
 
 	"os"
 	"os/signal"
@@ -101,8 +102,9 @@ func main() {
 			go func() {
 				si := <-sigs
 				fmt.Printf("income OS signal:%v", si)
-				g.CtlStop(ctx)
 				cmd_tax.CashLessStop()
+				time.Sleep(5 * time.Second)
+				g.CtlStop(ctx)
 			}()
 
 			g.BuildVersion = BuildVersion
