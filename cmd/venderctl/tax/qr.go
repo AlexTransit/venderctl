@@ -41,6 +41,7 @@ type CashLessOrderStruct struct {
 
 var terminalClient *tinkoff.Client
 var terminalKey string
+var terminalBankCommission, terminalMinimalAmount uint32
 
 func CashLessInit(ctx context.Context) bool {
 	CashLess.g = state.GetGlobal(ctx)
@@ -50,20 +51,25 @@ func CashLessInit(ctx context.Context) bool {
 		CashLess.g.Config.CashLess.TerminalTimeOutSec = 30
 	}
 	if CashLess.g.Config.CashLess.TerminalBankCommission == 0 {
-		CashLess.g.Config.CashLess.TerminalBankCommission = 45
+		terminalBankCommission = 45
+	} else {
+		terminalBankCommission = uint32(CashLess.g.Config.CashLess.TerminalBankCommission)
 	}
 	if CashLess.g.Config.CashLess.TerminalMinimalAmount == 0 {
-		CashLess.g.Config.CashLess.TerminalMinimalAmount = 1000
+		terminalMinimalAmount = 1000
+	} else {
+		terminalMinimalAmount = uint32(CashLess.g.Config.CashLess.TerminalMinimalAmount)
 	}
 
 	if terminalKey = CashLess.g.Config.CashLess.TerminalKey; terminalKey == "" {
-		CashLess.g.Log.Info("tekminal key not foud. cashless system not start")
+		CashLess.g.Log.Info("\033[41mtekminal key not foud. cashless system not start\033[0m")
 		return false
 	}
 	if tp := CashLess.g.Config.CashLess.TerminalPass; tp == "" {
-		CashLess.g.Log.Info("tekminal password not foud. cashless system not start")
+		CashLess.g.Log.Info("\033[41mtekminal password not foud. cashless system not start\033[0m")
 		return false
 	}
+	fmt.Printf("\n\033[41m  \033[0m\n\n")
 	// terminalClient = &tinkoff.Client{}
 	terminalClient = tinkoff.NewClient(terminalKey, CashLess.g.Config.CashLess.TerminalPass)
 	return true
@@ -95,12 +101,12 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 		// _ = CashLess.g.DB.Close()
 		CashLess.g.Alive.Done()
 	}()
-	if rm.Order.Amount < CashLess.g.Config.CashLess.TerminalMinimalAmount { // minimal bank amount
+	if rm.Order.Amount < terminalMinimalAmount { // minimal bank amount
 		CashLess.g.Log.Errorf("bank pay imposible. the amount is less than the minimum\n%#v", rm.Order.Amount)
 		qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
 		return
 	}
-	persentAmount := (rm.Order.Amount * CashLess.g.Config.CashLess.TerminalBankCommission) / 10000
+	persentAmount := (rm.Order.Amount * terminalBankCommission) / 10000
 	od := time.Now()
 	qro.Vmid = vmid
 	qro.OrderID = fmt.Sprintf("%d-%s-%s", vmid, od.Format("060102150405"), rm.Order.MenuCode)
