@@ -12,8 +12,9 @@ import (
 )
 
 var CashLess struct {
-	g    *state.Global
-	Stop chan int32
+	alive bool
+	g     *state.Global
+	Stop  chan int32
 }
 
 var CashLessPay map[int32]*CashLessOrderStruct
@@ -72,10 +73,14 @@ func CashLessInit(ctx context.Context) bool {
 	fmt.Printf("\n\033[41m  \033[0m\n\n")
 	// terminalClient = &tinkoff.Client{}
 	terminalClient = tinkoff.NewClient(terminalKey, CashLess.g.Config.CashLess.TerminalPass)
+	CashLess.alive = true
 	return true
 }
 
 func CashLessStop() {
+	if !CashLess.alive {
+		return
+	}
 	CashLess.g.Log.Debug("stop cashless system")
 	CashLess.Stop <- 0 // send stop to all open transactions
 }
