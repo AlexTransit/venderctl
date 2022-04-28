@@ -14,8 +14,6 @@ import (
 
 func (g *Global) InitVMC() {
 	g.Vmc = make(map[int32]vmcStruct)
-	// g.Vmc[1] = true
-
 }
 
 func GetGlobal(ctx context.Context) *Global {
@@ -85,4 +83,13 @@ func ByteToInt8(b []byte) int8 {
 		return int8(b[0])
 	}
 	return 0
+}
+
+func ByteToBool(b []byte) bool {
+	if len(b) != 0 {
+		if b[0] > 0 {
+			return true
+		}
+	}
+	return false
 }
