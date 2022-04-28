@@ -127,8 +127,8 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 		select {
 		case p := <-mqttch:
 			// старый и новый обработчик
-			if p.Kind == tele_api.FromRobo || p.Kind == tele_api.PacketConnect {
-				// rm := g.ParseFromRobo(p)
+			if p.Kind == tele_api.FromRobo {
+				_ = tb.g.ParseFromRobo(p)
 				// fmt.Printf("\n\033[41m mqttchmqttchmqttch %v \033[0m\n\n", rm)
 			}
 			tb.g.Alive.Add(1)
