@@ -13,11 +13,7 @@ func (g *Global) ParseMqttPacket(p tele_api.Packet) *tele.Response {
 
 	switch p.Kind {
 	case tele_api.PacketConnect:
-		c := false
-		if p.Payload[0] == 1 {
-			c = true
-		}
-		r.Connect = c
+		r.Connect = ByteToBool(p.Payload)
 		g.Vmc[vmcid] = r
 	case tele_api.PacketState:
 		s, err := p.State()
@@ -55,16 +51,13 @@ func (g *Global) ParseFromRobo(p tele_api.Packet) *tele.FromRoboMessage {
 	switch p.Kind {
 	case tele_api.PacketConnect:
 		r := g.Vmc[p.VmId]
-		if p.Payload[0] == 0 {
-			r.Connect = false
-		} else {
-			r.Connect = true
-		}
+		r.Connect = ByteToBool(p.Payload)
 		g.Vmc[p.VmId] = r
 		return nil
 	case tele_api.FromRobo:
 		rm := p.MessageFromRobotseUnmarshal()
 		return rm
+	default:
+		return nil
 	}
-	return nil
 }
