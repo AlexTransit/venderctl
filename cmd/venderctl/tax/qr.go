@@ -70,8 +70,6 @@ func CashLessInit(ctx context.Context) bool {
 		CashLess.g.Log.Info("\033[41mtekminal password not foud. cashless system not start\033[0m")
 		return false
 	}
-	fmt.Printf("\n\033[41m  \033[0m\n\n")
-	// terminalClient = &tinkoff.Client{}
 	terminalClient = tinkoff.NewClient(terminalKey, CashLess.g.Config.CashLess.TerminalPass)
 	CashLess.alive = true
 	return true
