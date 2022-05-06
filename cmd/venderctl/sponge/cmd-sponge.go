@@ -192,7 +192,7 @@ func onState(ctx context.Context, dbConn *pg.Conn, vmid int32, s vender_api.Stat
 			}
 		}()
 	}
-	
+
 	return err
 }
 
