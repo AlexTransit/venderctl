@@ -57,6 +57,16 @@ func (g *Global) InitDB(cmdName string) error {
 	return errors.Annotate(err, "db ping")
 }
 
+func (g *Global) VMCErrorWriteDB(vmid int32, vmtime int64, errCode uint32, message string){
+	dbConn := g.DB.Conn().WithParam("vmid", vmid).WithParam("vmtime", vmtime)
+	defer dbConn.Close()
+	const q = `insert into error (vmid,vmtime,received,code,message) values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1)`
+	_, err := dbConn.Exec(q, errCode, message)
+	if err != nil {
+		g.Log.Errorf("error db query=%s \nerror=%v", q, err)
+	}
+}
+
 func (g *Global) Error(err error, args ...interface{}) {
 	if err != nil {
 		if len(args) != 0 {

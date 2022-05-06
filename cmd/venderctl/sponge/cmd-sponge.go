@@ -155,8 +155,14 @@ func onPacket(ctx context.Context, p tele_api.Packet) error {
 	}
 }
 
+var currentState vender_api.State
+
 func onState(ctx context.Context, dbConn *pg.Conn, vmid int32, s vender_api.State) error {
 	g := state.GetGlobal(ctx)
+	if currentState == s {
+		return nil
+	}
+	currentState = s
 	g.Log.Infof("vm=%d state=%s", vmid, s.String())
 
 	dbConn = dbConn.WithParam("vmid", vmid).WithParam("state", s)
@@ -186,7 +192,7 @@ func onState(ctx context.Context, dbConn *pg.Conn, vmid int32, s vender_api.Stat
 			}
 		}()
 	}
-
+	
 	return err
 }
 
@@ -281,40 +287,46 @@ func packetFromRobo(ctx context.Context, p tele_api.Packet) {
 		return
 	}
 	rTime := time.Now().Unix()
-	// rTime := time.Now()
 	if rm.RoboTime != 0 {
 		rTime = rm.RoboTime
 	}
 	if rm.State != 0 {
 		s := rm.State
-		onStateN(ctx, dbConn, p.VmId, s)
+		// onStateN(ctx, dbConn, p.VmId, s)
+		_ = onState(ctx, dbConn, p.VmId, s)
 	}
 
 	dbConn = dbConn.WithParam("vmid", p.VmId).WithParam("vmtime", rTime)
-	if rm.Order == nil {
-		return
-	}
-	if rm.Order.OrderStatus == vender_api.OrderStatus_complete {
-		o := rm.Order
-		const q = `insert into trans (vmid,vmtime,received,menu_code,options,price,method,executer,executer_str) 
+	if rm.Order != nil {
+		if rm.Order.OrderStatus == vender_api.OrderStatus_complete {
+			o := rm.Order
+			const q = `insert into trans (vmid,vmtime,received,menu_code,options,price,method,executer,executer_str) 
 		values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1,?2,?3,?4,?5)
 		on conflict (vmid,vmtime) do nothing`
 
-		_, err := dbConn.Exec(q, o.MenuCode, pg.Array([]int8{state.ByteToInt8(o.Cream), state.ByteToInt8(o.Sugar)}), o.Amount, o.PaymentMethod, o.OwnerInt, o.OwnerStr)
-		if err != nil {
-			g.Log.Errorf("error db query=%s \nerror=%v", q, err)
+			_, err := dbConn.Exec(q, o.MenuCode, pg.Array([]int8{state.ByteToInt8(o.Cream), state.ByteToInt8(o.Sugar)}), o.Amount, o.PaymentMethod, o.OwnerInt, o.OwnerStr)
+			if err != nil {
+				g.Log.Errorf("error db query=%s \nerror=%v", q, err)
+			}
 		}
+	}
+	if rm.State == vender_api.State_TemperatureProblem {
+		errM := fmt.Sprintf("temperature not valid (%d)", rm.RoboHardware.Temperature)
+		g.VMCErrorWriteDB(p.VmId, rTime, 0, errM)
+	}
+	if rm.Err != nil {
+		g.VMCErrorWriteDB(p.VmId, rTime, rm.Err.Code, rm.Err.Message)
 	}
 }
 
-func onStateN(ctx context.Context, dbConn *pg.Conn, vmid int32, s vender_api.State) {
-	g := state.GetGlobal(ctx)
-	g.Log.Infof("vm=%d state=%s", vmid, s.String())
+// func onStateN(ctx context.Context, dbConn *pg.Conn, vmid int32, s vender_api.State) {
+// 	g := state.GetGlobal(ctx)
+// 	g.Log.Infof("vm=%d state=%s", vmid, s.String())
 
-	dbConn = dbConn.WithParam("vmid", vmid).WithParam("state", s)
-	var oldState vender_api.State
-	_, _ = dbConn.Query(pg.Scan(&oldState), `select state_update(?vmid, ?state)`)
-}
+// 	dbConn = dbConn.WithParam("vmid", vmid).WithParam("state", s)
+// 	var oldState vender_api.State
+// 	_, _ = dbConn.Query(pg.Scan(&oldState), `select state_update(?vmid, ?state)`)
+// }
 
 func onConnect(ctx context.Context, dbConn *pg.Conn, vmid int32) error {
 	g := state.GetGlobal(ctx)
