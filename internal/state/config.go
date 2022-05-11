@@ -41,11 +41,12 @@ type Config struct {
 		}
 	}
 	CashLess struct {
-		TerminalKey            string
-		TerminalPass           string
-		TerminalTimeOutSec     int
-		TerminalBankCommission int
-		TerminalMinimalAmount  int
+		TerminalKey             string
+		TerminalPass            string
+		TerminalTimeOutSec      int
+		TerminalQRPayRefreshSec int
+		TerminalBankCommission  int
+		TerminalMinimalAmount   int
 	}
 	Telegram struct {
 		TelegrammBotApi string `hcl:"telegram_bot_api"`

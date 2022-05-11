@@ -29,7 +29,9 @@ func GetGlobal(ctx context.Context) *Global {
 
 func (g *Global) CtlStop(ctx context.Context) {
 	g.Tele.Close()
-	g.Log.Infof("venderctl stop")
+	g.Alive.Stop()
+	g.Alive.Wait()
+	g.Log.Infof("venderctl stoped")
 	os.Exit(0)
 }
 
