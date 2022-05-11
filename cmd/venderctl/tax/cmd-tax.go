@@ -133,7 +133,6 @@ func cashLessLoop(ctx context.Context) {
 						errm := fmt.Sprintf("incorrect state, if cashless payment is not closed: cashless pay(%v) robot message(%v)", clp, rm)
 						g.VMCErrorWriteDB(p.VmId, time.Now().Unix(), 0, errm)
 						clp.cancelOrder()
-						return
 					}
 					if rm.Order != nil {
 						switch rm.Order.OrderStatus {
