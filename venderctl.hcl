@@ -37,6 +37,7 @@ cashless {
   terminalTimeOutSec = 300 // waiting for payment
   terminalBankCommission = 40 // fixed point. 40 = 0.4%
   terminalMinimalAmount = 1000 // minimal amount. fixed point 
+  terminalQRPayRefreshSec = 3 // payment verification 
 }
 
 tele {
