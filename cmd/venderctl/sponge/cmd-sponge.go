@@ -81,23 +81,19 @@ func spongeLoop(ctx context.Context) error {
 	g := state.GetGlobal(ctx)
 	ch := g.Tele.Chan()
 	stopch := g.Alive.StopChan()
-
-	// ll := g.DB.Listen("trans")
-	// defer ll.Close()
+	g.Alive.Add(1)
+	defer g.Alive.Done()
 
 	for {
 		select {
 		case p := <-ch:
-			// g.Log.Debugf("sponge packet=%s", p.String())
-			g.Alive.Add(1)
 			var err error
-			// старый и новый обработчик
+			// новый и старый обработчик
 			if p.Kind == tele_api.FromRobo || p.Kind == tele_api.PacketConnect {
 				packetFromRobo(ctx, p)
 			} else {
 				err = onPacket(ctx, p)
 			}
-			defer g.Alive.Done()
 			if err != nil {
 				g.Log.Error(errors.ErrorStack(err))
 			}
