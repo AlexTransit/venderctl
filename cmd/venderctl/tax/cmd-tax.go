@@ -74,7 +74,6 @@ func taxLoop(ctx context.Context) error {
 	stopch := g.Alive.StopChan()
 	hostname, _ := os.Hostname()
 	worker := fmt.Sprintf("%s:%d:%d", hostname, os.Getpid(), rand.Int31())
-	// mqttch := tb.g.Tele.Chan()
 
 	llSched := g.DB.Listen("tax_job_sched")
 	defer llSched.Close()
@@ -116,6 +115,9 @@ func taxLoop(ctx context.Context) error {
 
 func cashLessLoop(ctx context.Context) {
 	g := state.GetGlobal(ctx)
+	g.Alive.Add(1)
+	defer g.Alive.Done()
+
 	stopch := g.Alive.StopChan()
 	mqttch := g.Tele.Chan()
 	for {
@@ -127,18 +129,26 @@ func cashLessLoop(ctx context.Context) {
 					MakeQr(ctx, p.VmId, rm)
 				}
 				if clp, ok := CashLessPay[p.VmId]; ok {
-					if rm.Order != nil && clp.PaymentID == rm.Order.OwnerStr {
+					if rm.State == vender_api.State_Nominal {
+						errm := fmt.Sprintf("incorrect state, if cashless payment is not closed: cashless pay(%v) robot message(%v)", clp, rm)
+						g.VMCErrorWriteDB(p.VmId, time.Now().Unix(), 0, errm)
+						clp.cancelOrder()
+					}
+					if rm.Order != nil {
 						switch rm.Order.OrderStatus {
 						case vender_api.OrderStatus_complete:
 							clp.writeDBOrderComplete()
 						case vender_api.OrderStatus_orderError:
-							delete(CashLessPay, p.VmId)
+							clp.cancelOrder()
+						case vender_api.OrderStatus_executionStart:
+							clp.State = Cooking
 						default:
 						}
 					}
 				}
 			}
 		case <-stopch:
+			CashLessStop()
 			return
 		}
 	}

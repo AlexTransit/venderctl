@@ -9,12 +9,12 @@ import (
 	"github.com/AlexTransit/venderctl/internal/state"
 	"github.com/go-pg/pg/v9"
 	"github.com/nikita-vanyasin/tinkoff"
+	"github.com/temoto/alive/v2"
 )
 
 var CashLess struct {
-	alive bool
+	Alive *alive.Alive
 	g     *state.Global
-	Stop  chan int32
 }
 
 var CashLessPay map[int32]*CashLessOrderStruct
@@ -47,7 +47,6 @@ var terminalBankCommission, terminalMinimalAmount uint32
 func CashLessInit(ctx context.Context) bool {
 	CashLess.g = state.GetGlobal(ctx)
 	CashLessPay = make(map[int32]*CashLessOrderStruct)
-	CashLess.Stop = make(chan int32, 1)
 	if CashLess.g.Config.CashLess.TerminalTimeOutSec == 0 {
 		CashLess.g.Config.CashLess.TerminalTimeOutSec = 30
 	}
@@ -61,7 +60,9 @@ func CashLessInit(ctx context.Context) bool {
 	} else {
 		terminalMinimalAmount = uint32(CashLess.g.Config.CashLess.TerminalMinimalAmount)
 	}
-
+	if CashLess.g.Config.CashLess.TerminalQRPayRefreshSec == 0 {
+		CashLess.g.Config.CashLess.TerminalQRPayRefreshSec = 3
+	}
 	if terminalKey = CashLess.g.Config.CashLess.TerminalKey; terminalKey == "" {
 		CashLess.g.Log.Info("\033[41mtekminal key not foud. cashless system not start\033[0m")
 		return false
@@ -71,16 +72,15 @@ func CashLessInit(ctx context.Context) bool {
 		return false
 	}
 	terminalClient = tinkoff.NewClient(terminalKey, CashLess.g.Config.CashLess.TerminalPass)
-	CashLess.alive = true
+	CashLess.Alive = alive.NewAlive()
 	return true
 }
 
 func CashLessStop() {
-	if !CashLess.alive {
-		return
-	}
-	CashLess.g.Log.Debug("stop cashless system")
-	CashLess.Stop <- 0 // send stop to all open transactions
+	CashLess.Alive.Stop()
+	CashLess.Alive.Wait()
+	CashLess.g.Log.Debug("cashless system stoped ")
+	CashLessPay = nil
 }
 
 func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
@@ -97,12 +97,8 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 		},
 	}
 	qro.ToRoboMessage.Cmd = tele.MessageType_showQR
-	CashLess.g.Alive.Add(1)
-	// db := CashLess.g.DB.Conn()
 	defer func() {
 		CashLess.g.Tele.SendToRobo(vmid, qro.ToRoboMessage)
-		// _ = CashLess.g.DB.Close()
-		CashLess.g.Alive.Done()
 	}()
 	if rm.Order.Amount < terminalMinimalAmount { // minimal bank amount
 		CashLess.g.Log.Errorf("bank pay imposible. the amount is less than the minimum\n%#v", rm.Order.Amount)
@@ -188,41 +184,36 @@ func (o *CashLessOrderStruct) qrWrite() {
 }
 
 func (o *CashLessOrderStruct) waitingForPayment() {
+	CashLess.Alive.Add(1)
 	tmr := time.NewTimer(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalTimeOutSec))
-	refreshTime := time.Duration(time.Second * 3)
+	refreshTime := time.Duration(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalQRPayRefreshSec))
 	refreshTimer := time.NewTimer(refreshTime)
 	defer func() {
 		tmr.Stop()
 		refreshTimer.Stop()
+		CashLess.Alive.Done()
 	}()
 	for {
 		select {
-		case vmid := <-CashLess.Stop:
-			if vmid == o.Vmid || vmid == 0 {
-				CashLess.g.Log.Infof("order cancel by command. order:%v", o)
-				o.cancelOrder()
-				return
-			}
 		case <-tmr.C:
 			CashLess.g.Log.Infof("order cancel by timeout ")
 			o.cancelOrder()
 			return
+		case <-CashLess.Alive.StopChan():
+			o.cancelOrder()
 		case <-refreshTimer.C:
+			// ---------------------------
+			// if true {
+			// var s tinkoff.GetStateResponse
+			// s.Status = tinkoff.StatusConfirmed
+			// /*
 			if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: o.PaymentID}); err == nil {
-				/*
-					if true {
-						var err error
-						s := tinkoff.GetStateResponse{
-							// Status: tinkoff.StatusNew,
-							Status: tinkoff.PayTypeOneStep,
-						}
-						//*/
 				if err != nil {
 					o.cancelOrder()
 					CashLess.g.Log.Errorf("cashless get status:", err)
 					return
 				}
-
+				//*/
 				switch s.Status {
 				case tinkoff.StatusConfirmed:
 					o.writeDBOrderPaid()
@@ -230,9 +221,6 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 					return
 				case tinkoff.StatusRejected:
 					o.bankQRReject()
-					return
-				case tinkoff.StatusNew:
-				case tinkoff.StatusQRRefunding:
 					return
 				case tinkoff.StatusCanceled:
 					o.bankQRError()
@@ -281,6 +269,7 @@ func (o *CashLessOrderStruct) sendStartCook() {
 }
 
 func (o *CashLessOrderStruct) cancelOrder() {
+	CashLess.g.Log.Debugf("cancel order:%v ", o)
 	cReq := &tinkoff.CancelRequest{
 		PaymentID: o.PaymentID,
 		Amount:    o.Amount,
@@ -291,16 +280,21 @@ func (o *CashLessOrderStruct) cancelOrder() {
 	case tinkoff.StatusQRRefunding:
 		q = `UPDATE cashless SET state = 'order_cancel', finish_date = now(), credited = 0 WHERE payment_id = ?0 and order_id = ?1;`
 	default:
-		CashLess.g.Log.Errorf("tinkoff fail cancel (%v) error:%v", o, err)
+		errm := fmt.Sprintf("tinkoff fail cancel order (%v) error:%v", o, err)
+		if o.State >= Paid {
+			CashLess.g.VMCErrorWriteDB(o.Vmid, time.Now().Unix(), 0, errm)
+		}
 	}
 
 	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.OrderID)
 	if err != nil || r.RowsAffected() != 1 {
 		CashLess.g.Log.Errorf("fail db update:%v", err)
 	}
-	o.ToRoboMessage.ShowQR = &tele.ShowQR{}
-	o.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
-	CashLess.g.Tele.SendToRobo(o.Vmid, o.ToRoboMessage)
+	if CashLess.g.Vmc[o.Vmid].State == tele.State_WaitingForExternalPayment {
+		o.ToRoboMessage.ShowQR = &tele.ShowQR{}
+		o.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
+		CashLess.g.Tele.SendToRobo(o.Vmid, o.ToRoboMessage)
+	}
 	delete(CashLessPay, o.Vmid)
 }
 
@@ -310,6 +304,7 @@ func (o *CashLessOrderStruct) writeDBOrderPaid() {
 	if err != nil || r.RowsAffected() != 1 {
 		CashLess.g.Log.Errorf("fail db update:%v", err)
 	}
+	o.State = Paid
 }
 
 func (o *CashLessOrderStruct) writeDBOrderComplete() {
@@ -319,19 +314,4 @@ func (o *CashLessOrderStruct) writeDBOrderComplete() {
 		CashLess.g.Log.Errorf("fail db update:%v", err)
 	}
 	delete(CashLessPay, o.Vmid)
-	// go waitingReceipt(o)
 }
-
-// func waitingReceipt(o *state.CashLessOrderStruct) {
-// 	time.Sleep(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalTimeOutSec))
-// 	delete(state.CashLessPay, o.Vmid)
-// }
-
-// func updateDBOrderReceipt(o *state.CashLessOrderStruct) {
-// 	const q = `UPDATE cashless SET state = 'order_complete', finish_date = now() WHERE payment_id = ?0 and order_id = ?1;`
-// 	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.OrderID, o.Amount)
-// 	if err != nil || r.RowsAffected() != 1 {
-// 		CashLess.g.Log.Errorf("fail db update:%v", err)
-// 	}
-// 	go waitingReceipt(o)
-// }
