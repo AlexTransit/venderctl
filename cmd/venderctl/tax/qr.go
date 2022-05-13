@@ -223,7 +223,6 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 					o.bankQRReject()
 					return
 				case tinkoff.StatusCanceled:
-					o.bankQRError()
 					return
 				default:
 				}
@@ -296,6 +295,7 @@ func (o *CashLessOrderStruct) cancelOrder() {
 		CashLess.g.Tele.SendToRobo(o.Vmid, o.ToRoboMessage)
 	}
 	delete(CashLessPay, o.Vmid)
+	o = nil
 }
 
 func (o *CashLessOrderStruct) writeDBOrderPaid() {
