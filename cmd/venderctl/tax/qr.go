@@ -223,7 +223,6 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 					o.bankQRReject()
 					return
 				case tinkoff.StatusCanceled:
-					o.bankQRError()
 					return
 				default:
 				}
