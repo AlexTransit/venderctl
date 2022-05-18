@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/AlexTransit/vender/helpers"
+	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/go-pg/pg/v9"
 	"github.com/juju/errors"
 )
@@ -33,6 +34,16 @@ func (g *Global) CtlStop(ctx context.Context) {
 	g.Alive.Wait()
 	g.Log.Infof("venderctl stoped")
 	os.Exit(0)
+}
+
+func (g *Global) GetRoboState(vmid int32) vender_api.State {
+	return g.Vmc[vmid].State
+}
+
+func (g *Global) SetRoboState(vmid int32, st vender_api.State) {
+	r := g.Vmc[vmid]
+	r.State = st
+	g.Vmc[vmid] = r
 }
 
 func (g *Global) InitDB(cmdName string) error {
