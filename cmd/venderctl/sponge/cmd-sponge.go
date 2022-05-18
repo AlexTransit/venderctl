@@ -154,10 +154,6 @@ func onPacket(ctx context.Context, p tele_api.Packet) error {
 func onState(ctx context.Context, dbConn *pg.Conn, vmid int32, s vender_api.State) error {
 	g := state.GetGlobal(ctx)
 
-	if g.GetRoboState(vmid) == s {
-		return nil
-	}
-	g.SetRoboState(vmid, s)
 	g.Log.Infof("vm=%d state=%s", vmid, s.String())
 
 	dbConn = dbConn.WithParam("vmid", vmid).WithParam("state", s)
