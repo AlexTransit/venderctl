@@ -56,9 +56,6 @@ func (g *Global) ParseFromRobo(p tele_api.Packet) *tele.FromRoboMessage {
 		return nil
 	case tele_api.FromRobo:
 		rm := p.MessageFromRobotseUnmarshal()
-		r := g.Vmc[p.VmId]
-		r.State = rm.State
-		g.Vmc[p.VmId] = r
 		return rm
 	default:
 		return nil
