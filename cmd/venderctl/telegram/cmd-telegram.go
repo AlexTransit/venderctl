@@ -206,10 +206,17 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 			break
 		}
 		// обрабатываем команды админа
-		parts := regexp.MustCompile(`^(bablo|credit)(\d+)$`).FindStringSubmatch(m.Message.Text)
+		parts := regexp.MustCompile(`^(bablo|credit)(-?\d+)$`).FindStringSubmatch(m.Message.Text)
 		if len(parts) != 0 {
 			tb.forvardMsg = parts
 			break
+		} else if len(tb.forvardMsg) == 0 {
+			p := regexp.MustCompile(`(\d+)`).FindStringSubmatch(m.Message.Text)
+			if len(p) == 2 {
+				tb.forvardMsg = []string{"", "bablo", p[1]}
+				// tb.forvardMsg[1] = "bablo"
+				// tb.forvardMsg[2] = p[1]
+			}
 		}
 		if len(tb.forvardMsg) != 0 {
 			defer clerForwardMessga()
