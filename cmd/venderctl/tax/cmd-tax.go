@@ -129,14 +129,6 @@ func cashLessLoop(ctx context.Context) {
 					MakeQr(ctx, p.VmId, rm)
 				}
 				if clp, ok := CashLessPay[p.VmId]; ok {
-					if rm.State == vender_api.State_Nominal {
-						if clp.State > CreateQR {
-							errm := fmt.Sprintf("incorrect state, if cashless payment is not closed: cashless pay(%v) robot message(%v)", clp, rm)
-							g.VMCErrorWriteDB(p.VmId, time.Now().Unix(), 0, errm)
-						}
-						clp.cancelOrder()
-						break
-					}
 					if rm.Order != nil {
 						switch rm.Order.OrderStatus {
 						case vender_api.OrderStatus_complete:
@@ -147,6 +139,15 @@ func cashLessLoop(ctx context.Context) {
 							clp.State = Cooking
 						default:
 						}
+					}
+					if rm.State == vender_api.State_Nominal {
+						if clp.State > CreateQR {
+							errm := fmt.Sprintf("incorrect state, if cashless payment is not closed: cashless pay(%v) robot message(%v)", clp, rm)
+							g.VMCErrorWriteDB(p.VmId, time.Now().Unix(), 0, errm)
+						}
+						delete(CashLessPay, p.VmId)
+						// clp.cancelOrder()
+						break
 					}
 				}
 			}
