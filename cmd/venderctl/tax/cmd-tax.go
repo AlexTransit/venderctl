@@ -37,13 +37,9 @@ func taxMain(ctx context.Context, flags *flag.FlagSet) error {
 	configPath := flags.Lookup("config").Value.String()
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
 	g.Config.Tele.SetMode("tax")
-	// if err := g.Config.Tele.EnableClient(tele_config.RoleControl); err != nil {
-	// 	return err
-	// }
 	if err := g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {
 		return err
 	}
-	// g.Log.Debugf("config=%+v", g.Config)
 
 	if err := taxInit(ctx); err != nil {
 		return errors.Annotate(err, "taxInit")
@@ -58,7 +54,6 @@ func taxInit(ctx context.Context) error {
 	g := state.GetGlobal(ctx)
 	g.InitVMC()
 
-	// g.Vmc = make(map[int32]vmcStruct)
 	if err := g.InitDB(CmdName); err != nil {
 		return errors.Annotate(err, "InitDB")
 	}
