@@ -17,7 +17,7 @@ func (Noop) Close() {}
 
 func (Noop) Error(error) {}
 
-// func (Noop) State(State) {}
+func (Noop) ErrorStr(string) {}
 
 func (Noop) StatModify(func(*Stat)) {}
 
@@ -30,3 +30,5 @@ func (Noop) CommandResponse(*Response) {}
 func (Noop) RoboSend(*FromRoboMessage) {}
 
 func (Noop) RoboSendState(s State) {}
+
+func (Noop) RoboConnected() bool { return false }
