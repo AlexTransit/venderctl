@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AlexTransit/vender/helpers"
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/internal/state"
 	state_new "github.com/AlexTransit/venderctl/internal/state/new"
@@ -22,6 +21,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/temoto/ru-nalog-go/umka"
 )
+
+type MockHTTP struct {
+	Fun    func(*http.Request) (*http.Response, error)
+	Header []byte
+	Body   []byte
+	Err    error
+}
 
 func TestRu2019(t *testing.T) {
 	t.Parallel()
@@ -36,7 +42,7 @@ func TestRu2019(t *testing.T) {
 	}
 	setup := func(t testing.TB, env *tenv) {
 		env.ctx, env.g = state_new.NewTestContext(t, nil, env.config)
-		env.g.Config.Tax.Ru2019.Umka.XXX_testRT = testUmkaMockHTTP(t)
+		// env.g.Config.Tax.Ru2019.Umka.XXX_testRT = testUmkaMockHTTP(t)
 		if env.g.Config.DB.URL == "" {
 			t.Fatal("This test requires access to PostgreSQL server, please set environment venderctl_db_url=postgres://[USER[:PASS]@][HOST[:PORT]]/DATABASE?sslmode=disable")
 		}
@@ -137,8 +143,8 @@ func TestRu2019(t *testing.T) {
 	}
 }
 
-func testUmkaMockHTTP(t testing.TB) *helpers.MockHTTP {
-	return &helpers.MockHTTP{
+func testUmkaMockHTTP(t testing.TB) *MockHTTP {
+	return &MockHTTP{
 		Fun: func(req *http.Request) (*http.Response, error) {
 			t.Logf("umka < %s", req.URL.String())
 			statusCode := http.StatusOK

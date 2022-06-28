@@ -53,13 +53,14 @@ type tgbotapiot struct {
 }
 
 type tgUser struct {
-	tOut    bool
-	Ban     bool
-	Credit  int32
-	Balance int64
-	Diskont int
-	id      int64
-	rcook   cookSruct
+	tOut          bool   // cook timeout. true after 200 seconds
+	Ban           bool   //banned client
+	Credit        uint32 //client credit
+	Balance       int64  // client ballanse. possible minus
+	MoneyAvalible int64  // balanse + credit
+	Diskont       int
+	id            int64 //telegramm id
+	rcook         cookSruct
 }
 
 type cookSruct struct {
@@ -128,7 +129,15 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 		case p := <-mqttch:
 			// старый и новый обработчик
 			if p.Kind == tele_api.FromRobo {
-				_ = tb.g.ParseFromRobo(p)
+				rm := tb.g.ParseFromRobo(p)
+				if rm.Order != nil {
+					if rm.Order.OwnerType == vender_api.OwnerType_telegramUser {
+						tb.g.Log.Infof("order telegramm message from robot (%v)", rm)
+						tb.g.Alive.Add(1)
+						tb.cookResponseN(rm.Order)
+						tb.g.Alive.Done()
+					}
+				}
 				// fmt.Printf("\n\033[41m mqttchmqttchmqttch %v \033[0m\n\n", rm)
 			}
 			tb.g.Alive.Add(1)
@@ -146,8 +155,7 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 				tb.g.Log.Infof("ignore telegramm message from bot (%v)", tgm.Message)
 				break
 			}
-
-			if int(time.Now().Unix())-tgm.Message.Date > 1000 {
+			if int(time.Now().Unix())-tgm.Message.Date > 60 {
 				tb.tgSend(tgm.Message.From.ID, "была проблема со связью.\nкоманда поступила c опозданием.\nесли актуально повторите еще раз.")
 				break
 			}
@@ -233,9 +241,10 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 			case tb.forvardMsg[1] == "bablo":
 				client.rcook.code = "bablo"
 				bablo, _ := strconv.Atoi(tb.forvardMsg[2])
-				tb.tgSend(client.id, fmt.Sprintf("пополнение баланса на: %d", bablo))
+				// tb.tgSend(client.id, fmt.Sprintf("пополнение баланса на: %d", bablo))
+				msgToUser := fmt.Sprintf("пополнение баланса на: %d\n", bablo)
 				tb.tgSend(tb.admin, fmt.Sprintf("баланс: %d пополнен на: %d", client.id, bablo))
-				tb.rcookWriteDb(client, -bablo*100, vender_api.PaymentMethod_Balance)
+				tb.rcookWriteDb(client, -bablo*100, vender_api.PaymentMethod_Balance, msgToUser)
 				fmt.Printf("i=%d, type: %T\n", bablo, bablo)
 			case tb.forvardMsg[1] == "credit":
 				credit, _ := strconv.Atoi(tb.forvardMsg[2])
@@ -280,6 +289,10 @@ func parseCommad(cmd string) tgCommand {
 
 func (tb *tgbotapiot) commandCook(m tgbotapi.Message, client tgUser) {
 	// cook commands
+	if (int32(client.Balance) + int32(client.Credit*100)) <= 0 {
+		tb.tgSend(client.id, "недостаточно средств")
+		return
+	}
 	var ok bool
 	if client.rcook, ok = parseCookCommand(m.Text); !ok {
 		tb.tgSend(client.id, "команда приготовления написана с ошибкой.\n почитайте /help и сделайте понятную для меня команду.")
@@ -290,7 +303,9 @@ func (tb *tgbotapiot) commandCook(m tgbotapi.Message, client tgUser) {
 		return
 	}
 	tb.chatId[client.id] = client
-	tb.sendCookCmd(client.id)
+	// AlexM замена заказа через телегу
+	tb.sendCookCmd(client.id)  // old ver
+	tb.sendCookCmdN(client.id) // new
 	go tb.RunCookTimer(client.id)
 }
 
@@ -395,7 +410,68 @@ func (tb *tgbotapiot) sendCookCmd(chatId int64) {
 	tb.g.Log.Infof("client (%v) send remote cook code:%s", cl, cl.rcook.code)
 	tb.g.Tele.SendCommand(cl.rcook.vmid, cmd)
 }
-
+func (tb *tgbotapiot) sendCookCmdN(chatId int64) {
+	cl := tb.chatId[chatId]
+	trm := vender_api.ToRoboMessage{
+		ServerTime: time.Now().Unix(),
+		Cmd:        vender_api.MessageType_makeOrder,
+		MakeOrder: &vender_api.Order{
+			MenuCode:      cl.rcook.code,
+			Amount:        uint32(cl.MoneyAvalible),
+			OrderStatus:   vender_api.OrderStatus_doTransferred,
+			PaymentMethod: vender_api.PaymentMethod_Balance,
+			OwnerInt:      chatId,
+			OwnerType:     vender_api.OwnerType_telegramUser,
+		},
+	}
+	if cl.rcook.cream != 0 {
+		trm.MakeOrder.Cream = []byte{cl.rcook.cream}
+	}
+	if cl.rcook.sugar != 0 {
+		trm.MakeOrder.Sugar = []byte{cl.rcook.sugar}
+	}
+	tb.g.Log.Infof("telegram client (%v) send remote cook code:%s", cl, cl.rcook.code)
+	tb.g.Tele.SendToRobo(cl.rcook.vmid, &trm)
+}
+func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order) {
+	var msg string
+	client := ro.OwnerInt
+	switch ro.OrderStatus {
+	case vender_api.OrderStatus_robotIsBusy:
+		msg = "автомат в данный момент обрабатывает другой заказ. попробуйте позднее."
+	case vender_api.OrderStatus_executionInaccessible:
+		msg = "код заказа недоступен.\nнеправильный код или мало ингредиентов на выбранный заказ.\nукажите другой код."
+	case vender_api.OrderStatus_overdraft:
+		msg = "недостаточно средств. пополните баланс и попробуйте снова."
+	case vender_api.OrderStatus_executionStart:
+		msg = fmt.Sprintf("начинаю готовить. \nкод: %s автомат: %d", tb.chatId[client].rcook.code, tb.chatId[client].rcook.vmid)
+		tb.tgSend(int64(client), msg)
+		return
+	case vender_api.OrderStatus_orderError:
+		msg = "ошибка приготовления."
+	case vender_api.OrderStatus_complete:
+		finMsg := fmt.Sprintf("автомат : %d приготовил код: %s цена: %s\n",
+			tb.chatId[client].rcook.vmid,
+			ro.MenuCode,
+			amoutToString(int64(ro.Amount)))
+		tb.rcookWriteDb(tb.chatId[client], int(ro.Amount), vender_api.PaymentMethod_Balance, finMsg)
+		if dis := tb.chatId[client].Diskont; dis != 0 {
+			go func() {
+				bonus := (int(ro.Amount) * dis) / 100
+				time.Sleep(10 * time.Second)
+				cl, _ := tb.getClient(client)
+				cl.rcook.code = "bonus"
+				bunusMgs := fmt.Sprintf("начислен бонус: %s\n", amoutToString(int64(bonus)))
+				tb.rcookWriteDb(cl, -bonus, vender_api.PaymentMethod_Balance, bunusMgs)
+			}()
+		}
+	default:
+		msg = "что то пошло не так. без паники. хозяину уже в сообщили."
+		TgSendError(fmt.Sprintf("vmid=%d code error invalid order=%s", tb.chatId[client].rcook.vmid, ro.String()))
+	}
+	tb.tgSend(client, msg)
+	delete(tb.chatId, client)
+}
 func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) {
 	if rm == nil || rm.Executer == 0 {
 		return
@@ -446,18 +522,22 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) {
 	delete(tb.chatId, rm.Executer)
 }
 
-func (tb *tgbotapiot) rcookWriteDb(user tgUser, price int, payMethod vender_api.PaymentMethod) {
+func (tb *tgbotapiot) rcookWriteDb(user tgUser, price int, payMethod vender_api.PaymentMethod, addMsg ...string) {
 	tb.g.Log.Infof("cooking finished client:%d code:%s", user.id, tb.chatId[user.id].rcook.code)
-	nb := user.Balance - int64(price)
 	const q = `insert into trans (vmid,received,menu_code,options,price,method,executer) values (?0,current_timestamp,?1,?2,?3,?4,?5);
-	UPDATE tg_user set balance = ?6 WHERE userid = ?5;`
+	UPDATE tg_user set balance = balance - ?6 WHERE userid = ?5;`
 	tb.g.Alive.Add(1)
-	_, err := tb.g.DB.Exec(q, user.rcook.vmid, user.rcook.code, pg.Array([2]uint8{user.rcook.cream, user.rcook.sugar}), price, payMethod, user.id, nb)
+	_, err := tb.g.DB.Exec(q, user.rcook.vmid, user.rcook.code, pg.Array([2]uint8{user.rcook.cream, user.rcook.sugar}), price, payMethod, user.id, int64(price))
 	tb.g.Alive.Done()
 	if err != nil {
 		tb.g.Log.Errorf("db query=%s chatid=%v err=%v", q, user.id, err)
 	}
-	msg := balance(nb)
+	var msg string
+	if len(addMsg) != 0 {
+		msg = addMsg[0]
+	}
+	cl, _ := tb.getClient(user.id)
+	msg = msg + balance(cl.Balance)
 	tb.tgSend(user.id, msg)
 }
 
@@ -469,6 +549,9 @@ func TgSendError(s string) {
 }
 
 func (tb *tgbotapiot) tgSend(chatid int64, s string) {
+	if s == "" {
+		return
+	}
 	msg := tgbotapi.NewMessage(chatid, s)
 	m, err := tb.bot.Send(msg)
 	if err != nil {
@@ -496,6 +579,7 @@ func (tb *tgbotapiot) getClient(c int64) (tgUser, error) {
 		return cl, errors.New("user banned")
 	}
 	cl.id = c
+	cl.MoneyAvalible = cl.Balance + int64(cl.Credit*100)
 	return cl, nil
 }
 
