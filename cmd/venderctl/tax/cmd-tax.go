@@ -125,6 +125,7 @@ func cashLessLoop(ctx context.Context) {
 				}
 				if clp, ok := CashLessPay[p.VmId]; ok {
 					if rm.Order != nil {
+						g.Log.Infof("robo order ansfer (%v)", rm)
 						switch rm.Order.OrderStatus {
 						case vender_api.OrderStatus_complete:
 							clp.writeDBOrderComplete()
