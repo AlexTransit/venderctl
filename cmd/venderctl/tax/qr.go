@@ -259,7 +259,8 @@ func (o *CashLessOrderStruct) bankQRError() {
 
 func (o *CashLessOrderStruct) sendStartCook() {
 	sm := tele.ToRoboMessage{
-		Cmd: tele.MessageType_makeOrder,
+		ServerTime: time.Now().Unix(),
+		Cmd:        tele.MessageType_makeOrder,
 		MakeOrder: &tele.Order{
 			Amount:        uint32(o.Amount),
 			OrderStatus:   tele.OrderStatus_doSelected,
@@ -311,6 +312,7 @@ func (o *CashLessOrderStruct) writeDBOrderPaid() {
 }
 
 func (o *CashLessOrderStruct) writeDBOrderComplete() {
+	CashLess.g.Log.Infof("odred complete (%v)", o)
 	const q = `UPDATE cashless SET state = 'order_complete', finish_date = now() WHERE payment_id = ?0 and order_id = ?1;`
 	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.OrderID, o.Amount)
 	if err != nil || r.RowsAffected() != 1 {
