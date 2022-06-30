@@ -120,6 +120,7 @@ func cashLessLoop(ctx context.Context) {
 		case p := <-mqttch:
 			if p.Kind == tele_api.FromRobo {
 				rm := g.ParseFromRobo(p)
+				g.Log.Infof("message from robo:%v", rm)
 				if rm.State == vender_api.State_WaitingForExternalPayment {
 					MakeQr(ctx, p.VmId, rm)
 				}
@@ -127,6 +128,7 @@ func cashLessLoop(ctx context.Context) {
 					if rm.Order != nil {
 						g.Log.Infof("robo order ansfer (%v)", rm)
 						switch rm.Order.OrderStatus {
+						case vender_api.OrderStatus_waitingForPayment:
 						case vender_api.OrderStatus_complete:
 							clp.writeDBOrderComplete()
 						case vender_api.OrderStatus_orderError:
