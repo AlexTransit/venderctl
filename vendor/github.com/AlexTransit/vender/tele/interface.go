@@ -17,11 +17,12 @@ import (
 // Teler interface Telemetry client, vending machine side.
 // Not for external public usage.
 type Teler interface {
-	Init(context.Context, *log2.Log, tele_config.Config) error
+	Init(context.Context, *log2.Log, tele_config.Config, string) error
 	Close()
 	// State(State)
 	Error(error)
 	ErrorStr(string)
+	Log(string)
 	StatModify(func(*Stat))
 	Report(ctx context.Context, serviceTag bool) error
 	Transaction(*Telemetry_Transaction)
@@ -33,14 +34,12 @@ type Teler interface {
 
 type stub struct{}
 
-func (stub) Init(context.Context, *log2.Log, tele_config.Config) error {
-	return nil
-}
+func (stub) Init(context.Context, *log2.Log, tele_config.Config,string) error {return nil}
 func (stub) Close() {}
-
 // func (stub) State(State)                                      {}
 func (stub) Error(error)                                       {}
 func (stub) ErrorStr(string)                                   {}
+func (stub) Log(string)                                        {}
 func (stub) StatModify(func(*Stat))                            {}
 func (stub) Report(ctx context.Context, serviceTag bool) error { return nil }
 func (stub) Transaction(*Telemetry_Transaction)                {}
