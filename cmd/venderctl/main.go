@@ -16,7 +16,7 @@ import (
 	cmd_passwd "github.com/AlexTransit/venderctl/cmd/venderctl/passwd"
 	cmd_sponge "github.com/AlexTransit/venderctl/cmd/venderctl/sponge"
 	cmd_tax "github.com/AlexTransit/venderctl/cmd/venderctl/tax"
-	cmd_tele "github.com/AlexTransit/venderctl/cmd/venderctl/tele"
+	// cmd_tele "github.com/AlexTransit/venderctl/cmd/venderctl/tele"
 	cmd_telegram "github.com/AlexTransit/venderctl/cmd/venderctl/telegram"
 	"github.com/juju/errors"
 
@@ -31,7 +31,7 @@ var commands = []cli.Cmd{
 	cmd_control.Cmd,
 	cmd_passwd.Cmd,
 	cmd_tax.Cmd,
-	cmd_tele.Cmd,
+	// cmd_tele.Cmd,
 	cmd_sponge.Cmd,
 	cmd_telegram.Cmd,
 	{Name: "version", Action: versionMain},
