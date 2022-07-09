@@ -11,13 +11,15 @@ type Noop struct{}
 
 var _ Teler = Noop{} // compile-time interface test
 
-func (Noop) Init(context.Context, *log2.Log, tele_config.Config) error { return nil }
+func (Noop) Init(context.Context, *log2.Log, tele_config.Config, string) error { return nil }
 
 func (Noop) Close() {}
 
 func (Noop) Error(error) {}
 
 func (Noop) ErrorStr(string) {}
+
+func (Noop) Log(string) {}
 
 func (Noop) StatModify(func(*Stat)) {}
 

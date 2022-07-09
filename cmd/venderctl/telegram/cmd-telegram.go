@@ -128,8 +128,8 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 		select {
 		case p := <-mqttch:
 			// старый и новый обработчик
+			rm := tb.g.ParseFromRobo(p)
 			if p.Kind == tele_api.FromRobo {
-				rm := tb.g.ParseFromRobo(p)
 				if rm.Order != nil {
 					if rm.Order.OwnerType == vender_api.OwnerType_telegramUser {
 						tb.g.Log.Infof("order telegramm message from robot (%v)", rm)
@@ -333,15 +333,14 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 }
 
 func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
-	if !tb.g.Vmc[vmid].Connect {
+	if !tb.g.RobotConnected(vmid) {
 		tb.tgSend(user, "автомат не в сети.\nили отключено электричество, или недоступен интернет.")
 		return false
 	}
 	if tb.g.Vmc[vmid].State == vender_api.State_Invalid {
-		cmd := &vender_api.Command{
-			Task: &vender_api.Command_GetState{},
-		}
-		tb.g.Tele.SendCommand(vmid, cmd)
+		tb.g.Tele.SendToRobo(vmid, &vender_api.ToRoboMessage{
+			Cmd: vender_api.MessageType_reportState,
+		})
 	}
 	if tb.g.Vmc[vmid].State != vender_api.State_Nominal && tb.g.Vmc[vmid].State != vender_api.State_WaitingForExternalPayment {
 		errm := "автомат сейчас не может выполнить заказ."

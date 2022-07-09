@@ -7,6 +7,14 @@ github.com/AlexTransit/vender v0.220625.1-0.20220626063956-a80a8a4cd637 h1:ovPUd
 github.com/AlexTransit/vender v0.220625.1-0.20220626063956-a80a8a4cd637/go.mod h1:m4MaGS3dU50AI58E7lmD5FzgejhGlV+5MrrLRJyJBog=
 github.com/AlexTransit/vender v0.220628.0 h1:Ukm4eN1MsxdhRUI5bT6kpgsnfVBK0WMMETm2GoE8IrU=
 github.com/AlexTransit/vender v0.220628.0/go.mod h1:m4MaGS3dU50AI58E7lmD5FzgejhGlV+5MrrLRJyJBog=
+github.com/AlexTransit/vender v0.220707.0 h1:j3nc+mW9kgGMs5TDWZV0v0BJFqNlPV4fpGaJbC0CuAc=
+github.com/AlexTransit/vender v0.220707.0/go.mod h1:m4MaGS3dU50AI58E7lmD5FzgejhGlV+5MrrLRJyJBog=
+github.com/AlexTransit/vender v0.220709.0 h1:bN6qFsEmkfuBrwVMq+sLNql4C2L6kQ58ULWjX/07JLg=
+github.com/AlexTransit/vender v0.220709.0/go.mod h1:m4MaGS3dU50AI58E7lmD5FzgejhGlV+5MrrLRJyJBog=
+github.com/AlexTransit/vender v0.220709.1 h1:uboVQYKNQyEtaXSok0IknHfKVkWh20seX4WDlVVDMkU=
+github.com/AlexTransit/vender v0.220709.1/go.mod h1:m4MaGS3dU50AI58E7lmD5FzgejhGlV+5MrrLRJyJBog=
+github.com/AlexTransit/vender v0.220709.2 h1:z0HOv5EkoONt9b2f9d5RP/DUjYB63qlfXs5TvkT/NYA=
+github.com/AlexTransit/vender v0.220709.2/go.mod h1:m4MaGS3dU50AI58E7lmD5FzgejhGlV+5MrrLRJyJBog=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/c-bata/go-prompt v0.2.3/go.mod h1:VzqtzE2ksDBcdln8G7mk2RX9QyGjH+OVqOCSiVIqS34=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
