@@ -235,7 +235,8 @@ on conflict (vmid) where at_service=?0 do update set
 		}
 		if t.Inventory != nil {
 			for _, item := range t.Inventory.Stocks {
-				invMap[item.Name] = strconv.FormatFloat(float64(item.Valuef), 'f', -1, 32)
+				// invMap[item.Name] = strconv.FormatFloat(float64(item.Valuef), 'f', -1, 32)
+				invMap[item.Name] = strconv.Itoa(int(item.Value))
 			}
 		}
 		_, err := dbConn.Exec(q, t.GetAtService(), pg.Hstore(invMap),
