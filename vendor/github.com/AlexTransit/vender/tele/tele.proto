@@ -214,6 +214,7 @@ message ToRoboMessage {
   int64 serverTime = 2;
   Order makeOrder = 3;
   ShowQR showQR = 4;
+  string command =5;
 } 
 
 enum MessageType {
@@ -222,9 +223,11 @@ enum MessageType {
   makeOrder = 2;
   executeCommand = 3;
   reportStock = 4;
+  reportState = 5;
 }
 
-message RoboHardware { 
+message RoboHardware {
+  string SwVersion = 1;
   int32 temperature = 3;
 }
 message Order {

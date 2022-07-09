@@ -104,6 +104,7 @@ func spongeLoop(ctx context.Context) error {
 	}
 }
 
+// old pak
 func onPacket(ctx context.Context, p tele_api.Packet) error {
 	// ignore some packets
 	switch p.Kind {
@@ -117,25 +118,25 @@ func onPacket(ctx context.Context, p tele_api.Packet) error {
 
 	switch p.Kind {
 
-	case tele_api.PacketConnect:
-		r := g.Vmc[p.VmId]
-		c := true
-		if p.Payload[0] == 0 {
-			c = false
-		}
-		r.Connect = c
-		g.Vmc[p.VmId] = r
-		return onConnect(ctx, dbConn, p.VmId)
+	// case tele_api.PacketConnect:
+	// 	r := g.Vmc[p.VmId]
+	// 	c := true
+	// 	if p.Payload[0] == 0 {
+	// 		c = false
+	// 	}
+	// 	r.Connect = c
+	// 	g.Vmc[p.VmId] = r
+	// 	return onConnect(ctx, dbConn, p.VmId)
 
-	case tele_api.PacketState:
-		s, err := p.State()
-		if err != nil {
-			return err
-		}
-		// r := g.Vmc[p.VmId]
-		// r.State = s
-		// g.Vmc[p.VmId] = r
-		return onState(ctx, dbConn, p.VmId, s)
+	// case tele_api.PacketState:
+	// 	s, err := p.State()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	// r := g.Vmc[p.VmId]
+	// 	// r.State = s
+	// 	// g.Vmc[p.VmId] = r
+	// 	return onState(ctx, dbConn, p.VmId, s)
 
 	case tele_api.PacketTelemetry:
 		t, err := p.Telemetry()
@@ -235,7 +236,8 @@ on conflict (vmid) where at_service=?0 do update set
 		}
 		if t.Inventory != nil {
 			for _, item := range t.Inventory.Stocks {
-				invMap[item.Name] = strconv.FormatFloat(float64(item.Valuef), 'f', -1, 32)
+				// invMap[item.Name] = strconv.FormatFloat(float64(item.Valuef), 'f', -1, 32)
+				invMap[item.Name] = strconv.Itoa(int(item.Value))
 			}
 		}
 		_, err := dbConn.Exec(q, t.GetAtService(), pg.Hstore(invMap),
@@ -274,6 +276,7 @@ func packetFromRobo(ctx context.Context, p tele_api.Packet) {
 	dbConn := g.DB.Conn()
 	defer dbConn.Close()
 	if p.Kind == tele_api.PacketConnect {
+		g.Vmc[p.VmId].Connect = state.ByteToBool(p.Payload)
 		_ = onConnect(ctx, dbConn, p.VmId)
 		return
 	}
@@ -283,6 +286,13 @@ func packetFromRobo(ctx context.Context, p tele_api.Packet) {
 	}
 	if rm.State != 0 {
 		s := rm.State
+		if s == vender_api.State_Boot {
+			if g.Vmc[p.VmId].Version == "" {
+				roboVersion := rm.RoboHardware.GetSwVersion()
+				g.Vmc[p.VmId].Version = roboVersion
+				g.Log.Infof("robot %d boot. app version:%s", p.VmId, roboVersion)
+			}
+		}
 		// onStateN(ctx, dbConn, p.VmId, s)
 		_ = onState(ctx, dbConn, p.VmId, s)
 	}
