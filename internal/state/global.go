@@ -14,7 +14,7 @@ import (
 )
 
 func (g *Global) InitVMC() {
-	g.Vmc = make(map[int32]vmcStruct)
+	g.Vmc = make(map[int32]*vmcStruct)
 }
 
 func GetGlobal(ctx context.Context) *Global {
@@ -41,9 +41,7 @@ func (g *Global) GetRoboState(vmid int32) vender_api.State {
 }
 
 func (g *Global) SetRoboState(vmid int32, st vender_api.State) {
-	r := g.Vmc[vmid]
-	r.State = st
-	g.Vmc[vmid] = r
+	g.Vmc[vmid].State = st
 }
 
 func (g *Global) InitDB(cmdName string) error {
@@ -73,8 +71,8 @@ func (g *Global) InitDB(cmdName string) error {
 func (g *Global) VMCErrorWriteDB(vmid int32, vmtime int64, errCode uint32, message string) {
 	dbConn := g.DB.Conn().WithParam("vmid", vmid).WithParam("vmtime", vmtime)
 	defer dbConn.Close()
-	const q = `insert into error (vmid,vmtime,received,code,message) values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1)`
-	_, err := dbConn.Exec(q, errCode, message)
+	const q = `insert into error (vmid,vmtime,received,code,message,app_version) values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1,?2)`
+	_, err := dbConn.Exec(q, errCode, message, g.Vmc[vmid].Version)
 	if err != nil {
 		g.Log.Errorf("error db query=%s \nerror=%v", q, err)
 	}

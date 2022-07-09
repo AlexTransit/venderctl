@@ -17,10 +17,11 @@ type Global struct {
 	DB           *pg.DB
 	Log          *log2.Log
 	Tele         tele_api.Teler
-	Vmc          map[int32]vmcStruct
+	Vmc          map[int32]*vmcStruct
 }
 
 type vmcStruct struct {
+	Version string
 	Connect bool
 	State   vender_api.State
 }
