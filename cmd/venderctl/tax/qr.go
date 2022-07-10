@@ -50,11 +50,7 @@ func CashLessInit(ctx context.Context) bool {
 	if CashLess.g.Config.CashLess.TerminalTimeOutSec == 0 {
 		CashLess.g.Config.CashLess.TerminalTimeOutSec = 30
 	}
-	if CashLess.g.Config.CashLess.TerminalBankCommission == 0 {
-		terminalBankCommission = 45
-	} else {
-		terminalBankCommission = uint32(CashLess.g.Config.CashLess.TerminalBankCommission)
-	}
+	terminalBankCommission = uint32(CashLess.g.Config.CashLess.TerminalBankCommission)
 	if CashLess.g.Config.CashLess.TerminalMinimalAmount == 0 {
 		terminalMinimalAmount = 1000
 	} else {
