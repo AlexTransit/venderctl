@@ -152,14 +152,21 @@ func processRu2019Final(ctx context.Context, db *pg.Conn, tj *MTaxJob, note stri
 	if tj.ExtId != "" && len(tj.Ops) > 0 {
 		g := state.GetGlobal(ctx)
 		vmid := tj.Ops[0].Vmid
-		cmd := &vender_api.Command{
-			// Deadline: time.Now().Add(2 * time.Minute).UnixNano(),
-			Task: &vender_api.Command_Show_QR{Show_QR: &vender_api.Command_ArgShowQR{
-				Layout: "tax-ru19",
+		// cmd := &vender_api.Command{
+		// 	// Deadline: time.Now().Add(2 * time.Minute).UnixNano(),
+		// 	Task: &vender_api.Command_Show_QR{Show_QR: &vender_api.Command_ArgShowQR{
+		// 		Layout: "tax-ru19",
+		// 		QrText: tj.ExtId,
+		// 	}},
+		// }
+		// g.Tele.CommandTx(vmid, cmd)
+		rm := vender_api.ToRoboMessage{
+			ShowQR: &vender_api.ShowQR{
+				QrType: vender_api.ShowQR_receipt,
 				QrText: tj.ExtId,
-			}},
+			},
 		}
-		g.Tele.CommandTx(vmid, cmd)
+		g.Tele.SendToRobo(vmid, &rm)
 	}
 	return nil
 }
