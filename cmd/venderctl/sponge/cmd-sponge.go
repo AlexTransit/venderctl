@@ -301,11 +301,11 @@ func packetFromRobo(ctx context.Context, p tele_api.Packet) {
 	if rm.Order != nil {
 		if rm.Order.OrderStatus == vender_api.OrderStatus_complete {
 			o := rm.Order
-			const q = `insert into trans (vmid,vmtime,received,menu_code,options,price,method,executer,executer_str) 
-		values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1,?2,?3,?4,?5)
+			const q = `insert into trans (vmid,vmtime,received,menu_code,options,price,method,executer,executer_str,executer_type) 
+		values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1,?2,?3,?4,?5,?6)
 		on conflict (vmid,vmtime) do nothing`
 
-			_, err := dbConn.Exec(q, o.MenuCode, pg.Array([]int8{state.ByteToInt8(o.Cream), state.ByteToInt8(o.Sugar)}), o.Amount, o.PaymentMethod, o.OwnerInt, o.OwnerStr)
+			_, err := dbConn.Exec(q, o.MenuCode, pg.Array([]int8{state.ByteToInt8(o.Cream), state.ByteToInt8(o.Sugar)}), o.Amount, o.PaymentMethod, o.OwnerInt, o.OwnerStr, o.OwnerType)
 			if err != nil {
 				g.Log.Errorf("error db query=%s \nerror=%v", q, err)
 			}
