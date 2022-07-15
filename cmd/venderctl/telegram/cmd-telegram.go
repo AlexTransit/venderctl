@@ -522,15 +522,15 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) {
 }
 
 func (tb *tgbotapiot) rcookWriteDb(user tgUser, price int, payMethod vender_api.PaymentMethod, addMsg ...string) {
-	tb.g.Log.Infof("cooking finished client:%d code:%s", user.id, tb.chatId[user.id].rcook.code)
-	const q = `insert into trans (vmid,received,menu_code,options,price,method,executer) values (?0,current_timestamp,?1,?2,?3,?4,?5);
-	UPDATE tg_user set balance = balance - ?6 WHERE userid = ?5;`
-	tb.g.Alive.Add(1)
-	_, err := tb.g.DB.Exec(q, user.rcook.vmid, user.rcook.code, pg.Array([2]uint8{user.rcook.cream, user.rcook.sugar}), price, payMethod, user.id, int64(price))
-	tb.g.Alive.Done()
-	if err != nil {
-		tb.g.Log.Errorf("db query=%s chatid=%v err=%v", q, user.id, err)
-	}
+	tb.g.Log.Infof("cooking finished telegram client:%d code:%s", user.id, tb.chatId[user.id].rcook.code)
+	// const q = `insert into trans (vmid,received,menu_code,options,price,method,executer) values (?0,current_timestamp,?1,?2,?3,?4,?5);
+	// UPDATE tg_user set balance = balance - ?6 WHERE userid = ?5;`
+	// tb.g.Alive.Add(1)
+	// _, err := tb.g.DB.Exec(q, user.rcook.vmid, user.rcook.code, pg.Array([2]uint8{user.rcook.cream, user.rcook.sugar}), price, payMethod, user.id, int64(price))
+	// tb.g.Alive.Done()
+	// if err != nil {
+	// 	tb.g.Log.Errorf("db query=%s chatid=%v err=%v", q, user.id, err)
+	// }
 	var msg string
 	if len(addMsg) != 0 {
 		msg = addMsg[0]
