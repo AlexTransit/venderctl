@@ -525,7 +525,7 @@ func (tb *tgbotapiot) rcookWriteDb(user tgUser, price int, payMethod vender_api.
 	tb.g.Log.Infof("cooking finished telegram client:%d code:%s", user.id, tb.chatId[user.id].rcook.code)
 	cl, _ := tb.getClient(user.id)
 	cl.Balance -= int64(price)
-	const q = `UPDATE tg_user set balance = balance - ?1 WHERE userid = ?0;`
+	const q = `UPDATE tg_user set balance = ?1 WHERE userid = ?0;`
 	tb.g.Alive.Add(1)
 	// _, err := tb.g.DB.Exec(q, user.rcook.vmid, user.rcook.code, pg.Array([2]uint8{user.rcook.cream, user.rcook.sugar}), price, payMethod, user.id, int64(price))
 	_, err := tb.g.DB.Exec(q, user.id, cl.Balance)
