@@ -343,6 +343,7 @@ func startNotificationsReader() {
 			var err error
 			/*/
 		n, err := terminalClient.ParseNotification(c.Request.Body)
+		CashLess.g.Log.Infof("notification from bank(%v)", n)
 		//*/
 		if err != nil {
 			CashLess.g.Log.Errorf("notification(%v) parse error(%v)", n, err)
@@ -359,6 +360,7 @@ func startNotificationsReader() {
 				return
 			}
 			o.Payer = n.PAN
+			// CashLess.g.Log.Infof("notification from bank(%v)", n)
 			o.writeDBOrderPaid()
 		}
 	})
