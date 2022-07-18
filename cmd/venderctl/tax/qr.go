@@ -115,17 +115,17 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	qro.Date = od
 	qro.Description = menuGetName(vmid, rm.Order.MenuCode)
 	// 4 test -----------------------------------
-	//*
-	res := tinkoff.InitResponse{
-		Amount:     1000,
-		OrderID:    "88-22042715000-10",
-		Status:     tinkoff.StatusNew,
-		PaymentID:  "123",
-		PaymentURL: "https://aa.aa/new/Oj3KTptg",
-	}
-	var err error
-	// err := fmt.Errorf("AAA")
-	/*/
+	/*
+		res := tinkoff.InitResponse{
+			Amount:     1000,
+			OrderID:    "88-22042715000-10",
+			Status:     tinkoff.StatusNew,
+			PaymentID:  "123",
+			PaymentURL: "https://aa.aa/new/Oj3KTptg",
+		}
+		var err error
+		// err := fmt.Errorf("AAA")
+		/*/
 	res, err := terminalClient.Init(&tinkoff.InitRequest{
 		BaseRequest: tinkoff.BaseRequest{TerminalKey: CashLess.g.Config.CashLess.TerminalKey, Token: "random"},
 		Amount:      qro.Amount,
@@ -141,16 +141,15 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	}
 	qro.PaymentID = res.PaymentID
 	// 4 test -----------------------------------
-	//*
-	qrr := tinkoff.GetQRResponse{
-		OrderID:   "88-22042715000-101",
-		Data:      "xfhgdjkfvhkjdhvfbkdjhvbkfjxfhbvjkdfhbvkx",
-		PaymentID: 123,
-	}
-	/*/
+	/*
+		qrr := tinkoff.GetQRResponse{
+			OrderID:   "88-22042715000-101",
+			Data:      "xfhgdjkfvhkjdhvfbkdjhvbkfjxfhbvjkdfhbvkx",
+			PaymentID: 123,
+		}
+		/*/
 	qrr, err := terminalClient.GetQR(&tinkoff.GetQRRequest{
 		PaymentID: qro.PaymentID,
-		// DataType:  "PAYLOAD",
 	})
 	//*/
 	if err != nil {
@@ -207,14 +206,14 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 			o.cancelOrder()
 		case <-refreshTimer.C:
 			// 4 test -----------------------------------
-			//*
-			if false {
-				var s tinkoff.GetStateResponse
-				s.Status = tinkoff.StatusConfirmed
-				var err error
-				/*/
-				if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: o.PaymentID}); err == nil {
-					//*/
+			/*
+				if false {
+					var s tinkoff.GetStateResponse
+					s.Status = tinkoff.StatusConfirmed
+					var err error
+					/*/
+			if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: o.PaymentID}); err == nil {
+				//*/
 				if err != nil {
 					o.cancelOrder()
 					CashLess.g.Log.Errorf("cashless get status:", err)
@@ -331,18 +330,18 @@ func startNotificationsReader() {
 	// gin.SetMode(gin.ReleaseMode)
 
 	r.POST("/payment/notification/tinkoff", func(c *gin.Context) {
-		//*
-		n := tinkoff.Notification{
-			TerminalKey: terminalKey,
-			OrderID:     "88-22042715000-10",
-			Success:     true,
-			Status:      "CONFIRMED",
-			PaymentID:   123,
-			Amount:      1004,
-			PAN:         "+7 999 999 99 99",
-		}
-		var err error
-		/*/
+		/*
+			n := tinkoff.Notification{
+				TerminalKey: terminalKey,
+				OrderID:     "88-22042715000-10",
+				Success:     true,
+				Status:      "CONFIRMED",
+				PaymentID:   123,
+				Amount:      1004,
+				PAN:         "+7 999 999 99 99",
+			}
+			var err error
+			/*/
 		n, err := terminalClient.ParseNotification(c.Request.Body)
 		//*/
 		if err != nil {
