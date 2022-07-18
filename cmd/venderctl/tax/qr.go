@@ -205,6 +205,9 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 		case <-CashLess.Alive.StopChan():
 			o.cancelOrder()
 		case <-refreshTimer.C:
+			if o.ClState >= Paid {
+				return
+			}
 			// 4 test -----------------------------------
 			/*
 				if false {
