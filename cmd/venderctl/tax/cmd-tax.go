@@ -134,10 +134,10 @@ func cashLessLoop(ctx context.Context) {
 						case vender_api.OrderStatus_orderError:
 							clp.cancelOrder()
 						case vender_api.OrderStatus_executionStart:
-							clp.State = Cooking
+							clp.ClState = Cooking
 						default:
 							g.Log.Infof("delete cashLess pay:(%v) orderStatus:%v", clp, rm.Order.OrderStatus)
-							if clp.State > CreateQR {
+							if clp.ClState > CreateQR {
 								errm := fmt.Sprintf("incorrect state, if cashless payment is not closed: cashless pay(%v) robot message(%v)", clp, rm)
 								g.VMCErrorWriteDB(p.VmId, time.Now().Unix(), 0, errm)
 							}
