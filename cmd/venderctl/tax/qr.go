@@ -210,7 +210,7 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 			}
 			// 4 test -----------------------------------
 			/*
-				if false {
+				if true {
 					var s tinkoff.GetStateResponse
 					s.Status = tinkoff.StatusConfirmed
 					var err error
@@ -250,16 +250,6 @@ func (o *CashLessOrderStruct) bankQRReject() {
 	CashLess.g.Tele.SendToRobo(o.Vmid, &sm)
 }
 
-func (o *CashLessOrderStruct) bankQRError() {
-	sm := tele.ToRoboMessage{
-		Cmd: tele.MessageType_showQR,
-		ShowQR: &tele.ShowQR{
-			QrType: tele.ShowQR_error,
-		},
-	}
-	CashLess.g.Tele.SendToRobo(o.Vmid, &sm)
-}
-
 func (o *CashLessOrderStruct) sendStartCook() {
 	sm := tele.ToRoboMessage{
 		ServerTime: time.Now().Unix(),
@@ -282,10 +272,10 @@ func (o *CashLessOrderStruct) cancelOrder() {
 		Amount:    o.Amount,
 	}
 	cRes, err := terminalClient.Cancel(cReq)
-	q := `UPDATE cashless SET state = 'order_cancel', finish_date = now() WHERE payment_id = ?0 and order_id = ?1;`
+	q := `UPDATE cashless SET state = 'order_cancel', finish_date = now() WHERE payment_id = ?0 and vmid = ?1;`
 	switch cRes.Status {
 	case tinkoff.StatusQRRefunding:
-		q = `UPDATE cashless SET state = 'order_cancel', finish_date = now(), credited = 0 WHERE payment_id = ?0 and order_id = ?1;`
+		q = `UPDATE cashless SET state = 'order_cancel', finish_date = now(), credited = 0 WHERE payment_id = ?0 and vmid = ?1;`
 	default:
 		errm := fmt.Sprintf("tinkoff fail cancel order (%v) error:%v", o, err)
 		if o.ClState >= Paid {
@@ -293,7 +283,7 @@ func (o *CashLessOrderStruct) cancelOrder() {
 		}
 	}
 
-	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.OrderID)
+	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.Vmid)
 	if err != nil || r.RowsAffected() != 1 {
 		CashLess.g.Log.Errorf("fail db update:%v", err)
 	}
@@ -319,11 +309,12 @@ func (o *CashLessOrderStruct) writeDBOrderPaid() {
 }
 
 func (o *CashLessOrderStruct) writeDBOrderComplete() {
-	CashLess.g.Log.Infof("odred complete (%v)", o)
-	const q = `UPDATE cashless SET state = 'order_complete', finish_date = now() WHERE payment_id = ?0 and order_id = ?1;`
-	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.OrderID, o.Amount)
-	if err != nil || r.RowsAffected() != 1 {
-		CashLess.g.Log.Errorf("fail db update:%v", err)
+	CashLess.g.Log.Infof("order complete (%v)", o)
+	const q = `UPDATE cashless SET state = 'order_complete', finish_date = now() WHERE payment_id = ?0 and vmid = ?1;`
+	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.Vmid)
+	rn := r.RowsAffected()
+	if err != nil || rn != 1 {
+		CashLess.g.Log.Errorf("fail db update/ records(%d)  error:%v", rn, err)
 	}
 	delete(CashLessPay, o.Vmid)
 }
