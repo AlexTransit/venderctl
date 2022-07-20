@@ -121,28 +121,23 @@ func cashLessLoop(ctx context.Context) {
 			if p.Kind == tele_api.FromRobo {
 				rm := g.ParseFromRobo(p)
 				g.Log.Infof("message from robo=%v", rm)
+				fmt.Printf("\033[41m %v \033[0m\n", rm)
 				if rm.State == vender_api.State_WaitingForExternalPayment {
 					MakeQr(ctx, p.VmId, rm)
 				}
-				if clp, ok := CashLessPay[p.VmId]; ok {
-					if rm.Order != nil {
-						g.Log.Infof("robo order ansfer (%v)", rm)
-						switch rm.Order.OrderStatus {
-						case vender_api.OrderStatus_waitingForPayment:
-						case vender_api.OrderStatus_complete:
-							clp.writeDBOrderComplete()
-						case vender_api.OrderStatus_orderError:
-							clp.cancelOrder()
-						case vender_api.OrderStatus_executionStart:
-							clp.State = Cooking
-						default:
-							g.Log.Infof("delete cashLess pay:(%v) orderStatus:%v", clp, rm.Order.OrderStatus)
-							if clp.State > CreateQR {
-								errm := fmt.Sprintf("incorrect state, if cashless payment is not closed: cashless pay(%v) robot message(%v)", clp, rm)
-								g.VMCErrorWriteDB(p.VmId, time.Now().Unix(), 0, errm)
-							}
-							delete(CashLessPay, p.VmId)
-						}
+				if rm.Order != nil && rm.Order.OwnerType == vender_api.OwnerType_qrCashLessUser {
+					clp := getCashLessPay(&p.VmId, &rm.Order.OwnerStr, &rm.Order.Amount)
+					switch rm.Order.OrderStatus {
+					case vender_api.OrderStatus_orderError:
+						CashLess.g.Log.Infof("cashless order error (%v)", clp)
+						clp.cancelOrder()
+					case vender_api.OrderStatus_waitingForPayment:
+					case vender_api.OrderStatus_complete:
+						clp.writeDBOrderComplete()
+						CashLess.g.Log.Infof("cashless order complete (%v)", clp)
+					case vender_api.OrderStatus_executionStart:
+					default:
+						delete(CashLessPay, p.VmId)
 					}
 				}
 			}
@@ -150,6 +145,20 @@ func cashLessLoop(ctx context.Context) {
 			CashLessStop()
 			return
 		}
+	}
+}
+
+func getCashLessPay(vmid *int32, payId *string, am *uint32) (clp *CashLessOrderStruct) {
+	if clp, ok := CashLessPay[*vmid]; ok {
+		return clp
+	} else {
+		clp = &CashLessOrderStruct{
+			Vmid:      *vmid,
+			PaymentID: *payId,
+			Amount:    uint64(*am),
+		}
+		CashLess.g.Log.Infof("cashless order not found in ram. create new(%v)", clp)
+		return clp
 	}
 }
 
