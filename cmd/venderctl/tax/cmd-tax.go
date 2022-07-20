@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -68,7 +67,8 @@ func taxLoop(ctx context.Context) error {
 	g := state.GetGlobal(ctx)
 	stopch := g.Alive.StopChan()
 	hostname, _ := os.Hostname()
-	worker := fmt.Sprintf("%s:%d:%d", hostname, os.Getpid(), rand.Int31())
+	randomString := time.Now().Format("2006-01-02_15-04-05.00000")
+	worker := fmt.Sprintf("%s:%d:%s", hostname, os.Getpid(), randomString)
 
 	llSched := g.DB.Listen("tax_job_sched")
 	defer llSched.Close()
