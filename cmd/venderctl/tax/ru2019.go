@@ -75,13 +75,8 @@ func processRu2019(ctx context.Context, db *pg.Conn, tj *MTaxJob) error {
 			return errors.NotSupportedf("operations with different vmid")
 		}
 		switch op.Method {
-		case vender_api.PaymentMethod_Cash:
+		case vender_api.PaymentMethod_Cash, vender_api.PaymentMethod_Cashless:
 			// continue with umka
-
-		// TODO continue with umka, set relevant tags
-		// OR skip processing because payment terminal already sent tax data
-		case vender_api.PaymentMethod_Cashless:
-
 		case vender_api.PaymentMethod_Gift:
 			return processRu2019Final(ctx, db, tj, fmt.Sprintf("skip payment method=%s", op.Method.String()))
 
@@ -110,6 +105,7 @@ func processRu2019(ctx context.Context, db *pg.Conn, tj *MTaxJob) error {
 	}
 
 	doc := ru_nalog.NewDoc(0, ru_nalog.FDCheck)
+	doc.MoneyType = int(sameMethod)
 	doc.AppendNew(1054, 1)
 	doc.AppendNew(1055, g.Config.Tax.Ru2019.Tag1055)
 	// d.AppendNew(1008, "client email or SMS number")

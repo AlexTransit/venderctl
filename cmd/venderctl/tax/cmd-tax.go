@@ -67,7 +67,7 @@ func taxLoop(ctx context.Context) error {
 	g := state.GetGlobal(ctx)
 	stopch := g.Alive.StopChan()
 	hostname, _ := os.Hostname()
-	randomString := time.Now().Format("2006-01-02_15-04-05.00000")
+	randomString := time.Now().Format("20060102-150405")
 	worker := fmt.Sprintf("%s:%d:%s", hostname, os.Getpid(), randomString)
 
 	llSched := g.DB.Listen("tax_job_sched")
@@ -121,12 +121,11 @@ func cashLessLoop(ctx context.Context) {
 			if p.Kind == tele_api.FromRobo {
 				rm := g.ParseFromRobo(p)
 				g.Log.Infof("message from robo=%v", rm)
-				fmt.Printf("\033[41m %v \033[0m\n", rm)
 				if rm.State == vender_api.State_WaitingForExternalPayment {
 					MakeQr(ctx, p.VmId, rm)
 				}
 				if rm.Order != nil && rm.Order.OwnerType == vender_api.OwnerType_qrCashLessUser {
-					clp := getCashLessPay(&p.VmId, &rm.Order.OwnerStr, &rm.Order.Amount)
+					clp := getCashLessPay(p.VmId, rm.Order.OwnerStr, rm.Order.Amount)
 					switch rm.Order.OrderStatus {
 					case vender_api.OrderStatus_orderError:
 						CashLess.g.Log.Infof("cashless order error (%v)", clp)
@@ -148,14 +147,14 @@ func cashLessLoop(ctx context.Context) {
 	}
 }
 
-func getCashLessPay(vmid *int32, payId *string, am *uint32) (clp *CashLessOrderStruct) {
-	if clp, ok := CashLessPay[*vmid]; ok {
+func getCashLessPay(vmid int32, payId string, am uint32) (clp *CashLessOrderStruct) {
+	if clp, ok := CashLessPay[vmid]; ok {
 		return clp
 	} else {
 		clp = &CashLessOrderStruct{
-			Vmid:      *vmid,
-			PaymentID: *payId,
-			Amount:    uint64(*am),
+			Vmid:      vmid,
+			PaymentID: payId,
+			Amount:    uint64(am),
 		}
 		CashLess.g.Log.Infof("cashless order not found in ram. create new(%v)", clp)
 		return clp

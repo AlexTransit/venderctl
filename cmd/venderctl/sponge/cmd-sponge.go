@@ -301,6 +301,7 @@ func packetFromRobo(ctx context.Context, p tele_api.Packet) {
 	if rm.Order != nil {
 		if rm.Order.OrderStatus == vender_api.OrderStatus_complete {
 			o := rm.Order
+			g.Log.Infof("write completed odred to db (%v)", o)
 			const q = `insert into trans (vmid,vmtime,received,menu_code,options,price,method,executer,executer_str,executer_type) 
 		values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1,?2,?3,?4,?5,?6)
 		on conflict (vmid,vmtime) do nothing`
