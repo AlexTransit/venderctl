@@ -100,6 +100,7 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	}
 	qro.ToRoboMessage.Cmd = tele.MessageType_showQR
 	defer func() {
+		CashLess.g.Log.Infof("send message to robo(%d) message(%v)", vmid, qro.ToRoboMessage)
 		CashLess.g.Tele.SendToRobo(vmid, qro.ToRoboMessage)
 	}()
 	if rm.Order.Amount < terminalMinimalAmount { // minimal bank amount
@@ -117,11 +118,11 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	// 4 test -----------------------------------
 	/*
 		res := tinkoff.InitResponse{
-			Amount:     1000,
-			OrderID:    "88-22042715000-10",
+			Amount:     qro.Amount,
+			OrderID:    qro.OrderID,
 			Status:     tinkoff.StatusNew,
-			PaymentID:  "123",
-			PaymentURL: "https://aa.aa/new/Oj3KTptg",
+			PaymentID:  od.Format("060102150405"),
+			PaymentURL: "https://get.lost/world",
 		}
 		var err error
 		// err := fmt.Errorf("AAA")
@@ -142,10 +143,11 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	qro.PaymentID = res.PaymentID
 	// 4 test -----------------------------------
 	/*
+		pidi, _ := strconv.Atoi(res.PaymentID)
 		qrr := tinkoff.GetQRResponse{
-			OrderID:   "88-22042715000-101",
-			Data:      "xfhgdjkfvhkjdhvfbkdjhvbkfjxfhbvjkdfhbvkx",
-			PaymentID: 123,
+			OrderID:   qro.OrderID,
+			Data:      "TEST qr code for pay",
+			PaymentID: pidi,
 		}
 		/*/
 	qrr, err := terminalClient.GetQR(&tinkoff.GetQRRequest{
@@ -224,6 +226,10 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 				}
 				switch s.Status {
 				case tinkoff.StatusConfirmed:
+					if o.ClState >= Paid {
+						return
+					}
+					CashLess.g.Log.Infof("write db confirmed wait pay loop. order(%v) ", o)
 					o.writeDBOrderPaid()
 					return
 				case tinkoff.StatusRejected:
@@ -300,6 +306,7 @@ func (o *CashLessOrderStruct) writeDBOrderPaid() {
 		CashLess.g.Log.Errorf("error: order paided.")
 		return
 	}
+	o.ClState = Paid
 	const q = `UPDATE cashless SET state = 'order_prepay', credit_date = now(), credited = ?2, payer = ?3 WHERE payment_id = ?0 and order_id = ?1;`
 	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.OrderID, o.Amount, o.Payer)
 	if err != nil || r.RowsAffected() != 1 {
@@ -351,10 +358,11 @@ func startNotificationsReader() {
 			o := CashLessPay[int32(vm)]
 			// if o == nil || o.OrderID != n.OrderID || o.Amount != n.Amount {
 			if o == nil || o.Amount != n.Amount {
+				CashLess.g.Log.Errorf("bank notification complete order(%v) notification:%n", o, n)
 				return
 			}
 			o.Payer = n.PAN
-			// CashLess.g.Log.Infof("notification from bank(%v)", n)
+			CashLess.g.Log.Infof("write db confirmed notification from bank(%v), order(%v) ", n, o)
 			o.writeDBOrderPaid()
 		}
 	})
