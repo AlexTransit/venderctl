@@ -191,57 +191,23 @@ func (o *CashLessOrderStruct) qrWrite() {
 func (o *CashLessOrderStruct) waitingForPayment() {
 	CashLess.Alive.Add(1)
 	tmr := time.NewTimer(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalTimeOutSec))
-	refreshTime := time.Duration(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalQRPayRefreshSec))
-	refreshTimer := time.NewTimer(refreshTime)
 	defer func() {
 		tmr.Stop()
-		refreshTimer.Stop()
 		CashLess.Alive.Done()
 	}()
 	for {
 		select {
 		case <-tmr.C:
 			CashLess.g.Log.Infof("order cancel by timeout ")
-			o.cancelOrder()
+			if o.ClState < Paid {
+				o.cancelOrder()
+			}
 			return
 		case <-CashLess.Alive.StopChan():
-			o.cancelOrder()
-		case <-refreshTimer.C:
-			if o.ClState >= Paid {
-				return
+			if o.ClState < Paid {
+				o.cancelOrder()
 			}
-			// 4 test -----------------------------------
-			/*
-				if true {
-					var s tinkoff.GetStateResponse
-					s.Status = tinkoff.StatusConfirmed
-					var err error
-					/*/
-			if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: o.PaymentID}); err == nil {
-				//*/
-				if err != nil {
-					o.cancelOrder()
-					CashLess.g.Log.Errorf("cashless get status:", err)
-					return
-				}
-				switch s.Status {
-				case tinkoff.StatusConfirmed:
-					if o.ClState >= Paid {
-						return
-					}
-					CashLess.g.Log.Infof("write db confirmed wait pay loop. order(%v) ", o)
-					o.writeDBOrderPaid()
-					return
-				case tinkoff.StatusRejected:
-					o.bankQRReject()
-					return
-				case tinkoff.StatusCanceled:
-					return
-				default:
-				}
-
-				refreshTimer.Reset(refreshTime)
-			}
+			return
 		}
 	}
 }
@@ -351,12 +317,14 @@ func startNotificationsReader() {
 			return
 		}
 		c.String(http.StatusOK, terminalClient.GetNotificationSuccessResponse())
-		if n.Status == tinkoff.StatusConfirmed {
-			oid := n.OrderID
-			tvmid := oid[:strings.Index(oid, "-")]
-			vm, _ := strconv.ParseInt(tvmid, 10, 32)
-			o := CashLessPay[int32(vm)]
-			// if o == nil || o.OrderID != n.OrderID || o.Amount != n.Amount {
+		oid := n.OrderID
+		tvmid := oid[:strings.Index(oid, "-")]
+		vm, _ := strconv.ParseInt(tvmid, 10, 32)
+
+		o := getCashLessPay(int32(vm), n.OrderID, uint32(n.Amount))
+
+		switch n.Status {
+		case tinkoff.StatusConfirmed:
 			if o == nil || o.Amount != n.Amount {
 				CashLess.g.Log.Errorf("bank notification complete order(%v) notification:%n", o, n)
 				return
@@ -364,6 +332,10 @@ func startNotificationsReader() {
 			o.Payer = n.PAN
 			CashLess.g.Log.Infof("write db confirmed notification from bank(%v), order(%v) ", n, o)
 			o.writeDBOrderPaid()
+		case tinkoff.StatusCanceled:
+			o.cancelOrder()
+		case tinkoff.StatusRejected:
+			o.bankQRReject()
 		}
 	})
 	err := r.Run(":8080")
