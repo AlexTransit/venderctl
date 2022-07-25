@@ -38,6 +38,7 @@ cashless {
   terminalBankCommission = 40 // fixed point. 40 = 0.4%
   terminalMinimalAmount = 1000 // minimal amount. fixed point 
   terminalQRPayRefreshSec = 3 // payment verification 
+  urlToListenToBankNotifications = "http://127.0.0.1:1234/bank/notiaicaion"
 }
 
 tele {
