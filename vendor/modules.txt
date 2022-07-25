@@ -39,8 +39,6 @@ github.com/go-pg/pg/v9/internal/urlstruct
 github.com/go-pg/pg/v9/orm
 github.com/go-pg/pg/v9/pgjson
 github.com/go-pg/pg/v9/types
-# github.com/go-pg/urlstruct v1.0.1
-## explicit; go 1.13
 # github.com/go-pg/zerochecker v0.2.0
 ## explicit; go 1.13
 github.com/go-pg/zerochecker
@@ -109,6 +107,10 @@ github.com/modern-go/reflect2
 # github.com/nikita-vanyasin/tinkoff v1.0.5
 ## explicit; go 1.13
 github.com/nikita-vanyasin/tinkoff
+# github.com/onsi/ginkgo v1.14.1
+## explicit; go 1.13
+# github.com/onsi/gomega v1.10.2
+## explicit
 # github.com/pelletier/go-toml/v2 v2.0.2
 ## explicit; go 1.16
 github.com/pelletier/go-toml/v2
@@ -122,12 +124,9 @@ github.com/pmezard/go-difflib/difflib
 ## explicit; go 1.13
 github.com/segmentio/encoding/ascii
 github.com/segmentio/encoding/json
-# github.com/stretchr/objx v0.2.0
-## explicit; go 1.12
 # github.com/stretchr/testify v1.7.2
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-github.com/stretchr/testify/require
 # github.com/temoto/alive/v2 v2.0.0
 ## explicit; go 1.11
 github.com/temoto/alive/v2
