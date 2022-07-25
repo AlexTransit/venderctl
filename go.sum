@@ -1,6 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-github.com/AlexTransit/vender v0.220709.2 h1:z0HOv5EkoONt9b2f9d5RP/DUjYB63qlfXs5TvkT/NYA=
-github.com/AlexTransit/vender v0.220709.2/go.mod h1:m4MaGS3dU50AI58E7lmD5FzgejhGlV+5MrrLRJyJBog=
+github.com/AlexTransit/vender v0.220725.1 h1:tI+uRUI4wgHhLBJQVFMJgcjiNpyaw0/FGXgAQOCp3tY=
+github.com/AlexTransit/vender v0.220725.1/go.mod h1:gjUkcyY+S6QOtOS/aWhqUG6ApWw6/j8peIu0Wxy0tbo=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
