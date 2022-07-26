@@ -132,7 +132,7 @@ func cashLessLoop(ctx context.Context) {
 					case vender_api.OrderStatus_waitingForPayment:
 					case vender_api.OrderStatus_complete:
 						clp.writeDBOrderComplete()
-						CashLess.g.Log.NoticeF("on MQTT. vm%d cashless(%s) order:%s complete. price:%d", clp.Vmid, clp.Payer, clp.OrderID, clp.Amount)
+						CashLess.g.Log.NoticeF("on MQTT. vm%d cashless complete (%s) order:%s price:%d", clp.Vmid, clp.Payer, clp.OrderID, clp.Amount)
 					case vender_api.OrderStatus_executionStart:
 					default:
 						delete(CashLessPay, p.VmId)
