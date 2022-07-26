@@ -121,7 +121,7 @@ func main() {
 				// - duplicate pprofStart code in actions
 				// - cmd.PreAction hook -- maybe best in the long run, needed quick
 				// not used				g.Error(pprofStart(g, os.Getenv("pprof_listen")))
-				log.Infof("venderctl version=%s starting %s", BuildVersion, cmdName)
+				log.WarningF("venderctl version=%s starting %s", BuildVersion, cmdName)
 			}
 
 			err := c.Action(ctx, flags)
