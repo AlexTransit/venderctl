@@ -283,7 +283,7 @@ func (o *CashLessOrderStruct) writeDBOrderPaid() {
 }
 
 func (o *CashLessOrderStruct) writeDBOrderComplete() {
-	CashLess.g.Log.Infof("order complete (%v)", o)
+	CashLess.g.Log.Notice("VM%d complete order:%d payer:%s", o.Vmid, o.PaymentID, o.Payer)
 	const q = `UPDATE cashless SET state = 'order_complete', finish_date = now() WHERE payment_id = ?0 and vmid = ?1;`
 	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.Vmid)
 	rn := r.RowsAffected()
@@ -333,7 +333,7 @@ func startNotificationsReader(s string) {
 		tvmid := oid[:strings.Index(oid, "-")]
 		vm, _ := strconv.ParseInt(tvmid, 10, 32)
 
-		o := getCashLessPay(int32(vm), n.OrderID, uint32(n.Amount))
+		o := getCashLessPay(int32(vm), strconv.FormatInt(int64(n.PaymentID), 10), uint32(n.Amount))
 
 		switch n.Status {
 		case tinkoff.StatusConfirmed:
