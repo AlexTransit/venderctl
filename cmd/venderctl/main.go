@@ -110,9 +110,10 @@ func main() {
 			if cli.SdNotify("start " + cmdName) {
 				// under systemd assume systemd journal logging, no timestamp
 				log.SetFlags(log2.LServiceFlags)
-				log.LogToSyslog()
+				log.LogToSyslog("vmc-"+cmdName)
 			} else {
 				log.SetFlags(log2.LInteractiveFlags)
+				log.LogToConsole()
 			}
 			if c.Name != "version" {
 				// Sad difference with vender code: config is read inside cmd.Action, not available here
