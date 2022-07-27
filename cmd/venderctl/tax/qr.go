@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -74,7 +75,7 @@ func CashLessInit(ctx context.Context) bool {
 	}
 	terminalClient = tinkoff.NewClient(terminalKey, CashLess.g.Config.CashLess.TerminalPass)
 	CashLess.Alive = alive.NewAlive()
-	go startNotificationsReader()
+	go startNotificationsReader(CashLess.g.Config.CashLess.URLToListenToBankNotifications)
 	return true
 }
 
@@ -282,7 +283,7 @@ func (o *CashLessOrderStruct) writeDBOrderPaid() {
 }
 
 func (o *CashLessOrderStruct) writeDBOrderComplete() {
-	CashLess.g.Log.Infof("order complete (%v)", o)
+	CashLess.g.Log.Notice("VM%d complete order:%d payer:%s", o.Vmid, o.PaymentID, o.Payer)
 	const q = `UPDATE cashless SET state = 'order_complete', finish_date = now() WHERE payment_id = ?0 and vmid = ?1;`
 	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.Vmid)
 	rn := r.RowsAffected()
@@ -292,11 +293,22 @@ func (o *CashLessOrderStruct) writeDBOrderComplete() {
 	delete(CashLessPay, o.Vmid)
 }
 
-func startNotificationsReader() {
-	r := gin.Default()
-	// gin.SetMode(gin.ReleaseMode)
+func startNotificationsReader(s string) {
+	u, err := url.Parse(s)
+	if err != nil {
+		CashLess.g.Log.Errorf("parce notification (%s) error(%v)", s, err)
+	}
+	if u.Host == "" {
+		u.Host = ":8080"
+	}
+	if u.Path == "" {
+		u.Path = "/payment/notification/tinkoff"
+	}
 
-	r.POST("/payment/notification/tinkoff", func(c *gin.Context) {
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.Default()
+
+	r.POST(u.Path, func(c *gin.Context) {
 		/*
 			n := tinkoff.Notification{
 				TerminalKey: terminalKey,
@@ -309,10 +321,10 @@ func startNotificationsReader() {
 			}
 			var err error
 			/*/
-		n, err := terminalClient.ParseNotification(c.Request.Body)
+		n, errn := terminalClient.ParseNotification(c.Request.Body)
 		CashLess.g.Log.Infof("notification from bank(%v)", n)
 		//*/
-		if err != nil {
+		if errn != nil {
 			CashLess.g.Log.Errorf("notification(%v) parse error(%v)", n, err)
 			return
 		}
@@ -321,7 +333,7 @@ func startNotificationsReader() {
 		tvmid := oid[:strings.Index(oid, "-")]
 		vm, _ := strconv.ParseInt(tvmid, 10, 32)
 
-		o := getCashLessPay(int32(vm), n.OrderID, uint32(n.Amount))
+		o := getCashLessPay(int32(vm), strconv.FormatInt(int64(n.PaymentID), 10), uint32(n.Amount))
 
 		switch n.Status {
 		case tinkoff.StatusConfirmed:
@@ -330,7 +342,7 @@ func startNotificationsReader() {
 				return
 			}
 			o.Payer = n.PAN
-			CashLess.g.Log.Infof("write db confirmed notification from bank(%v), order(%v) ", n, o)
+			CashLess.g.Log.NoticeF("write db confirmed notification from bank(%v), order(%v) ", n, o)
 			o.writeDBOrderPaid()
 		case tinkoff.StatusCanceled:
 			o.cancelOrder()
@@ -338,6 +350,6 @@ func startNotificationsReader() {
 			o.bankQRReject()
 		}
 	})
-	err := r.Run(":8080")
+	err = r.Run(u.Host)
 	CashLess.g.Log.Errorf("error start notification server. error:%v", err)
 }

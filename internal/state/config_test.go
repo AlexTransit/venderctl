@@ -66,7 +66,7 @@ tele {
 	mkCheck := func(c Case) func(*testing.T) {
 		return func(t *testing.T) {
 			// log := log2.NewStderr(log2.LDebug) // helps with panics
-			log := log2.NewTest(t, log2.LDebug)
+			log := log2.NewTest(t, log2.LOG_DEBUG)
 			ctx, g := state_new.NewContext("test", log, tele_api.NewStub())
 			fs := state.NewMockFullReader(map[string]string{
 				"test-inline":   c.input,
@@ -102,6 +102,6 @@ func TestFunctionalBundled(t *testing.T) {
 	// not Parallel
 	t.Logf("this test needs OS open|read|stat access to file `../../venderctl.hcl`")
 
-	log := log2.NewTest(t, log2.LDebug)
+	log := log2.NewTest(t, log2.LOG_DEBUG)
 	state.MustReadConfig(log, state.NewOsFullReader(), "../../venderctl.hcl")
 }

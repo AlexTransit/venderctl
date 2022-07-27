@@ -69,9 +69,9 @@ func (self *tele) Init(ctx context.Context, log *log2.Log, teleConfig tele_confi
 		panic(self.msgInvalidMode())
 	}
 	self.clientSubscribe = "+/#"
-	self.log = log.Clone(log2.LInfo)
+	self.log = log.Clone(log2.LOG_INFO)
 	if self.conf.LogDebug {
-		self.log.SetLevel(log2.LDebug)
+		self.log.SetLevel(log2.LOG_DEBUG)
 	}
 	self.pch = make(chan tele_api.Packet, 1)
 	// self.Vmc = make(map[int32]vmcStruct)

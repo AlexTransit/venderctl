@@ -10,12 +10,13 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/AlexTransit/vender/log2"
+	log2 "github.com/AlexTransit/vender/log2"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
 	cmd_control "github.com/AlexTransit/venderctl/cmd/venderctl/control"
 	cmd_passwd "github.com/AlexTransit/venderctl/cmd/venderctl/passwd"
 	cmd_sponge "github.com/AlexTransit/venderctl/cmd/venderctl/sponge"
 	cmd_tax "github.com/AlexTransit/venderctl/cmd/venderctl/tax"
+
 	// cmd_tele "github.com/AlexTransit/venderctl/cmd/venderctl/tele"
 	cmd_telegram "github.com/AlexTransit/venderctl/cmd/venderctl/telegram"
 	"github.com/juju/errors"
@@ -26,7 +27,7 @@ import (
 	"github.com/AlexTransit/venderctl/internal/tele"
 )
 
-var log = log2.NewStderr(log2.LDebug)
+var log = log2.NewStderr(log2.LOG_DEBUG)
 var commands = []cli.Cmd{
 	cmd_control.Cmd,
 	cmd_passwd.Cmd,
@@ -109,8 +110,10 @@ func main() {
 			if cli.SdNotify("start " + cmdName) {
 				// under systemd assume systemd journal logging, no timestamp
 				log.SetFlags(log2.LServiceFlags)
+				log.LogToSyslog("vmc-"+cmdName)
 			} else {
 				log.SetFlags(log2.LInteractiveFlags)
+				log.LogToConsole()
 			}
 			if c.Name != "version" {
 				// Sad difference with vender code: config is read inside cmd.Action, not available here
@@ -119,7 +122,7 @@ func main() {
 				// - duplicate pprofStart code in actions
 				// - cmd.PreAction hook -- maybe best in the long run, needed quick
 				// not used				g.Error(pprofStart(g, os.Getenv("pprof_listen")))
-				log.Infof("venderctl version=%s starting %s", BuildVersion, cmdName)
+				log.WarningF("venderctl version=%s starting %s", BuildVersion, cmdName)
 			}
 
 			err := c.Action(ctx, flags)
@@ -135,25 +138,6 @@ func main() {
 	flags.Usage()
 	os.Exit(1)
 }
-
-// func pprofStart(g *state.Global, addr string) error {
-// 	if addr == "" {
-// 		return nil
-// 	}
-
-// 	srv := &http.Server{Addr: addr, Handler: nil} // TODO specific pprof handler
-// 	ln, err := net.Listen("tcp", addr)
-// 	if err != nil {
-// 		return errors.Annotate(err, "pprof")
-// 	}
-// 	g.Log.Debugf("pprof http://%s/debug/pprof/", ln.Addr().String())
-// 	go pprofServe(g, srv, ln)
-// 	return nil
-
-// }
-
-// // not inline only for clear goroutine source in panic trace
-// func pprofServe(g *state.Global, srv *http.Server, ln net.Listener) { g.Error(srv.Serve(ln)) }
 
 func versionMain(ctx context.Context, flags *flag.FlagSet) error {
 	fmt.Printf("venderctl %s\n", BuildVersion)

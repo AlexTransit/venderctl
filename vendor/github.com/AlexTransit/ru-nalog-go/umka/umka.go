@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"time"
 
+	ru_nalog "github.com/AlexTransit/ru-nalog-go"
 	"github.com/juju/errors"
-	ru_nalog "github.com/temoto/ru-nalog-go"
 )
 
 // RFC822Z +century,seconds or RFC1123Z -dayofweek
