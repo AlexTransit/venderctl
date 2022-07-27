@@ -1,3 +1,7 @@
+# github.com/AlexTransit/ru-nalog-go v0.220727.0
+## explicit; go 1.18
+github.com/AlexTransit/ru-nalog-go
+github.com/AlexTransit/ru-nalog-go/umka
 # github.com/AlexTransit/vender v0.220726.0
 ## explicit; go 1.18
 github.com/AlexTransit/vender/currency
@@ -89,8 +93,8 @@ github.com/jinzhu/inflection
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/juju/errors v0.0.0-20220331221717-b38fca44723b
-## explicit; go 1.17
+# github.com/juju/errors v1.0.0
+## explicit; go 1.18
 github.com/juju/errors
 # github.com/leodido/go-urn v1.2.1
 ## explicit; go 1.13
@@ -124,16 +128,12 @@ github.com/pmezard/go-difflib/difflib
 ## explicit; go 1.13
 github.com/segmentio/encoding/ascii
 github.com/segmentio/encoding/json
-# github.com/stretchr/testify v1.7.2
+# github.com/stretchr/testify v1.8.0
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
 # github.com/temoto/alive/v2 v2.0.0
 ## explicit; go 1.11
 github.com/temoto/alive/v2
-# github.com/temoto/ru-nalog-go v0.6.1-0.20200126230605-d6d5bfc79675
-## explicit; go 1.11
-github.com/temoto/ru-nalog-go
-github.com/temoto/ru-nalog-go/umka
 # github.com/ugorji/go/codec v1.2.7
 ## explicit; go 1.11
 github.com/ugorji/go/codec

@@ -10,10 +10,9 @@ require (
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/hcl v1.0.0
-	github.com/juju/errors v0.0.0-20220331221717-b38fca44723b
-	github.com/stretchr/testify v1.7.2
+	github.com/juju/errors v1.0.0
+	github.com/stretchr/testify v1.8.0
 	github.com/temoto/alive/v2 v2.0.0
-	github.com/temoto/ru-nalog-go v0.6.1-0.20200126230605-d6d5bfc79675
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
 	gopkg.in/hlandau/easymetric.v1 v1.0.0 // indirect
 	gopkg.in/hlandau/measurable.v1 v1.0.1 // indirect
@@ -21,6 +20,7 @@ require (
 )
 
 require (
+	github.com/AlexTransit/ru-nalog-go v0.220727.0
 	github.com/gin-gonic/gin v1.8.1
 	github.com/nikita-vanyasin/tinkoff v1.0.5
 )
