@@ -155,7 +155,7 @@ func onPacket(ctx context.Context, p tele_api.Packet) error {
 func onState(ctx context.Context, dbConn *pg.Conn, vmid int32, s vender_api.State) error {
 	g := state.GetGlobal(ctx)
 
-	g.Log.Infof("vm=%d state=%s", vmid, s.String())
+	g.Log.NoticeF("vm=%d state=%s", vmid, s.String())
 
 	dbConn = dbConn.WithParam("vmid", vmid).WithParam("state", s)
 	var oldState vender_api.State
@@ -333,7 +333,7 @@ func packetFromRobo(ctx context.Context, p tele_api.Packet) {
 func onConnect(ctx context.Context, dbConn *pg.Conn, vmid int32) error {
 	g := state.GetGlobal(ctx)
 	connect := g.Vmc[vmid].Connect
-	g.Log.Infof("vm=%d connect=%t", vmid, connect)
+	g.Log.WarningF("vm=%d connect=%t", vmid, connect)
 	dbConn = dbConn.WithParam("vmid", vmid).WithParam("connect", connect)
 	var nn bool
 	_, err := dbConn.Query(pg.Scan(&nn), "select connect_update(?vmid, ?connect)")

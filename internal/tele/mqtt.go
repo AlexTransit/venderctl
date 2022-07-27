@@ -24,9 +24,9 @@ import (
 // const SecretsStale = 5 * time.Second
 
 func (self *tele) mqttInit(ctx context.Context, log *log2.Log) error {
-	mlog := log.Clone(log2.LInfo)
+	mlog := log.Clone(log2.LOG_INFO)
 	if self.conf.MqttLogDebug {
-		mlog.SetLevel(log2.LDebug)
+		mlog.SetLevel(log2.LOG_DEBUG)
 	}
 	c := self.conf.Connect.URL
 	if c == "" {

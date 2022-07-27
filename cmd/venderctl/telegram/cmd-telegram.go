@@ -303,9 +303,7 @@ func (tb *tgbotapiot) commandCook(m tgbotapi.Message, client tgUser) {
 		return
 	}
 	tb.chatId[client.id] = client
-	// AlexM замена заказа через телегу
-	tb.sendCookCmd(client.id)  // old ver
-	tb.sendCookCmdN(client.id) // new
+	tb.sendCookCmdN(client.id)
 	go tb.RunCookTimer(client.id)
 }
 
@@ -384,31 +382,6 @@ func (tb *tgbotapiot) logTgDb(m tgbotapi.Message) {
 	tb.g.Alive.Done()
 }
 
-func (tb *tgbotapiot) sendCookCmd(chatId int64) {
-	cl := tb.chatId[chatId]
-
-	Cook := &vender_api.Command_ArgCook{
-		Menucode:      cl.rcook.code,
-		Balance:       int32(cl.Balance) + int32(cl.Credit*100),
-		PaymentMethod: vender_api.PaymentMethod_Balance,
-	}
-	if cl.rcook.cream != 0 {
-		Cook.Cream = []byte{cl.rcook.cream}
-	}
-	if cl.rcook.sugar != 0 {
-		Cook.Sugar = []byte{cl.rcook.sugar}
-	}
-
-	cmd := &vender_api.Command{
-		Executer: chatId,
-		Lock:     false,
-		Task: &vender_api.Command_Cook{
-			Cook: Cook,
-		},
-	}
-	tb.g.Log.Infof("client (%v) send remote cook code:%s", cl, cl.rcook.code)
-	tb.g.Tele.SendCommand(cl.rcook.vmid, cmd)
-}
 func (tb *tgbotapiot) sendCookCmdN(chatId int64) {
 	cl := tb.chatId[chatId]
 	trm := vender_api.ToRoboMessage{
