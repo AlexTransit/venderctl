@@ -3,6 +3,8 @@ github.com/AlexTransit/ru-nalog-go v0.220727.0 h1:KJ5IIWr8nS4V45fz8Mtvm/hL8/J3wg
 github.com/AlexTransit/ru-nalog-go v0.220727.0/go.mod h1:cBWsilQmjCKDeJMx0OeYdTYREXOSc8xZyjRg4BDWto0=
 github.com/AlexTransit/vender v0.220726.0 h1:O1xFu/V4olcWI0xBm/cn2vc+5imwt7I2+TKHoMUd5Ow=
 github.com/AlexTransit/vender v0.220726.0/go.mod h1:gjUkcyY+S6QOtOS/aWhqUG6ApWw6/j8peIu0Wxy0tbo=
+github.com/AlexTransit/vender v0.220727.0 h1:vKEzGujfUIj2QaQQhADOYSs7CP3K2nNNcjIBXbR3N74=
+github.com/AlexTransit/vender v0.220727.0/go.mod h1:gjUkcyY+S6QOtOS/aWhqUG6ApWw6/j8peIu0Wxy0tbo=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
