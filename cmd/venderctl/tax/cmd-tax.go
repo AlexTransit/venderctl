@@ -126,8 +126,8 @@ func cashLessLoop(ctx context.Context) {
 				if rm.Order != nil && rm.Order.OwnerType == vender_api.OwnerType_qrCashLessUser {
 					clp := getCashLessPay(p.VmId, rm.Order.OwnerStr, rm.Order.Amount)
 					switch rm.Order.OrderStatus {
-					case vender_api.OrderStatus_orderError:
-						CashLess.g.Log.Infof("cashless order error (%v)", clp)
+					case vender_api.OrderStatus_orderError, vender_api.OrderStatus_cancel:
+						CashLess.g.Log.Infof("cashless cancel order (%v)", clp)
 						clp.cancelOrder()
 					case vender_api.OrderStatus_waitingForPayment:
 					case vender_api.OrderStatus_complete:
