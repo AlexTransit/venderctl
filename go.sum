@@ -5,6 +5,12 @@ github.com/AlexTransit/vender v0.220726.0 h1:O1xFu/V4olcWI0xBm/cn2vc+5imwt7I2+TK
 github.com/AlexTransit/vender v0.220726.0/go.mod h1:gjUkcyY+S6QOtOS/aWhqUG6ApWw6/j8peIu0Wxy0tbo=
 github.com/AlexTransit/vender v0.220727.0 h1:vKEzGujfUIj2QaQQhADOYSs7CP3K2nNNcjIBXbR3N74=
 github.com/AlexTransit/vender v0.220727.0/go.mod h1:gjUkcyY+S6QOtOS/aWhqUG6ApWw6/j8peIu0Wxy0tbo=
+github.com/AlexTransit/vender v0.220730.0 h1:LK3C3QNoKfRdbxvfyNp8nhX/np2SVoQnxdoFe8+yp0w=
+github.com/AlexTransit/vender v0.220730.0/go.mod h1:gjUkcyY+S6QOtOS/aWhqUG6ApWw6/j8peIu0Wxy0tbo=
+github.com/AlexTransit/vender v0.220730.1-0.20220731115018-81c8e4ee48a4 h1:vA+GLm8MHtCNL//wuX8I3GznOFJ1IMBseJ51v1Wd+Bg=
+github.com/AlexTransit/vender v0.220730.1-0.20220731115018-81c8e4ee48a4/go.mod h1:gjUkcyY+S6QOtOS/aWhqUG6ApWw6/j8peIu0Wxy0tbo=
+github.com/AlexTransit/vender v0.220731.0 h1:Jzzaz7uZeHqtt/mVpOjh2Evhn/HOUMEC/vnJVTMVOSc=
+github.com/AlexTransit/vender v0.220731.0/go.mod h1:gjUkcyY+S6QOtOS/aWhqUG6ApWw6/j8peIu0Wxy0tbo=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
