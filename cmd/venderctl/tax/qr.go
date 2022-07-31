@@ -163,6 +163,7 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	qro.ToRoboMessage.ShowQR.QrText = qrr.Data
 	qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_order
 	qro.ToRoboMessage.ShowQR.DataInt = int32(qro.Amount)
+	qro.ToRoboMessage.ShowQR.DataStr = qro.PaymentID
 	qro.ClState = CreateQR
 	// CashLessPay[vmid] = new(CashLessOrderStruct)
 	CashLessPay[vmid] = &qro

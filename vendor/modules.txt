@@ -2,7 +2,7 @@
 ## explicit; go 1.18
 github.com/AlexTransit/ru-nalog-go
 github.com/AlexTransit/ru-nalog-go/umka
-# github.com/AlexTransit/vender v0.220727.0
+# github.com/AlexTransit/vender v0.220731.0
 ## explicit; go 1.18
 github.com/AlexTransit/vender/currency
 github.com/AlexTransit/vender/helpers
