@@ -90,7 +90,8 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	if o, ok := CashLessPay[vmid]; ok {
 		if CashLessPay[vmid].PaymentID != "" {
 			CashLess.g.Log.Errorf("new qr order, before old order clouse. vmid %d\nold order (%#v)", vmid, CashLessPay[vmid])
-			o.cancelOrder()
+			delete(CashLessPay, o.Vmid)
+			// o.cancelOrder()
 			// return
 		}
 	}
@@ -200,14 +201,15 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 	for {
 		select {
 		case <-tmr.C:
-			CashLess.g.Log.Infof("order cancel by timeout ")
+			CashLess.g.Log.Infof("order cancel by timeout. order(%v)", o)
 			if o.ClState < Paid {
-				o.cancelOrder()
+				// o.cancelOrder()
 			}
 			return
 		case <-CashLess.Alive.StopChan():
 			if o.ClState < Paid {
-				o.cancelOrder()
+				delete(CashLessPay, o.Vmid)
+				// o.cancelOrder()
 			}
 			return
 		}
@@ -343,11 +345,13 @@ func startNotificationsReader(s string) {
 				return
 			}
 			o.Payer = n.PAN
-			CashLess.g.Log.NoticeF("write db confirmed notification from bank(%v), order(%v) ", n, o)
+			CashLess.g.Log.NoticeF("oder confirmed (%v)", n)
 			o.writeDBOrderPaid()
 		case tinkoff.StatusCanceled:
+			CashLess.g.Log.NoticeF("order canseled (%v)", n)
 			o.cancelOrder()
 		case tinkoff.StatusRejected:
+			CashLess.g.Log.NoticeF("order Rejected (%v)", n)
 			o.bankQRReject()
 		}
 	})
