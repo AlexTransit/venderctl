@@ -126,13 +126,19 @@ func cashLessLoop(ctx context.Context) {
 				if rm.Order != nil && rm.Order.OwnerType == vender_api.OwnerType_qrCashLessUser {
 					clp := getCashLessPay(p.VmId, rm.Order.OwnerStr, rm.Order.Amount)
 					switch rm.Order.OrderStatus {
-					case vender_api.OrderStatus_orderError, vender_api.OrderStatus_cancel:
-						CashLess.g.Log.Infof("cashless cancel order (%v)", clp)
-						clp.cancelOrder()
+					case vender_api.OrderStatus_cancel:
+						CashLess.g.Log.Error("from robo. status cansel order (%v)", clp)
+					case vender_api.OrderStatus_orderError:
+						CashLess.g.Log.Infof("from robo. status order error (%v)", clp)
+						if clp.ClState < Paid{
+							clp.cancelOrder()
+						} else {
+							delete(CashLessPay, clp.Vmid)
+						}
 					case vender_api.OrderStatus_waitingForPayment:
 					case vender_api.OrderStatus_complete:
 						clp.writeDBOrderComplete()
-						CashLess.g.Log.NoticeF("on MQTT. vm%d cashless complete (%s) order:%s price:%d", clp.Vmid, clp.Payer, clp.OrderID, clp.Amount)
+						CashLess.g.Log.NoticeF("from robo. order complete vm%d payer(%s) order:%s price:%d", clp.Vmid, clp.Payer, clp.OrderID, clp.Amount)
 					case vender_api.OrderStatus_executionStart:
 					default:
 						delete(CashLessPay, p.VmId)
