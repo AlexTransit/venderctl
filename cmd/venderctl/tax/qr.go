@@ -201,9 +201,12 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 	for {
 		select {
 		case <-tmr.C:
-			CashLess.g.Log.Infof("order cancel by timeout. order(%v)", o)
-			if o.ClState < Paid {
-				// o.cancelOrder()
+			switch o.ClState {
+			case Paid,Cooking,Complete:
+				CashLess.g.Log.Errorf("time out order(%v)", o)
+			default:
+				// FIXME AlexM 
+				CashLess.g.Log.Infof("надо закрыть по таймауту order(%v)", o)
 			}
 			return
 		case <-CashLess.Alive.StopChan():
@@ -286,7 +289,7 @@ func (o *CashLessOrderStruct) writeDBOrderPaid() {
 }
 
 func (o *CashLessOrderStruct) writeDBOrderComplete() {
-	CashLess.g.Log.Notice("VM%d complete order:%d payer:%s", o.Vmid, o.PaymentID, o.Payer)
+	CashLess.g.Log.Notice("VM%v complete order:%v payer:%v", o.Vmid, o.PaymentID, o.Payer)
 	const q = `UPDATE cashless SET state = 'order_complete', finish_date = now() WHERE payment_id = ?0 and vmid = ?1;`
 	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.Vmid)
 	rn := r.RowsAffected()
