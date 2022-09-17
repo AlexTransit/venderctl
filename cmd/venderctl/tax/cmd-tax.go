@@ -128,7 +128,8 @@ func cashLessLoop(ctx context.Context) {
 					switch rm.Order.OrderStatus {
 					case vender_api.OrderStatus_orderError, vender_api.OrderStatus_cancel:
 						CashLess.g.Log.Infof("cashless cancel order (%v)", clp)
-						clp.cancelOrder()
+						CashLess.g.Log.Errorf("cashless cancel order (%v)", clp)
+						// clp.cancelOrder()
 					case vender_api.OrderStatus_waitingForPayment:
 					case vender_api.OrderStatus_complete:
 						clp.writeDBOrderComplete()
