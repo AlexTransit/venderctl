@@ -531,7 +531,7 @@ func (tb *tgbotapiot) tgSend(chatid int64, s string) {
 		tb.g.Log.Errorf("error send telegramm message (%v)", err)
 		return
 	}
-	tb.g.Log.Infof("send telegram message userid: %d text: %s", m.From.ID, m.Text)
+	tb.g.Log.Infof("send telegram message userid:%d (%v %v) text: %s", m.Contact.UserID, m.Contact.FirstName, m.Contact.LastName, m.Text)
 	tb.logTgDb(m)
 }
 
