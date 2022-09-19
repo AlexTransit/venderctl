@@ -87,10 +87,10 @@ func CashLessStop() {
 }
 
 func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
-	if o, ok := CashLessPay[vmid]; ok {
+	if _, ok := CashLessPay[vmid]; ok {
 		if CashLessPay[vmid].PaymentID != "" {
 			CashLess.g.Log.Errorf("new qr order, before old order clouse. vmid %d\nold order (%#v)", vmid, CashLessPay[vmid])
-			o.cancelOrder()
+			// o.cancelOrder()
 			// return
 		}
 	}
