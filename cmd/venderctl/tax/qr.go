@@ -200,7 +200,7 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 	for {
 		select {
 		case <-tmr.C:
-			CashLess.g.Log.Infof("order cancel by timeout ")
+			CashLess.g.Log.Infof("order cancel by timeout (%v)", o)
 			if o.ClState < Paid {
 				o.cancelOrder()
 			}
@@ -241,22 +241,22 @@ func (o *CashLessOrderStruct) sendStartCook() {
 
 func (o *CashLessOrderStruct) cancelOrder() {
 	CashLess.g.Log.Debugf("cancel order:%v ", o)
-	cReq := &tinkoff.CancelRequest{
-		PaymentID: o.PaymentID,
-		Amount:    o.Amount,
-	}
-	cRes, err := terminalClient.Cancel(cReq)
+	// cReq := &tinkoff.CancelRequest{
+	// 	PaymentID: o.PaymentID,
+	// 	Amount:    o.Amount,
+	// }
+	// cRes, err := terminalClient.Cancel(cReq)
+	// q := `UPDATE cashless SET state = 'order_cancel', finish_date = now() WHERE payment_id = ?0 and vmid = ?1;`
+	// switch cRes.Status {
+	// case tinkoff.StatusQRRefunding:
+	// 	q = `UPDATE cashless SET state = 'order_cancel', finish_date = now(), credited = 0 WHERE payment_id = ?0 and vmid = ?1;`
+	// default:
+	// 	errm := fmt.Sprintf("tinkoff fail cancel order (%v) error:%v", o, err)
+	// 	if o.ClState >= Paid {
+	// 		CashLess.g.VMCErrorWriteDB(o.Vmid, time.Now().Unix(), 0, errm)
+	// 	}
+	// }
 	q := `UPDATE cashless SET state = 'order_cancel', finish_date = now() WHERE payment_id = ?0 and vmid = ?1;`
-	switch cRes.Status {
-	case tinkoff.StatusQRRefunding:
-		q = `UPDATE cashless SET state = 'order_cancel', finish_date = now(), credited = 0 WHERE payment_id = ?0 and vmid = ?1;`
-	default:
-		errm := fmt.Sprintf("tinkoff fail cancel order (%v) error:%v", o, err)
-		if o.ClState >= Paid {
-			CashLess.g.VMCErrorWriteDB(o.Vmid, time.Now().Unix(), 0, errm)
-		}
-	}
-
 	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.Vmid)
 	if err != nil || r.RowsAffected() != 1 {
 		CashLess.g.Log.Errorf("fail db update:%v", err)
@@ -284,7 +284,7 @@ func (o *CashLessOrderStruct) writeDBOrderPaid() {
 }
 
 func (o *CashLessOrderStruct) writeDBOrderComplete() {
-	CashLess.g.Log.Notice("VM%d complete order:%d payer:%s", o.Vmid, o.PaymentID, o.Payer)
+	CashLess.g.Log.Notice("VM%v complete order:%v payer:%v", o.Vmid, o.PaymentID, o.Payer)
 	const q = `UPDATE cashless SET state = 'order_complete', finish_date = now() WHERE payment_id = ?0 and vmid = ?1;`
 	r, err := CashLess.g.DB.Exec(q, o.PaymentID, o.Vmid)
 	rn := r.RowsAffected()
