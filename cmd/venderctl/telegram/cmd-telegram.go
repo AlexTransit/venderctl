@@ -335,7 +335,7 @@ func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
 		})
 	}
 	if tb.g.Vmc[vmid].State != vender_api.State_Nominal && tb.g.Vmc[vmid].State != vender_api.State_WaitingForExternalPayment {
-		errm := "автомат сейчас не может выполнить заказ."
+		errm := "автомат сейчас работает с другим клиентом, и не может выполнить Ваш заказ."
 		tb.tgSend(user, errm)
 		return false
 	}
@@ -343,7 +343,7 @@ func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
 }
 
 func (tb *tgbotapiot) logTgDbChange(m tgbotapi.Message) {
-	const q = `UPDATE tgchat set (changedate, changetext) = (?0,?1) WHERE messageid=?2;`
+	const q = `UPDATE tg_chat set (changedate, changetext) = (?0,?1) WHERE messageid=?2;`
 	tb.g.Alive.Add(1)
 	_, err := tb.g.DB.Exec(q,
 		m.EditDate,
