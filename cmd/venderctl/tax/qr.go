@@ -200,8 +200,8 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 	for {
 		select {
 		case <-tmr.C:
-			CashLess.g.Log.Infof("order cancel by timeout (%v)", o)
 			if o.ClState < Paid {
+				CashLess.g.Log.Infof("order cancel by timeout (%v)", o)
 				o.cancelOrder()
 			}
 			return
