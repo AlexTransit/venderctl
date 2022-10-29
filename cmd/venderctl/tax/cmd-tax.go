@@ -109,15 +109,9 @@ func taxLoop(ctx context.Context) error {
 }
 
 func cashLessLoop(ctx context.Context) {
-	time.Sleep(2 * time.Second)
 	g := state.GetGlobal(ctx)
 	g.Alive.Add(1)
 	defer g.Alive.Done()
-	// o := CashLessOrderStruct{
-	// 	Order_id:       "88-221027121511-10",
-	// 	Amount:         1110,
-	// }
-	// o.cancel()
 
 	stopch := g.Alive.StopChan()
 	mqttch := g.Tele.Chan()
@@ -129,32 +123,25 @@ func cashLessLoop(ctx context.Context) {
 				if rm.State == vender_api.State_WaitingForExternalPayment {
 					MakeQr(ctx, p.VmId, rm)
 				}
-				if rm.Order != nil && rm.Order.OwnerInt != 0 && rm.Order.OwnerType == vender_api.OwnerType_qrCashLessUser {
-					o, err := getOrderByOwner(rm.Order.OwnerInt)
-					CashLess.g.Log.Infof("robo response order (%v)", rm.Order.OwnerInt)
-					if err != nil {
-						CashLess.g.Log.Errorf("order message from robo (%v) get in db error (%v)", rm.Order, err)
-					}
-					// clp := getCashLessPay(p.VmId, rm.Order.OwnerStr, rm.Order.Amount)
+				if rm.Order != nil && rm.Order.OwnerType == vender_api.OwnerType_qrCashLessUser {
+					clp := getCashLessPay(p.VmId, rm.Order.OwnerStr, rm.Order.Amount)
 					switch rm.Order.OrderStatus {
-					case vender_api.OrderStatus_orderError:
-						CashLess.g.Log.Errorf("cashless cancel order (%v)", o)
-						o.error()
-						// CashLess.g.Log.Infof("cashless cancel order (%v)", clp)
-						// CashLess.g.Log.Errorf("cashless cancel order (%v)", clp)
-						// clp.cancelOrder()
 					case vender_api.OrderStatus_cancel:
-						o.cancel()
+						CashLess.g.Log.Error("from robo. status cansel order (%v)", clp)
+					case vender_api.OrderStatus_orderError:
+						CashLess.g.Log.Infof("from robo. status order error (%v)", clp)
+						if clp.ClState < Paid{
+							clp.cancelOrder()
+						} else {
+							delete(CashLessPay, clp.Vmid)
+						}
 					case vender_api.OrderStatus_waitingForPayment:
 					case vender_api.OrderStatus_complete:
-						o.complete()
-						// clp.writeDBOrderComplete()
-						CashLess.g.Log.NoticeF("on MQTT. vm%d cashless complete (%s) order:%s price:%d", o.Vmid, o.Payer, o.Order_id, o.Amount)
+						clp.writeDBOrderComplete()
+						CashLess.g.Log.NoticeF("from robo. order complete vm%d payer(%s) order:%s price:%d", clp.Vmid, clp.Payer, clp.OrderID, clp.Amount)
 					case vender_api.OrderStatus_executionStart:
-						o.startExecution()
-						// CashLess.g.Log.Infof("cashless execute order (%v)", clp)
 					default:
-						// delete(CashLessPay, p.VmId)
+						delete(CashLessPay, p.VmId)
 					}
 				}
 			}
@@ -162,6 +149,20 @@ func cashLessLoop(ctx context.Context) {
 			CashLessStop()
 			return
 		}
+	}
+}
+
+func getCashLessPay(vmid int32, payId string, am uint32) (clp *CashLessOrderStruct) {
+	if clp, ok := CashLessPay[vmid]; ok {
+		return clp
+	} else {
+		clp = &CashLessOrderStruct{
+			Vmid:      vmid,
+			PaymentID: payId,
+			Amount:    uint64(am),
+		}
+		CashLess.g.Log.Infof("cashless order not found in ram. create new(%v)", clp)
+		return clp
 	}
 }
 
