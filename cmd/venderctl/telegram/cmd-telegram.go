@@ -127,6 +127,7 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 	for {
 		select {
 		case p := <-mqttch:
+			// старый и новый обработчик
 			rm := tb.g.ParseFromRobo(p)
 			if p.Kind == tele_api.FromRobo {
 				if rm.Order != nil {
@@ -137,7 +138,12 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 						tb.g.Alive.Done()
 					}
 				}
+				// fmt.Printf("\n\033[41m mqttchmqttchmqttch %v \033[0m\n\n", rm)
 			}
+			tb.g.Alive.Add(1)
+			pp := tb.g.ParseMqttPacket(p)
+			tb.cookResponse(pp)
+			tb.g.Alive.Done()
 		case tgm := <-tgch:
 			if tgm.Message == nil && tgm.EditedMessage != nil {
 				tb.g.Log.Infof("telegramm message change (%v)", tgm.EditedMessage)
@@ -335,7 +341,7 @@ func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
 		})
 	}
 	if tb.g.Vmc[vmid].State != vender_api.State_Nominal && tb.g.Vmc[vmid].State != vender_api.State_WaitingForExternalPayment {
-		errm := "автомат сейчас работает с другим клиентом, и не может выполнить Ваш заказ."
+		errm := "автомат сейчас не может выполнить заказ."
 		tb.tgSend(user, errm)
 		return false
 	}
@@ -343,7 +349,7 @@ func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
 }
 
 func (tb *tgbotapiot) logTgDbChange(m tgbotapi.Message) {
-	const q = `UPDATE tg_chat set (changedate, changetext) = (?0,?1) WHERE messageid=?2;`
+	const q = `UPDATE tgchat set (changedate, changetext) = (?0,?1) WHERE messageid=?2;`
 	tb.g.Alive.Add(1)
 	_, err := tb.g.DB.Exec(q,
 		m.EditDate,
@@ -521,12 +527,12 @@ func (tb *tgbotapiot) tgSend(chatid int64, s string) {
 	}
 	msg := tgbotapi.NewMessage(chatid, s)
 	m, err := tb.bot.Send(msg)
-	tb.logTgDb(m)
 	if err != nil {
 		tb.g.Log.Errorf("error send telegramm message (%v)", err)
 		return
 	}
-	tb.g.Log.Infof("send telegram message userid:%d (%v %v %v) text: %s", m.Chat.ID, m.Chat.UserName, m.Chat.FirstName, m.Chat.LastName, m.Text)
+	tb.g.Log.Infof("send telegram message userid: %d text: %s", m.From.ID, m.Text)
+	tb.logTgDb(m)
 }
 
 func (tb *tgbotapiot) getClient(c int64) (tgUser, error) {
