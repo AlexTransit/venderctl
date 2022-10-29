@@ -21,7 +21,6 @@ var CashLess struct {
 	g     *state.Global
 }
 
-
 type orderState int
 
 const (
@@ -227,6 +226,7 @@ func startNotificationsReader(s string) {
 		}
 		switch n.Status {
 		case tinkoff.StatusConfirmed:
+			CashLess.g.Log.Infof("confirmed pay order: %v amount %v ", n.OrderID, n.Amount)
 			if err != nil {
 				CashLess.g.Log.Errorf("unknown confifmed. retun money. (%v) error(%v)", n, err)
 				// FIXME return money
@@ -245,6 +245,7 @@ func startNotificationsReader(s string) {
 			order.cancel()
 		case tinkoff.StatusRejected:
 			order.reject()
+		case tinkoff.StatusAuthorized:
 		default:
 			CashLess.g.Log.NoticeF("unknown notification from bank(%v)", n)
 		}
@@ -383,4 +384,3 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 		}
 	}
 }
-
