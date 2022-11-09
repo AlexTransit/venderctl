@@ -92,6 +92,7 @@ func spongeLoop(ctx context.Context) error {
 			if p.Kind == tele_api.FromRobo || p.Kind == tele_api.PacketConnect {
 				packetFromRobo(ctx, p)
 			} else {
+				// FIXME старый обработчик. убрать коргда в новом будет запрос остатков
 				err = onPacket(ctx, p)
 			}
 			if err != nil {
