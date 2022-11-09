@@ -220,14 +220,14 @@ func startNotificationsReader(s string) {
 			return
 		}
 		c.String(http.StatusOK, terminalClient.GetNotificationSuccessResponse())
-		order, err := getOrder(n.OrderID)
+		order, err1 := getOrder(n.OrderID)
 		if order.PaymentId != n.PaymentID && order.Amount != n.Amount {
 			err = fmt.Errorf("%v; notification from bank, doesn't match paymentid or amount", err)
 		}
 		switch n.Status {
 		case tinkoff.StatusConfirmed:
 			CashLess.g.Log.Infof("confirmed pay order: %v amount %v ", n.OrderID, n.Amount)
-			if err != nil {
+			if err1 != nil {
 				CashLess.g.Log.Errorf("unknown confifmed. retun money. (%v) error(%v)", n, err)
 				// FIXME return money
 				return
@@ -246,6 +246,8 @@ func startNotificationsReader(s string) {
 		case tinkoff.StatusRejected:
 			order.reject()
 		case tinkoff.StatusAuthorized:
+		case tinkoff.StatusRefunded:
+			
 		default:
 			CashLess.g.Log.NoticeF("unknown notification from bank(%v)", n)
 		}
@@ -282,10 +284,32 @@ func (o *CashLessOrderStruct) complete() {
 }
 
 func (o *CashLessOrderStruct) error() {
+	CashLess.g.Log.Errorf("error order:%v ", o)
 	if o.Order_state == order_prepay || o.Order_state == order_execute {
+		o.refundOrder()
 		// return money
 	}
-	o.cancel()
+}
+
+func (o *CashLessOrderStruct) refundOrder() {
+	m := fmt.Sprintf("return money. order:%v ", o)
+	CashLess.g.Log.Debugf(m)
+	cReq := &tinkoff.CancelRequest{
+		PaymentID: o.Payment_id_str,
+		Amount:    o.Amount,
+	}
+	cRes, err := terminalClient.Cancel(cReq)
+	switch cRes.Status {
+	case tinkoff.StatusQRRefunding:
+		o.cancel()
+	default:
+		const q = `UPDATE cashless SET order_state = ?1, finish_date = now() WHERE order_id = ?0`
+		_ = dbUpdate(q, o.Order_id, order_cancel)
+	}
+	if err != nil {
+		CashLess.g.VMCErrorWriteDB(o.Vmid, 0, 0, "error."+m)
+	}
+
 }
 
 // write paid data and send command to robot for make
