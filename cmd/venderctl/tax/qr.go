@@ -247,7 +247,6 @@ func startNotificationsReader(s string) {
 			order.reject()
 		case tinkoff.StatusAuthorized:
 		case tinkoff.StatusRefunded:
-			
 		default:
 			CashLess.g.Log.NoticeF("unknown notification from bank(%v)", n)
 		}
@@ -325,6 +324,7 @@ func (o *CashLessOrderStruct) paid() {
 		ServerTime: time.Now().Unix(),
 		Cmd:        tele.MessageType_makeOrder,
 		MakeOrder: &tele.Order{
+			Amount:        uint32(o.Amount),
 			OrderStatus:   tele.OrderStatus_doSelected,
 			PaymentMethod: tele.PaymentMethod_Cashless,
 			OwnerInt:      int64(o.PaymentId),
