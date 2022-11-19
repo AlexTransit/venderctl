@@ -110,7 +110,7 @@ func main() {
 			if cli.SdNotify("start " + cmdName) {
 				// under systemd assume systemd journal logging, no timestamp
 				log.SetFlags(log2.LServiceFlags)
-				log.LogToSyslog("vmc-"+cmdName)
+				log.LogToSyslog("vmc-" + cmdName)
 			} else {
 				log.SetFlags(log2.LInteractiveFlags)
 				log.LogToConsole()
