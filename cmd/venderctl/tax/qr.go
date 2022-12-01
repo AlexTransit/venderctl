@@ -33,16 +33,16 @@ const (
 )
 
 type CashLessOrderStruct struct {
-	Order_state    orderState
-	Vmid           int32
-	Payment_id_str string
-	PaymentId      uint64
-	Order_id       string
-	Amount         uint64
-	Payer          string
-	Create_date    time.Time
-	Description    string
-	ToRoboMessage  *tele.ToRoboMessage
+	Order_state   orderState
+	Vmid          int32
+	Payment_id    string
+	Paymentid     int64
+	Order_id      string
+	Amount        uint64
+	Payer         string
+	Create_date   time.Time
+	Description   string
+	ToRoboMessage *tele.ToRoboMessage
 }
 
 var terminalClient *tinkoff.Client
@@ -132,8 +132,8 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 		qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
 		return
 	}
-	qro.Payment_id_str = res.PaymentID
-	qro.PaymentId, err = str2uint64(res.PaymentID)
+	qro.Payment_id = res.PaymentID
+	qro.Paymentid, err = str2uint64(res.PaymentID)
 	if err != nil {
 		CashLess.g.Log.Errorf("bank pay payment id error:%v", err)
 		qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
@@ -176,9 +176,9 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 
 }
 
-func str2uint64(str string) (uint64, error) {
+func str2uint64(str string) (int64, error) {
 	i, err := strconv.ParseInt(str, 10, 64)
-	return uint64(i), err
+	return int64(i), err
 }
 
 func menuGetName(vmid int32, code string) string {
@@ -194,7 +194,7 @@ func menuGetName(vmid int32, code string) string {
 
 func (o *CashLessOrderStruct) orderCreate() error {
 	const q = `INSERT INTO cashless (order_state, vmid, create_date, paymentid, order_id, amount, terminal_id) VALUES ( ?0, ?1, ?2, ?3, ?4, ?5, ?6 );`
-	_, err := CashLess.g.DB.Exec(q, order_start, o.Vmid, o.Create_date, o.PaymentId, o.Order_id, o.Amount, 1)
+	_, err := CashLess.g.DB.Exec(q, order_start, o.Vmid, o.Create_date, o.Paymentid, o.Order_id, o.Amount, 1)
 	return err
 }
 
@@ -221,7 +221,7 @@ func startNotificationsReader(s string) {
 		}
 		c.String(http.StatusOK, terminalClient.GetNotificationSuccessResponse())
 		order, err1 := getOrder(n.OrderID)
-		if order.PaymentId != n.PaymentID && order.Amount != n.Amount {
+		if order.Paymentid != int64(n.PaymentID) && order.Amount != n.Amount {
 			err = fmt.Errorf("%v; notification from bank, doesn't match paymentid or amount", err)
 		}
 		switch n.Status {
@@ -257,13 +257,14 @@ func startNotificationsReader(s string) {
 }
 func getOrder(orderId string) (CashLessOrderStruct, error) {
 	var o CashLessOrderStruct
-	_, err := CashLess.g.DB.QueryOne(&o, `select order_state, vmid, order_id, amount, payment_id from cashless where cashless.order_id = ?0;`, orderId)
+	_, err := CashLess.g.DB.QueryOne(&o, `select order_state, vmid, order_id, amount, payment_id, paymentid from cashless where cashless.order_id = ?0;`, orderId)
 	return o, err
 }
 
-func getOrderByOwner(paymentid int64) (CashLessOrderStruct, error) {
+func getOrderByOwner(pid int64) (CashLessOrderStruct, error) {
 	var o CashLessOrderStruct
-	_, err := CashLess.g.DB.QueryOne(&o, `select order_state, vmid, order_id, amount, payment_id from cashless where paymentid = ?0;`, paymentid)
+	_, err := CashLess.g.DB.QueryOne(&o, `select order_state, vmid, order_id, amount, payment_id, paymentid from cashless where paymentid = ?;`, pid)
+	// o.PaymentId = uint64(pid)
 	return o, err
 }
 
@@ -294,7 +295,7 @@ func (o *CashLessOrderStruct) refundOrder() {
 	m := fmt.Sprintf("return money. order:%v ", o)
 	CashLess.g.Log.Debugf(m)
 	cReq := &tinkoff.CancelRequest{
-		PaymentID: o.Payment_id_str,
+		PaymentID: o.Payment_id,
 		Amount:    o.Amount,
 	}
 	cRes, err := terminalClient.Cancel(cReq)
@@ -327,8 +328,8 @@ func (o *CashLessOrderStruct) paid() {
 			Amount:        uint32(o.Amount),
 			OrderStatus:   tele.OrderStatus_doSelected,
 			PaymentMethod: tele.PaymentMethod_Cashless,
-			OwnerInt:      int64(o.PaymentId),
-			OwnerStr:      o.Payment_id_str,
+			OwnerInt:      int64(o.Paymentid),
+			OwnerStr:      o.Payment_id,
 			OwnerType:     tele.OwnerType_qrCashLessUser,
 		},
 	}
@@ -380,7 +381,7 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 					s.Status = tinkoff.StatusRejected
 					var err error
 					/*/
-			if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: o.Payment_id_str}); err == nil {
+			if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: o.Payment_id}); err == nil {
 				//*/
 				if err != nil {
 					// o.cancelOrder()
