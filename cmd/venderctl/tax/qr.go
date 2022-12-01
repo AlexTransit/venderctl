@@ -264,7 +264,6 @@ func getOrder(orderId string) (CashLessOrderStruct, error) {
 func getOrderByOwner(pid int64) (CashLessOrderStruct, error) {
 	var o CashLessOrderStruct
 	_, err := CashLess.g.DB.QueryOne(&o, `select order_state, vmid, order_id, amount, payment_id, paymentid from cashless where paymentid = ?;`, pid)
-	// o.PaymentId = uint64(pid)
 	return o, err
 }
 
