@@ -125,7 +125,7 @@ func cashLessLoop(ctx context.Context) {
 				}
 				if rm.Order != nil && rm.Order.OwnerInt != 0 && rm.Order.OwnerType == vender_api.OwnerType_qrCashLessUser {
 					o, err := getOrderByOwner(rm.Order.OwnerInt)
-					CashLess.g.Log.Infof("robo response order (%v)", rm.Order.OwnerInt)
+					CashLess.g.Log.Infof("robo response order owner(%v) order(%v)", rm.Order.OwnerInt, o)
 					if err != nil {
 						CashLess.g.Log.Errorf("order message from robo (%v) get in db error (%v)", rm.Order, err)
 					}
