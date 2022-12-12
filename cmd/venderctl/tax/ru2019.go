@@ -158,6 +158,7 @@ func processRu2019Final(ctx context.Context, db *pg.Conn, tj *MTaxJob, note stri
 		// }
 		// g.Tele.CommandTx(vmid, cmd)
 		rm := vender_api.ToRoboMessage{
+			Cmd: vender_api.MessageType_showQR,
 			ShowQR: &vender_api.ShowQR{
 				QrType: vender_api.ShowQR_receipt,
 				QrText: tj.ExtId,
