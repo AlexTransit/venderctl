@@ -283,8 +283,8 @@ func (o *CashLessOrderStruct) complete() {
 }
 
 func (o *CashLessOrderStruct) error() {
-	CashLess.g.Log.Errorf("error order:%v ", o)
 	if o.Order_state == order_prepay || o.Order_state == order_execute {
+		CashLess.g.Log.Errorf("error order:%v ", o)
 		o.refundOrder()
 		// return money
 	}
@@ -376,8 +376,8 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 			/*
 				if true {
 					var s tinkoff.GetStateResponse
-					// s.Status = tinkoff.StatusConfirmed
-					s.Status = tinkoff.StatusRejected
+					s.Status = tinkoff.StatusConfirmed
+					// s.Status = tinkoff.StatusRejected
 					var err error
 					/*/
 			if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: o.Payment_id}); err == nil {
