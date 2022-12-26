@@ -165,7 +165,8 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	if err != nil {
 		qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
 	}
-	go qro.waitingForPayment()
+	// go qro.waitingForPayment()
+
 	// 4 test -----------------------------------
 	/*
 		go func() {
@@ -315,6 +316,7 @@ func (o *CashLessOrderStruct) refundOrder() {
 func (o *CashLessOrderStruct) paid() {
 	q := `UPDATE cashless SET order_state = ?2, credit_date = now(), credited = ?1 WHERE order_id = ?0`
 	// _, err := CashLess.g.DB.Exec(q, o.Order_id, o.Amount, order_prepay)
+	o.Order_state = order_prepay
 	err := dbUpdate(q, o.Order_id, o.Amount, order_prepay)
 	if err != nil {
 		// return money
@@ -332,6 +334,7 @@ func (o *CashLessOrderStruct) paid() {
 			OwnerType:     tele.OwnerType_qrCashLessUser,
 		},
 	}
+	CashLess.g.Log.NoticeF("confirmed pay order vm%v ", o.Vmid)
 	CashLess.g.Tele.SendToRobo(o.Vmid, &sm)
 }
 
@@ -389,7 +392,9 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 				}
 				switch s.Status {
 				case tinkoff.StatusConfirmed:
-					o.paid()
+					if o.Order_state != order_prepay {
+						o.paid()
+					}
 					// o.writeDBOrderPaid()
 					// o.sendStartCook()
 					return
