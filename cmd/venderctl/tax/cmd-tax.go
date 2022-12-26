@@ -133,7 +133,7 @@ func cashLessLoop(ctx context.Context) {
 					switch rm.Order.OrderStatus {
 					case vender_api.OrderStatus_orderError:
 						CashLess.g.Log.Errorf("from robot. cancel cashless order (%v)", o)
-						o.error()
+						// o.error()
 					case vender_api.OrderStatus_cancel:
 						o.cancel()
 					case vender_api.OrderStatus_waitingForPayment:
