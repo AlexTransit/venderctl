@@ -163,6 +163,7 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	qro.ToRoboMessage.ShowQR.DataStr = res.PaymentID
 	err = qro.orderCreate()
 	if err != nil {
+		CashLess.g.Log.Errorf("bank orger create. write db error:%v", err)
 		qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
 	}
 	// go qro.waitingForPayment()
@@ -286,8 +287,8 @@ func (o *CashLessOrderStruct) complete() {
 func (o *CashLessOrderStruct) error() {
 	if o.Order_state == order_prepay || o.Order_state == order_execute {
 		CashLess.g.Log.Errorf("error order:%v ", o)
-		o.refundOrder()
 		// return money
+		// o.refundOrder()
 	}
 }
 
