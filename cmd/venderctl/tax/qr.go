@@ -49,7 +49,7 @@ var terminalClient *tinkoff.Client
 var terminalKey string
 var terminalBankCommission, terminalMinimalAmount uint32
 
-func CashLessInit(ctx context.Context) bool {
+func CashLessInit(ctx context.Context) {
 	CashLess.g = state.GetGlobal(ctx)
 	if CashLess.g.Config.CashLess.TerminalTimeOutSec == 0 {
 		CashLess.g.Config.CashLess.TerminalTimeOutSec = 30
@@ -63,18 +63,19 @@ func CashLessInit(ctx context.Context) bool {
 	if CashLess.g.Config.CashLess.TerminalQRPayRefreshSec == 0 {
 		CashLess.g.Config.CashLess.TerminalQRPayRefreshSec = 3
 	}
+	go cashLessLoop(ctx)
 	if terminalKey = CashLess.g.Config.CashLess.TerminalKey; terminalKey == "" {
-		CashLess.g.Log.Info("\033[41mtekminal key not foud. cashless system not start\033[0m")
-		return false
+		CashLess.g.Log.Info("tekminal key not foud. cashless system not start.")
+		return
 	}
 	if tp := CashLess.g.Config.CashLess.TerminalPass; tp == "" {
-		CashLess.g.Log.Info("\033[41mtekminal password not foud. cashless system not start\033[0m")
-		return false
+		terminalKey = ""
+		CashLess.g.Log.Info("tekminal password not foud. cashless system not start.")
+		return
 	}
 	terminalClient = tinkoff.NewClient(terminalKey, CashLess.g.Config.CashLess.TerminalPass)
 	CashLess.Alive = alive.NewAlive()
 	go startNotificationsReader(CashLess.g.Config.CashLess.URLToListenToBankNotifications)
-	return true
 }
 
 func CashLessStop() {
@@ -94,9 +95,13 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 		CashLess.g.Log.Infof("send message to robo(%d) message(%v)", vmid, qro.ToRoboMessage)
 		CashLess.g.Tele.SendToRobo(vmid, qro.ToRoboMessage)
 	}()
+	qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
+	if terminalKey == "" {
+		CashLess.g.Log.Info("cashless system not working. send robot message qrerror")
+		return
+	}
 	if rm.Order.Amount < terminalMinimalAmount { // minimal bank amount
 		CashLess.g.Log.Errorf("bank pay imposible. the amount is less than the minimum\n%#v", rm.Order.Amount)
-		qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
 		return
 	}
 	persentAmount := (rm.Order.Amount * terminalBankCommission) / 10000
@@ -129,14 +134,12 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	//*/
 	if err != nil || res.Status != tinkoff.StatusNew {
 		CashLess.g.Log.Errorf("bank pay init error:%v", err)
-		qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
 		return
 	}
 	qro.Payment_id = res.PaymentID
 	qro.Paymentid, err = str2uint64(res.PaymentID)
 	if err != nil {
 		CashLess.g.Log.Errorf("bank pay payment id error:%v", err)
-		qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
 		return
 	}
 	// 4 test -----------------------------------
@@ -154,18 +157,18 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	//*/
 	if err != nil {
 		CashLess.g.Log.Errorf("bank get QR error:%v", err)
-		qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
+		return
+	}
+	err = qro.orderCreate()
+	if err != nil {
+		CashLess.g.Log.Errorf("bank orger create. write db error:%v", err)
 		return
 	}
 	qro.ToRoboMessage.ShowQR.QrText = qrr.Data
 	qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_order
 	qro.ToRoboMessage.ShowQR.DataInt = int32(qro.Amount)
 	qro.ToRoboMessage.ShowQR.DataStr = res.PaymentID
-	err = qro.orderCreate()
-	if err != nil {
-		CashLess.g.Log.Errorf("bank orger create. write db error:%v", err)
-		qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
-	}
+
 	// go qro.waitingForPayment()
 
 	// 4 test -----------------------------------
@@ -175,7 +178,6 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 			qro.writeDBOrderPaid()
 		}()
 		//*/
-
 }
 
 func str2uint64(str string) (int64, error) {
