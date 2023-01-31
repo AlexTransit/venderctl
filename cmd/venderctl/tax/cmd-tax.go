@@ -43,9 +43,7 @@ func taxMain(ctx context.Context, flags *flag.FlagSet) error {
 	if err := taxInit(ctx); err != nil {
 		return errors.Annotate(err, "taxInit")
 	}
-	if CashLessInit(ctx) {
-		go cashLessLoop(ctx)
-	}
+	CashLessInit(ctx)
 	return taxLoop(ctx)
 }
 
