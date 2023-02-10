@@ -290,7 +290,7 @@ func (o *CashLessOrderStruct) error() {
 	if o.Order_state == order_prepay || o.Order_state == order_execute {
 		CashLess.g.Log.Errorf("error order:%v ", o)
 		// return money
-		// o.refundOrder()
+		o.refundOrder()
 	}
 }
 
