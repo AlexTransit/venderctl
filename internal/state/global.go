@@ -68,6 +68,8 @@ func (g *Global) InitDB(cmdName string) error {
 	return errors.Annotate(err, "db ping")
 }
 
+// сохраняет ошибку в базу с маркировкой не просмотрено.
+// saves the error to the base marked not viewed
 func (g *Global) VMCErrorWriteDB(vmid int32, vmtime int64, errCode uint32, message string) {
 	dbConn := g.DB.Conn().WithParam("vmid", vmid).WithParam("vmtime", vmtime)
 	defer dbConn.Close()

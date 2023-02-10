@@ -297,6 +297,7 @@ func (o *CashLessOrderStruct) error() {
 func (o *CashLessOrderStruct) refundOrder() {
 	m := fmt.Sprintf("return money. order:%v ", o)
 	CashLess.g.Log.Debugf(m)
+	CashLess.g.VMCErrorWriteDB(o.Vmid, o.Create_date.Unix(), 0, m)
 	cReq := &tinkoff.CancelRequest{
 		PaymentID: o.Payment_id,
 		Amount:    o.Amount,
