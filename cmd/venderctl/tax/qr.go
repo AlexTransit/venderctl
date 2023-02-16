@@ -115,7 +115,7 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	/*
 		res := tinkoff.InitResponse{
 			Amount:     qro.Amount,
-			OrderID:    qro.OrderID,
+			OrderID:    qro.Order_id,
 			Status:     tinkoff.StatusNew,
 			PaymentID:  od.Format("060102150405"),
 			PaymentURL: "https://get.lost/world",
@@ -146,7 +146,7 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	/*
 		pidi, _ := strconv.Atoi(res.PaymentID)
 		qrr := tinkoff.GetQRResponse{
-			OrderID:   qro.OrderID,
+			OrderID:   qro.Order_id,
 			Data:      "TEST qr code for pay",
 			PaymentID: pidi,
 		}
@@ -173,11 +173,13 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 
 	// 4 test -----------------------------------
 	/*
+	if qro.Vmid == 88 {
 		go func() {
 			time.Sleep(2 * time.Second)
-			qro.writeDBOrderPaid()
+			qro.paid()
 		}()
-		//*/
+	}
+	//*/
 }
 
 func str2uint64(str string) (int64, error) {
