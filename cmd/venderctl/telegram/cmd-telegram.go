@@ -312,7 +312,7 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 	// приготовить робот:88 код:3 cream:4 sugar:4 (сливики/сахар необязательные)
 	// 1 - robo, 2 - code , 3 - valid creame, 4 - value creme, 5 - valid sugar, 6 value sugar
 	// var cs cookSruct
-	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m?([-.0-9]+)(_c([0-6]))?(_s([0-8]))?$`)
+	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m?([-.0-9]+)(_[c,C,с,С]([0-6]))?(_[s,S]([0-8]))?$`)
 	parts := reCmdMake.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
 		return cs, false
@@ -531,7 +531,7 @@ func (tb *tgbotapiot) tgSend(chatid int64, s string) {
 		tb.g.Log.Errorf("error send telegramm message (%v)", err)
 		return
 	}
-	tb.g.Log.Infof("send telegram message userid: %d text: %s", m.From.ID, m.Text)
+	tb.g.Log.Infof("send telegram message userid: %d text: %s", m.Chat.ID, m.Text)
 	tb.logTgDb(m)
 }
 
