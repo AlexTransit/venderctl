@@ -252,12 +252,12 @@ on conflict (vmid) where at_service=?0 do update set
 		}
 	}
 
-	const q = `insert into ingest (received,vmid,done,raw) values (current_timestamp,?vmid,?0,?1)`
-	raw, _ := proto.Marshal(t)
-	_, err := dbConn.Exec(q, len(errs) == 0, raw)
-	if err != nil {
-		errs = append(errs, errors.Annotatef(err, "db query=%s t=%s", q, proto.CompactTextString(t)))
-	}
+	// const q = `insert into ingest (received,vmid,done,raw) values (current_timestamp,?vmid,?0,?1)`
+	// raw, _ := proto.Marshal(t)
+	// _, err := dbConn.Exec(q, len(errs) == 0, raw)
+	// if err != nil {
+	// 	errs = append(errs, errors.Annotatef(err, "db query=%s t=%s", q, proto.CompactTextString(t)))
+	// }
 	return helpers.FoldErrors(errs)
 }
 
