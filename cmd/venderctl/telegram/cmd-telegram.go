@@ -138,7 +138,6 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 						tb.g.Alive.Done()
 					}
 				}
-				// fmt.Printf("\n\033[41m mqttchmqttchmqttch %v \033[0m\n\n", rm)
 			}
 			tb.g.Alive.Add(1)
 			pp := tb.g.ParseMqttPacket(p)
@@ -148,6 +147,10 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 			if tgm.Message == nil && tgm.EditedMessage != nil {
 				tb.g.Log.Infof("telegramm message change (%v)", tgm.EditedMessage)
 				tb.logTgDbChange(*tgm.EditedMessage)
+				break
+			}
+			if tgm.ChannelPost != nil {
+				TgChannelParser(tgm.ChannelPost)
 				break
 			}
 			if tgm.Message == nil {
@@ -174,6 +177,10 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+func TgChannelParser(m *tgbotapi.Message) {
+	tb.g.Log.Infof("chatId:%v autor:%v message:%v", m.Chat.ID, m.AuthorSignature, m.Text)
 }
 
 func balance(b int64) string {
