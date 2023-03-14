@@ -138,7 +138,6 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 						tb.g.Alive.Done()
 					}
 				}
-				// fmt.Printf("\n\033[41m mqttchmqttchmqttch %v \033[0m\n\n", rm)
 			}
 			tb.g.Alive.Add(1)
 			pp := tb.g.ParseMqttPacket(p)
@@ -148,6 +147,13 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 			if tgm.Message == nil && tgm.EditedMessage != nil {
 				tb.g.Log.Infof("telegramm message change (%v)", tgm.EditedMessage)
 				tb.logTgDbChange(*tgm.EditedMessage)
+				break
+			}
+			if tgm.ChannelPost != nil {
+				TgChannelParser(tgm.ChannelPost)
+				break
+			}
+			if tgm.Message == nil {
 				break
 			}
 			notBot := !tgm.Message.From.IsBot
@@ -171,6 +177,10 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+func TgChannelParser(m *tgbotapi.Message) {
+	tb.g.Log.Infof("chatId:%v autor:%v message:%v", m.Chat.ID, m.AuthorSignature, m.Text)
 }
 
 func balance(b int64) string {
@@ -312,7 +322,7 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 	// приготовить робот:88 код:3 cream:4 sugar:4 (сливики/сахар необязательные)
 	// 1 - robo, 2 - code , 3 - valid creame, 4 - value creme, 5 - valid sugar, 6 value sugar
 	// var cs cookSruct
-	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m?([-.0-9]+)(_[c,C,с,С]([0-6]))?(_[s,S]([0-8]))?$`)
+	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m?([-.0-9]+)(_?[c,C,с,С]([0-6]))?(_?[s,S]([0-8]))?$`)
 	parts := reCmdMake.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
 		return cs, false
@@ -603,10 +613,12 @@ func (tb *tgbotapiot) RunCookTimer(cl int64) {
 func (tb *tgbotapiot) replayCommandHelp(cl int64) error {
 	msg := "пока это работает так:\n" +
 		"для заказа напитка нужно указать номер автомата (номер указан в право верхнем углу автомата), код напитка и, если требуется, тюнинг сливок и сахара\n" +
-		"пример: хочется заказать атомату 5 напиток с кодом 23. для этого боту надо написать (используя латиницу)\n" +
+		"пример: хочется заказать атомату 5 напиток с кодом 23. для этого боту надо написать\n" +
 		"/5_23\n" +
 		"для тюнинга сливок и сахара надо добавить _с (это cream = сливки) и/или _s (это sugar = сахар ) например:\n" +
 		"/5_23_c3_s2\n" +
+		"или теперь можно так\n" +
+		"/5_23c3s2\n" +
 		"это означает, автомату=5, приготовить код=23, сливки=3, сахар=2\n" +
 		"если непонятно, позвоните/напишите @Alexey_Milko, он расскажет.\n" +
 		"\n" +

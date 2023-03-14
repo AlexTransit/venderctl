@@ -173,13 +173,13 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 
 	// 4 test -----------------------------------
 	/*
-	if qro.Vmid == 88 {
-		go func() {
-			time.Sleep(2 * time.Second)
-			qro.paid()
-		}()
-	}
-	//*/
+		if qro.Vmid == 88 {
+			go func() {
+				time.Sleep(2 * time.Second)
+				qro.paid()
+			}()
+		}
+		//*/
 }
 
 func str2uint64(str string) (int64, error) {
@@ -298,6 +298,11 @@ func (o *CashLessOrderStruct) error() {
 
 func (o *CashLessOrderStruct) refundOrder() {
 	m := fmt.Sprintf("return money. order:%v ", o)
+	// FIXME Payment_id string Paymentid int
+	CashLess.g.Log.WarningF("o.Payment_id:%v, o.Paymentid:%v ", o.Payment_id, o.Paymentid)
+	if o.Payment_id == "" {
+		o.Payment_id = fmt.Sprintf("%v", o.Paymentid)
+	}
 	CashLess.g.Log.Debugf(m)
 	CashLess.g.VMCErrorWriteDB(o.Vmid, o.Create_date.Unix(), 0, m)
 	cReq := &tinkoff.CancelRequest{
