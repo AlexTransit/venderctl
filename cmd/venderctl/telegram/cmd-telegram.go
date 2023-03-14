@@ -322,7 +322,7 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 	// приготовить робот:88 код:3 cream:4 sugar:4 (сливики/сахар необязательные)
 	// 1 - robo, 2 - code , 3 - valid creame, 4 - value creme, 5 - valid sugar, 6 value sugar
 	// var cs cookSruct
-	reCmdMake := regexp.MustCompile(`/^/(-?\d+)_m?([-.0-9]+)(_?[c,C,с,С]([0-6]))?(_?[s,S]([0-8]))?$/g`)
+	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m?([-.0-9]+)(_?[c,C,с,С]([0-6]))?(_?[s,S]([0-8]))?$`)
 	parts := reCmdMake.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
 		return cs, false
