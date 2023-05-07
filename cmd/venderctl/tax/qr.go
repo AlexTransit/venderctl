@@ -159,8 +159,7 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 		CashLess.g.Log.Errorf("bank get QR error:%v", err)
 		return
 	}
-	err = qro.orderCreate()
-	if err != nil {
+	if err = qro.orderCreate(); err != nil {
 		CashLess.g.Log.Errorf("bank orger create. write db error:%v", err)
 		return
 	}
@@ -199,6 +198,7 @@ func menuGetName(vmid int32, code string) string {
 }
 
 func (o *CashLessOrderStruct) orderCreate() error {
+	o.Order_state = order_start
 	const q = `INSERT INTO cashless (order_state, vmid, create_date, paymentid, order_id, amount, terminal_id) VALUES ( ?0, ?1, ?2, ?3, ?4, ?5, ?6 );`
 	_, err := CashLess.g.DB.Exec(q, order_start, o.Vmid, o.Create_date, o.Paymentid, o.Order_id, o.Amount, 1)
 	return err
@@ -382,11 +382,11 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 	for {
 		select {
 		case <-tmr.C:
-			CashLess.g.Log.Infof("timeout order close (%v)", o)
-			if o.Order_state == order_start {
+			if o.Order_state == order_invalid || o.Order_state == order_start {
+				CashLess.g.Log.Infof("timeout order close (%v)", o)
 				o.refundOrder()
 			} else {
-				CashLess.g.Log.Errorf("time out worked order (%v)",o)
+				CashLess.g.Log.Errorf("time out worked order (%v)", o)
 			}
 			return
 		case <-CashLess.Alive.StopChan():
