@@ -169,7 +169,7 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	qro.ToRoboMessage.ShowQR.DataInt = int32(qro.Amount)
 	qro.ToRoboMessage.ShowQR.DataStr = res.PaymentID
 
-	// go qro.waitingForPayment()
+	go qro.waitingForPayment()
 
 	// 4 test -----------------------------------
 	/*
@@ -382,6 +382,12 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 	for {
 		select {
 		case <-tmr.C:
+			CashLess.g.Log.Infof("timeout order close (%v)", o)
+			if o.Order_state == order_start {
+				o.refundOrder()
+			} else {
+				CashLess.g.Log.Errorf("time out worked order (%v)",o)
+			}
 			return
 		case <-CashLess.Alive.StopChan():
 			return
@@ -392,6 +398,7 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 					var s tinkoff.GetStateResponse
 					s.Status = tinkoff.StatusConfirmed
 					// s.Status = tinkoff.StatusRejected
+					// s.Status = tinkoff.StatusNew
 					var err error
 					/*/
 			if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: o.Payment_id}); err == nil {
