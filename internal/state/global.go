@@ -31,9 +31,15 @@ func GetGlobal(ctx context.Context) *Global {
 func (g *Global) CtlStop(ctx context.Context) {
 	g.Tele.Close()
 	g.Alive.Stop()
+	go func() {
+		time.Sleep(5 * time.Second)
+		g.Log.Infof("venderctl stoped. by timeout")
+		os.Exit(0)
+	}()
 	g.Alive.Wait()
 	g.Log.Infof("venderctl stoped")
 	os.Exit(0)
+
 }
 
 func (g *Global) GetRoboState(vmid int32) vender_api.State {
