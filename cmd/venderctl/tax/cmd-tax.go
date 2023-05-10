@@ -130,8 +130,8 @@ func cashLessLoop(ctx context.Context) {
 					// clp := getCashLessPay(p.VmId, rm.Order.OwnerStr, rm.Order.Amount)
 					switch rm.Order.OrderStatus {
 					case vender_api.OrderStatus_orderError:
-						CashLess.g.Log.Errorf("from robot. cancel cashless order (%v)", o)
-						o.error()
+						CashLess.g.Log.Errorf("from robot. error make cashless order (%v)", o)
+						o.refundOrder()
 					case vender_api.OrderStatus_cancel:
 						o.cancel()
 					case vender_api.OrderStatus_waitingForPayment:
