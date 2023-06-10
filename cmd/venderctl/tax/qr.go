@@ -250,8 +250,9 @@ func (o *CashLessOrderStruct) refundOrder() {
 }
 
 func (o *CashLessOrderStruct) sendCanselToBank() {
+	paymentidStr := strconv.Itoa(int(o.Paymentid))
 	cReq := &tinkoff.CancelRequest{
-		PaymentID: o.Payment_id,
+		PaymentID: paymentidStr,
 		Amount:    o.Amount,
 	}
 	cRes, err := terminalClient.Cancel(cReq)
