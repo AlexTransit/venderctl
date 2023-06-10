@@ -31,9 +31,15 @@ func GetGlobal(ctx context.Context) *Global {
 func (g *Global) CtlStop(ctx context.Context) {
 	g.Tele.Close()
 	g.Alive.Stop()
+	go func() {
+		time.Sleep(5 * time.Second)
+		g.Log.Infof("venderctl stoped. by timeout")
+		os.Exit(0)
+	}()
 	g.Alive.Wait()
 	g.Log.Infof("venderctl stoped")
 	os.Exit(0)
+
 }
 
 func (g *Global) GetRoboState(vmid int32) vender_api.State {
@@ -76,7 +82,7 @@ func (g *Global) VMCErrorWriteDB(vmid int32, vmtime int64, errCode uint32, messa
 	const q = `insert into error (vmid,vmtime,received,code,message,app_version) values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1,?2)`
 	_, err := dbConn.Exec(q, errCode, message, g.Vmc[vmid].Version)
 	if err != nil {
-		g.Log.Errorf("error db query=%s \nerror=%v", q, err)
+		g.Log.Errorf("error db query=%s error=%v", q, err)
 	}
 }
 

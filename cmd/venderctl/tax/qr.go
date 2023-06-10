@@ -36,7 +36,7 @@ type CashLessOrderStruct struct {
 	Order_state   orderState
 	Vmid          int32
 	Payment_id    string
-	Paymentid     int64
+	Paymentid     uint64
 	Order_id      string
 	Amount        uint64
 	Payer         string
@@ -79,9 +79,13 @@ func CashLessInit(ctx context.Context) {
 }
 
 func CashLessStop() {
-	CashLess.Alive.Stop()
-	CashLess.Alive.Wait()
 	CashLess.g.Log.Debug("cashless system stoped ")
+}
+
+func CashLessErrorDB(format string, args ...interface{}) {
+	s := fmt.Sprintf(format, args...)
+	CashLess.g.Log.Errorf(s)
+	CashLess.g.VMCErrorWriteDB(0, 0, 0, s)
 }
 
 func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
@@ -133,7 +137,9 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	})
 	//*/
 	if err != nil || res.Status != tinkoff.StatusNew {
-		CashLess.g.Log.Errorf("bank pay init error:%v", err)
+		// CashLess.g.Log.Errorf("bank pay init error:%v", err)
+		CashLessErrorDB("bank pay init error:%v", err)
+
 		return
 	}
 	qro.Payment_id = res.PaymentID
@@ -159,9 +165,9 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 		CashLess.g.Log.Errorf("bank get QR error:%v", err)
 		return
 	}
-	err = qro.orderCreate()
-	if err != nil {
-		CashLess.g.Log.Errorf("bank orger create. write db error:%v", err)
+	if err = qro.orderCreate(); err != nil {
+		// CashLess.g.Log.Errorf("bank orger create. write db error:%v", err)
+		CashLessErrorDB("bank orger create. write db error:%v", err)
 		return
 	}
 	qro.ToRoboMessage.ShowQR.QrText = qrr.Data
@@ -169,7 +175,7 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	qro.ToRoboMessage.ShowQR.DataInt = int32(qro.Amount)
 	qro.ToRoboMessage.ShowQR.DataStr = res.PaymentID
 
-	// go qro.waitingForPayment()
+	go waitingForPayment(qro.Order_id)
 
 	// 4 test -----------------------------------
 	/*
@@ -182,9 +188,9 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 		//*/
 }
 
-func str2uint64(str string) (int64, error) {
+func str2uint64(str string) (uint64, error) {
 	i, err := strconv.ParseInt(str, 10, 64)
-	return int64(i), err
+	return uint64(i), err
 }
 
 func menuGetName(vmid int32, code string) string {
@@ -204,67 +210,10 @@ func (o *CashLessOrderStruct) orderCreate() error {
 	return err
 }
 
-func startNotificationsReader(s string) {
-	u, err := url.Parse(s)
-	if err != nil {
-		CashLess.g.Log.Errorf("parce notification (%s) error(%v)", s, err)
-	}
-	if u.Host == "" {
-		u.Host = ":8080"
-	}
-	if u.Path == "" {
-		u.Path = "/payment/notification/tinkoff"
-	}
-
-	gin.SetMode(gin.ReleaseMode)
-	r := gin.Default()
-
-	r.POST(u.Path, func(c *gin.Context) {
-		n, errn := terminalClient.ParseNotification(c.Request.Body)
-		if errn != nil {
-			CashLess.g.Log.Errorf("notification(%v) parse error(%v)", n, err)
-			return
-		}
-		c.String(http.StatusOK, terminalClient.GetNotificationSuccessResponse())
-		order, err1 := getOrder(n.OrderID)
-		if order.Paymentid != int64(n.PaymentID) && order.Amount != n.Amount {
-			err = fmt.Errorf("%v; notification from bank, doesn't match paymentid or amount", err)
-		}
-		switch n.Status {
-		case tinkoff.StatusConfirmed:
-			CashLess.g.Log.Infof("confirmed pay order: %v amount %v ", n.OrderID, n.Amount)
-			if err1 != nil {
-				CashLess.g.Log.Errorf("unknown confifmed. retun money. (%v) error(%v)", n, err)
-				// FIXME return money
-				return
-			}
-			if order.Order_state >= order_complete {
-				CashLess.g.Log.Errorf("coplete notification for confifmed or canceled order(%v) (%v) notification(%v)", order, n)
-				return
-			}
-			order.paid()
-		case tinkoff.StatusCanceled:
-			if order.Order_state >= order_execute {
-				CashLess.g.Log.Errorf("cancel paid or completed order! (%v) ", order)
-			}
-			CashLess.g.Log.Infof("cancel order (%v)", order)
-			order.cancel()
-		case tinkoff.StatusRejected:
-			order.reject()
-		case tinkoff.StatusAuthorized:
-		case tinkoff.StatusRefunded:
-		default:
-			CashLess.g.Log.NoticeF("unknown notification from bank(%v)", n)
-		}
-	})
-	CashLess.g.Log.Notice("start bank notification server.")
-	err = r.Run(u.Host)
-	CashLess.g.Log.Errorf("error start notification server. error:%v", err)
-}
-func getOrder(orderId string) (CashLessOrderStruct, error) {
+func getOrder(orderId string) CashLessOrderStruct {
 	var o CashLessOrderStruct
-	_, err := CashLess.g.DB.QueryOne(&o, `select order_state, vmid, order_id, amount, payment_id, paymentid from cashless where cashless.order_id = ?0;`, orderId)
-	return o, err
+	_, _ = CashLess.g.DB.QueryOne(&o, `select order_state, vmid, order_id, amount, payment_id, paymentid from cashless where cashless.order_id = ?0;`, orderId)
+	return o
 }
 
 func getOrderByOwner(pid int64) (CashLessOrderStruct, error) {
@@ -288,14 +237,6 @@ func (o *CashLessOrderStruct) complete() {
 	_ = dbUpdate(q, o.Order_id, order_complete)
 }
 
-func (o *CashLessOrderStruct) error() {
-	if o.Order_state == order_prepay || o.Order_state == order_execute {
-		CashLess.g.Log.Errorf("error order:%v ", o)
-		// return money
-		o.refundOrder()
-	}
-}
-
 func (o *CashLessOrderStruct) refundOrder() {
 	m := fmt.Sprintf("return money. order:%v ", o)
 	// FIXME Payment_id string Paymentid int
@@ -305,11 +246,18 @@ func (o *CashLessOrderStruct) refundOrder() {
 	}
 	CashLess.g.Log.Debugf(m)
 	CashLess.g.VMCErrorWriteDB(o.Vmid, o.Create_date.Unix(), 0, m)
+	o.sendCanselToBank()
+}
+
+func (o *CashLessOrderStruct) sendCanselToBank() {
 	cReq := &tinkoff.CancelRequest{
 		PaymentID: o.Payment_id,
 		Amount:    o.Amount,
 	}
 	cRes, err := terminalClient.Cancel(cReq)
+	if err != nil {
+		CashLess.g.VMCErrorWriteDB(o.Vmid, 0, 0, fmt.Sprintf("return money request error. (%v) orger %v", err, o))
+	}
 	switch cRes.Status {
 	case tinkoff.StatusQRRefunding:
 		o.cancel()
@@ -317,20 +265,18 @@ func (o *CashLessOrderStruct) refundOrder() {
 		const q = `UPDATE cashless SET order_state = ?1, finish_date = now() WHERE order_id = ?0`
 		_ = dbUpdate(q, o.Order_id, order_cancel)
 	}
-	if err != nil {
-		CashLess.g.VMCErrorWriteDB(o.Vmid, 0, 0, "error."+m)
-	}
-
 }
 
 // write paid data and send command to robot for make
 func (o *CashLessOrderStruct) paid() {
+	if o.Order_state >= order_prepay {
+		return
+	}
 	q := `UPDATE cashless SET order_state = ?2, credit_date = now(), credited = ?1 WHERE order_id = ?0`
-	// _, err := CashLess.g.DB.Exec(q, o.Order_id, o.Amount, order_prepay)
-	o.Order_state = order_prepay
 	err := dbUpdate(q, o.Order_id, o.Amount, order_prepay)
 	if err != nil {
-		// return money
+		// CashLess.g.Log.Errorf("db update paid order error order(%v)\n error(%v)", o, err)
+		CashLessErrorDB("db update paid order error order(%v)\n error(%v)", o, err)
 		return
 	}
 	sm := tele.ToRoboMessage{
@@ -345,7 +291,7 @@ func (o *CashLessOrderStruct) paid() {
 			OwnerType:     tele.OwnerType_qrCashLessUser,
 		},
 	}
-	CashLess.g.Log.NoticeF("confirmed pay order vm%v ", o.Vmid)
+	CashLess.g.Log.NoticeF("send to robot. confirmed pay order vm%v ", o.Vmid)
 	CashLess.g.Tele.SendToRobo(o.Vmid, &sm)
 }
 
@@ -364,12 +310,12 @@ func (o *CashLessOrderStruct) reject() {
 func dbUpdate(query interface{}, params ...interface{}) error {
 	r, err := CashLess.g.DB.Exec(query, params...)
 	if err != nil || r.RowsAffected() != 1 {
-		CashLess.g.Log.Errorf("fail db update sql(%v) parameters (%v) error(%v)): %v", query, params, err)
+		CashLess.g.Log.Errorf("fail db update sql(%v) parameters (%v) error(%v)", query, params, err)
 	}
 	return err
 }
 
-func (o *CashLessOrderStruct) waitingForPayment() {
+func waitingForPayment(orderID string) {
 	CashLess.Alive.Add(1)
 	tmr := time.NewTimer(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalTimeOutSec))
 	refreshTime := time.Duration(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalQRPayRefreshSec))
@@ -379,48 +325,101 @@ func (o *CashLessOrderStruct) waitingForPayment() {
 		refreshTimer.Stop()
 		CashLess.Alive.Done()
 	}()
+
 	for {
 		select {
-		case <-tmr.C:
-			return
 		case <-CashLess.Alive.StopChan():
 			return
+		case <-tmr.C:
+			order := getOrder(orderID)
+			switch order.Order_state {
+			case order_invalid, order_start:
+				order.sendCanselToBank()
+			case order_prepay, order_execute:
+				CashLessErrorDB("time out worked orderID (%v)", order)
+			default:
+			}
+			return
 		case <-refreshTimer.C:
-			// 4 test -----------------------------------
-			/*
-				if true {
-					var s tinkoff.GetStateResponse
-					s.Status = tinkoff.StatusConfirmed
-					// s.Status = tinkoff.StatusRejected
-					var err error
-					/*/
-			if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: o.Payment_id}); err == nil {
-				//*/
-				if err != nil {
-					// o.cancelOrder()
-					CashLess.g.Log.Errorf("cashless get status:", err)
-					return
-				}
+			order := getOrder(orderID)
+			if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: order.Payment_id}); err == nil {
 				switch s.Status {
 				case tinkoff.StatusConfirmed:
-					if o.Order_state != order_prepay {
-						o.paid()
+					if order.Order_state <= order_start {
+						CashLess.g.Log.Infof("refresh bank timer StatusConfirmed(%v)", order)
+						order.paid()
+						return
 					}
-					// o.writeDBOrderPaid()
-					// o.sendStartCook()
-					return
 				case tinkoff.StatusRejected:
-					o.reject()
-					// o.bankQRReject()
+					CashLess.g.Log.WarningF("refresh bank timer StatusRejected(%v)", order)
+					order.reject()
 					return
 				case tinkoff.StatusCanceled:
-					o.cancel()
+					CashLess.g.Log.WarningF("refresh bank timer StatusCanceled(%v)", order)
+					order.cancel()
 					return
 				default:
 				}
-
 				refreshTimer.Reset(refreshTime)
 			}
 		}
 	}
+}
+
+func startNotificationsReader(s string) {
+	u, err := url.Parse(s)
+	if err != nil {
+		CashLess.g.Log.Errorf("parce notification (%s) error(%v)", s, err)
+	}
+	if u.Host == "" {
+		u.Host = ":8080"
+	}
+	if u.Path == "" {
+		u.Path = "/payment/notification/tinkoff"
+	}
+
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.Default()
+
+	r.POST(u.Path, func(c *gin.Context) {
+		var n *tinkoff.Notification
+		n, err = terminalClient.ParseNotification(c.Request.Body)
+		CashLess.g.Log.Infof("notification from bank (%v)", n)
+		if err != nil {
+			CashLess.g.Log.Errorf("notification(%v) parse error(%v)", n, err)
+			return
+		}
+		c.String(http.StatusOK, terminalClient.GetNotificationSuccessResponse())
+		order := getOrder(n.OrderID)
+		if order.Paymentid != n.PaymentID && order.Amount != n.Amount {
+			CashLessErrorDB("notification from bank, doesn't match paymentid or amount\n order(%v)\n notification(%v)", order, n)
+			return
+		}
+		switch n.Status {
+		case tinkoff.StatusConfirmed:
+			if order.Order_state <= order_start {
+				CashLess.g.Log.WarningF("notificationsReader.StatusConfirmed(%v)", order)
+				order.paid()
+				return
+			}
+		case tinkoff.StatusCanceled:
+			CashLess.g.Log.Infof("event from bank. cancel order (%v)", order)
+			if order.Order_state == order_cancel {
+				return
+			}
+			if order.Order_state >= order_execute {
+				CashLessErrorDB("cancel paid or completed order! (%v) ", order)
+			}
+			order.cancel()
+		case tinkoff.StatusRejected:
+			order.reject()
+		case tinkoff.StatusAuthorized:
+		case tinkoff.StatusRefunded:
+		default:
+			CashLess.g.Log.NoticeF("unknown notification from bank(%v)", n)
+		}
+	})
+	CashLess.g.Log.Notice("start bank notification server.")
+	err = r.Run(u.Host)
+	CashLess.g.Log.Errorf("error start notification server. error:%v", err)
 }
