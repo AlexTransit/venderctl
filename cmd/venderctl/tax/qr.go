@@ -210,24 +210,16 @@ func (o *CashLessOrderStruct) orderCreate() error {
 	return err
 }
 
-func getOrder(orderId string) (CashLessOrderStruct, error) {
+func getOrder(orderId string) CashLessOrderStruct {
 	var o CashLessOrderStruct
-	_, err := CashLess.g.DB.QueryOne(&o, `select order_state, vmid, order_id, amount, payment_id, paymentid from cashless where cashless.order_id = ?0;`, orderId)
-	return o, err
+	_, _ = CashLess.g.DB.QueryOne(&o, `select order_state, vmid, order_id, amount, payment_id, paymentid from cashless where cashless.order_id = ?0;`, orderId)
+	return o
 }
 
 func getOrderByOwner(pid int64) (CashLessOrderStruct, error) {
 	var o CashLessOrderStruct
 	_, err := CashLess.g.DB.QueryOne(&o, `select order_state, vmid, order_id, amount, payment_id, paymentid from cashless where paymentid = ?;`, pid)
 	return o, err
-}
-
-func getOrderByPaymentId(pid string) (CashLessOrderStruct, error) {
-	i, err := strconv.ParseInt(pid, 10, 64)
-	if err != nil {
-		return CashLessOrderStruct{}, err
-	}
-	return getOrderByOwner(i)
 }
 
 func (o *CashLessOrderStruct) cancel() {
@@ -254,17 +246,18 @@ func (o *CashLessOrderStruct) refundOrder() {
 	}
 	CashLess.g.Log.Debugf(m)
 	CashLess.g.VMCErrorWriteDB(o.Vmid, o.Create_date.Unix(), 0, m)
-	if err := o.sendCanselToBank; err != nil {
-		CashLess.g.VMCErrorWriteDB(o.Vmid, 0, 0, "error."+m)
-	}
+	o.sendCanselToBank()
 }
 
-func (o *CashLessOrderStruct) sendCanselToBank() error {
+func (o *CashLessOrderStruct) sendCanselToBank() {
 	cReq := &tinkoff.CancelRequest{
 		PaymentID: o.Payment_id,
 		Amount:    o.Amount,
 	}
 	cRes, err := terminalClient.Cancel(cReq)
+	if err != nil {
+		CashLess.g.VMCErrorWriteDB(o.Vmid, 0, 0, fmt.Sprintf("return money request error. (%v) orger %v", err, o))
+	}
 	switch cRes.Status {
 	case tinkoff.StatusQRRefunding:
 		o.cancel()
@@ -272,7 +265,6 @@ func (o *CashLessOrderStruct) sendCanselToBank() error {
 		const q = `UPDATE cashless SET order_state = ?1, finish_date = now() WHERE order_id = ?0`
 		_ = dbUpdate(q, o.Order_id, order_cancel)
 	}
-	return err
 }
 
 // write paid data and send command to robot for make
@@ -318,7 +310,7 @@ func (o *CashLessOrderStruct) reject() {
 func dbUpdate(query interface{}, params ...interface{}) error {
 	r, err := CashLess.g.DB.Exec(query, params...)
 	if err != nil || r.RowsAffected() != 1 {
-		CashLess.g.Log.Errorf("fail db update sql(%v) parameters (%v) error(%v)): %v", query, params, err)
+		CashLess.g.Log.Errorf("fail db update sql(%v) parameters (%v) error(%v)", query, params, err)
 	}
 	return err
 }
@@ -339,11 +331,7 @@ func waitingForPayment(orderID string) {
 		case <-CashLess.Alive.StopChan():
 			return
 		case <-tmr.C:
-			order, err := getOrder(orderID)
-			if err != nil {
-				CashLess.g.Log.Errorf("waiting for payment order (%s) timeout error (%v)", orderID, err)
-				return
-			}
+			order := getOrder(orderID)
 			switch order.Order_state {
 			case order_invalid, order_start:
 				order.sendCanselToBank()
@@ -353,11 +341,7 @@ func waitingForPayment(orderID string) {
 			}
 			return
 		case <-refreshTimer.C:
-			order, err := getOrder(orderID)
-			if err != nil {
-				CashLessErrorDB("cashless get order error (%v)", err)
-				return
-			}
+			order := getOrder(orderID)
 			if s, err := terminalClient.GetState(&tinkoff.GetStateRequest{PaymentID: order.Payment_id}); err == nil {
 				switch s.Status {
 				case tinkoff.StatusConfirmed:
@@ -399,7 +383,6 @@ func startNotificationsReader(s string) {
 
 	r.POST(u.Path, func(c *gin.Context) {
 		var n *tinkoff.Notification
-		var err error
 		n, err = terminalClient.ParseNotification(c.Request.Body)
 		CashLess.g.Log.Infof("notification from bank (%v)", n)
 		if err != nil {
@@ -407,8 +390,7 @@ func startNotificationsReader(s string) {
 			return
 		}
 		c.String(http.StatusOK, terminalClient.GetNotificationSuccessResponse())
-		var order CashLessOrderStruct
-		order, err = getOrder(n.OrderID)
+		order := getOrder(n.OrderID)
 		if order.Paymentid != n.PaymentID && order.Amount != n.Amount {
 			CashLessErrorDB("notification from bank, doesn't match paymentid or amount\n order(%v)\n notification(%v)", order, n)
 			return

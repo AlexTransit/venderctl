@@ -207,15 +207,6 @@ func onTelemetry(ctx context.Context, dbConn *pg.Conn, vmid int32, t *vender_api
 		}
 	}
 
-// 	if t.Transaction != nil {
-// 		const q = `insert into trans (vmid,vmtime,received,menu_code,options,price,method,executer) values (?vmid,to_timestamp(?vmtime/1e9),current_timestamp,?0,?1,?2,?3,?4)
-// on conflict (vmid,vmtime) do nothing`
-// 		_, err := dbConn.Exec(q, t.Transaction.Code, pg.Array(t.Transaction.Options), t.Transaction.Price, t.Transaction.PaymentMethod, t.Transaction.Executer)
-// 		if err != nil {
-// 			errs = append(errs, errors.Annotatef(err, "db query=%s t=%s", q, proto.CompactTextString(t)))
-// 		}
-// 	}
-
 	if t.Inventory != nil || t.MoneyCashbox != nil {
 		const q = `insert into inventory (vmid,at_service,vmtime,received,inventory,cashbox_bill,cashbox_coin,change_bill,change_coin) values (?vmid,?0,to_timestamp(?vmtime/1e9),current_timestamp,?1,?2,?3,?4,?5)
 on conflict (vmid) where at_service=?0 do update set
