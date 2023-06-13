@@ -1,11 +1,7 @@
 {
     "go.autocompleteUnimportedPackages": true,
-    "go.buildFlags": [
-        "-race"
-    ],
-    "go.formatFlags": [
-        "-s"
-    ],
+    // "go.buildFlags": ["-race"],
+    "go.formatFlags": ["-s"],
     "go.formatTool": "goimports",
     "go.installDependenciesWhenBuilding": false,
     "go.lintTool": "golangci-lint",
