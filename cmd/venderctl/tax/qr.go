@@ -256,7 +256,7 @@ func (o *CashLessOrderStruct) sendCanselToBank() {
 	}
 	cRes, err := terminalClient.Cancel(cReq)
 	if err != nil {
-		CashLess.g.VMCErrorWriteDB(o.Vmid, 0, 0, fmt.Sprintf("return money request error. (%v) orger %v", err, o))
+		CashLess.g.VMCErrorWriteDB(o.Vmid, 0, 0, fmt.Sprintf("cancel order request error. (%v) orger %v", err, o))
 	}
 	switch cRes.Status {
 	case tinkoff.StatusQRRefunding:
