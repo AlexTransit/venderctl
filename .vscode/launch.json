@@ -30,6 +30,17 @@
         },
         {
             "console": "integratedTerminal",
+            "name": "tax",
+            "env": {"app_ver": "0.3.1",},
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/venderctl/main.go",
+            "buildFlags": "-ldflags=' -X main.BuildVersion=debug'",
+            "args": ["-config","/home/alexm/dev.hcl","tax"]
+        },
+        {
+            "console": "integratedTerminal",
             "name": "telegram dev",
             "env": {"app_ver": "0.3.1",},
             "type": "go",
