@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	vender_api "github.com/AlexTransit/vender/tele"
@@ -150,7 +151,7 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 				break
 			}
 			if tgm.ChannelPost != nil {
-				TgChannelParser(tgm.ChannelPost)
+				tb.TgChannelParser(tgm.ChannelPost)
 				break
 			}
 			if tgm.Message == nil {
@@ -179,8 +180,34 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 	}
 }
 
-func TgChannelParser(m *tgbotapi.Message) {
-	tb.g.Log.Infof("chatId:%v autor:%v message:%v", m.Chat.ID, m.AuthorSignature, m.Text)
+func (tb *tgbotapiot) TgChannelParser(m *tgbotapi.Message) {
+	if m.AuthorSignature == tb.g.Config.Telegram.AdminBot {
+		var responseMessage string
+		defer func() {
+			tb.tgSend(tb.admin, responseMessage)
+
+		}()
+		parts := strings.FieldsFunc(m.Text, func(r rune) bool {
+			if r == '_' {
+				return true
+			}
+			return false
+		})
+		clid, err := strconv.ParseInt(parts[0], 10, 64)
+
+		if err != nil {
+			responseMessage = fmt.Sprintf("error bot(%v) command (%s)", m.AuthorSignature, m.Text)
+			return
+		}
+		bablo, err := strconv.Atoi(parts[1])
+		if err != nil {
+			responseMessage = fmt.Sprintf("error bot(%v) bablo (%s)", m.AuthorSignature, m.Text)
+			return
+		}
+		tb.addCredit(clid, bablo)
+		responseMessage = fmt.Sprintf("bot add money user(%v) bablo (%v)", clid, bablo)
+		tb.g.Log.Infof("chatId:%v autor:%v message:%v", m.Chat.ID, m.AuthorSignature, m.Text)
+	}
 }
 
 func balance(b int64) string {
@@ -251,11 +278,7 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 			case tb.forvardMsg[1] == "bablo":
 				client.rcook.code = "bablo"
 				bablo, _ := strconv.Atoi(tb.forvardMsg[2])
-				// tb.tgSend(client.id, fmt.Sprintf("пополнение баланса на: %d", bablo))
-				msgToUser := fmt.Sprintf("пополнение баланса на: %d\n", bablo)
-				tb.tgSend(tb.admin, fmt.Sprintf("баланс: %d пополнен на: %d", client.id, bablo))
-				tb.rcookWriteDb(client, -bablo*100, vender_api.PaymentMethod_Balance, msgToUser)
-				fmt.Printf("i=%d, type: %T\n", bablo, bablo)
+				tb.addCredit(client.id, bablo)
 			case tb.forvardMsg[1] == "credit":
 				credit, _ := strconv.Atoi(tb.forvardMsg[2])
 				tb.setCredit(client.id, credit)
@@ -269,6 +292,14 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 
 	return nil
 }
+
+func (tb *tgbotapiot) addCredit(clientId int64, bablo int) {
+	msgToUser := fmt.Sprintf("пополнение баланса на: %d\n", bablo)
+	tb.tgSend(tb.admin, fmt.Sprintf("баланс: %d пополнен на: %d", clientId, bablo))
+	tb.rcookWriteDb(clientId, -bablo*100, vender_api.PaymentMethod_Balance, msgToUser)
+	fmt.Printf("i=%d, type: %T\n", bablo, bablo)
+}
+
 func clerForwardMessga() {
 	tb.forvardMsg = nil
 }
@@ -436,7 +467,7 @@ func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order) {
 			tb.chatId[client].rcook.vmid,
 			ro.MenuCode,
 			amoutToString(int64(ro.Amount)))
-		tb.rcookWriteDb(tb.chatId[client], int(ro.Amount), vender_api.PaymentMethod_Balance, finMsg)
+		tb.rcookWriteDb(tb.chatId[client].id, int(ro.Amount), vender_api.PaymentMethod_Balance, finMsg)
 		if dis := tb.chatId[client].Diskont; dis != 0 {
 			go func() {
 				bonus := (int(ro.Amount) * dis) / 100
@@ -444,7 +475,7 @@ func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order) {
 				cl, _ := tb.getClient(client)
 				cl.rcook.code = "bonus"
 				bunusMgs := fmt.Sprintf("начислен бонус: %s\n", amoutToString(int64(bonus)))
-				tb.rcookWriteDb(cl, -bonus, vender_api.PaymentMethod_Balance, bunusMgs)
+				tb.rcookWriteDb(cl.id, -bonus, vender_api.PaymentMethod_Balance, bunusMgs)
 			}()
 		}
 	default:
@@ -486,10 +517,10 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) {
 				user.Balance = user.Balance - p
 				tb.tgSend(user.id, fmt.Sprintf("начислен бонус: %s", amoutToString(int64(bonus))))
 				cl.rcook.code = "bonus"
-				tb.rcookWriteDb(cl, -bonus, vender_api.PaymentMethod_Balance)
+				tb.rcookWriteDb(cl.id, -bonus, vender_api.PaymentMethod_Balance)
 			}()
 		}
-		tb.rcookWriteDb(user, price, vender_api.PaymentMethod_Balance)
+		tb.rcookWriteDb(user.id, price, vender_api.PaymentMethod_Balance)
 	case vender_api.CookReplay_cookInaccessible:
 		msg = "код недоступен"
 	case vender_api.CookReplay_cookOverdraft:
@@ -504,24 +535,24 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) {
 	delete(tb.chatId, rm.Executer)
 }
 
-func (tb *tgbotapiot) rcookWriteDb(user tgUser, price int, payMethod vender_api.PaymentMethod, addMsg ...string) {
-	tb.g.Log.Infof("cooking finished telegram client:%d code:%s", user.id, tb.chatId[user.id].rcook.code)
-	cl, _ := tb.getClient(user.id)
+func (tb *tgbotapiot) rcookWriteDb(userId int64, price int, payMethod vender_api.PaymentMethod, addMsg ...string) {
+	tb.g.Log.Infof("cooking finished telegram client:%d code:%s", userId, tb.chatId[userId].rcook.code)
+	cl, _ := tb.getClient(userId)
 	cl.Balance -= int64(price)
 	const q = `UPDATE tg_user set balance = ?1 WHERE userid = ?0;`
 	tb.g.Alive.Add(1)
 	// _, err := tb.g.DB.Exec(q, user.rcook.vmid, user.rcook.code, pg.Array([2]uint8{user.rcook.cream, user.rcook.sugar}), price, payMethod, user.id, int64(price))
-	_, err := tb.g.DB.Exec(q, user.id, cl.Balance)
+	_, err := tb.g.DB.Exec(q, userId, cl.Balance)
 	tb.g.Alive.Done()
 	if err != nil {
-		tb.g.Log.Errorf("db query=%s chatid=%v err=%v", q, user.id, err)
+		tb.g.Log.Errorf("db query=%s chatid=%v err=%v", q, userId, err)
 	}
 	var msg string
 	if len(addMsg) != 0 {
 		msg = addMsg[0]
 	}
 	msg = msg + balance(cl.Balance)
-	tb.tgSend(user.id, msg)
+	tb.tgSend(userId, msg)
 }
 
 func TgSendError(s string) {
