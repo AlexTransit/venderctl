@@ -181,6 +181,7 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 }
 
 func (tb *tgbotapiot) TgChannelParser(m *tgbotapi.Message) {
+	tb.g.Log.Infof("channel parser autor(%s) message(%v)", m.AuthorSignature, m.Text)
 	if m.AuthorSignature == tb.g.Config.Telegram.AdminBot {
 		var responseMessage string
 		defer func() {
