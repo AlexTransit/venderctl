@@ -50,5 +50,17 @@
             "buildFlags": "-ldflags=' -X main.BuildVersion=debug'",
             "args": ["-config","/home/alexm/dev.hcl","telegram"] //dev
         },
+        {
+            "console": "integratedTerminal",
+            "name": "telegram prod",
+            "env": {"app_ver": "0.3.1",},
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/venderctl/main.go",
+            "buildFlags": "-ldflags=' -X main.BuildVersion=debug'",
+            "args": ["-config","/home/alexm/prod.hcl","telegram"] //dev
+        },
+
     ]
 }
