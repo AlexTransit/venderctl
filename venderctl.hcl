@@ -7,6 +7,7 @@ telegram {
  telegram_bot_api = "telegram bot api"
  telegram_admin = 0 //telegram user id 
  telegram_debug = true
+ admin_bot_name = "name" // name admin bot, for verification if bots in joint channel"
  }
 
 

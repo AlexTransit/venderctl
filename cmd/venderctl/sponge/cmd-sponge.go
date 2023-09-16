@@ -209,10 +209,12 @@ func onTelemetry(ctx context.Context, dbConn *pg.Conn, vmid int32, t *vender_api
 
 	if t.Inventory != nil || t.MoneyCashbox != nil {
 		const q = `insert into inventory (vmid,at_service,vmtime,received,inventory,cashbox_bill,cashbox_coin,change_bill,change_coin) values (?vmid,?0,to_timestamp(?vmtime/1e9),current_timestamp,?1,?2,?3,?4,?5)
-on conflict (vmid) where at_service=?0 do update set
-  vmtime=excluded.vmtime,received=excluded.received,inventory=excluded.inventory,
-	cashbox_bill=excluded.cashbox_bill,cashbox_coin=excluded.cashbox_coin,
-	change_bill=excluded.change_bill,change_coin=excluded.change_coin`
+		on conflict (vmid,at_service) DO UPDATE SET vmtime=to_timestamp(?vmtime/1e9), received=current_timestamp, inventory=?1,cashbox_bill=?2,cashbox_coin=?3,change_bill=?4,change_coin=?5`
+		// 		const q = `insert into inventory (vmid,at_service,vmtime,received,inventory,cashbox_bill,cashbox_coin,change_bill,change_coin) values (?vmid,?0,to_timestamp(?vmtime/1e9),current_timestamp,?1,?2,?3,?4,?5)
+		// on conflict (vmid) where at_service=?0 do update set
+		//   vmtime=excluded.vmtime,received=excluded.received,inventory=excluded.inventory,
+		// 	cashbox_bill=excluded.cashbox_bill,cashbox_coin=excluded.cashbox_coin,
+		// 	change_bill=excluded.change_bill,change_coin=excluded.change_coin`
 		invMap := make(map[string]string)
 		var cashboxBillMap map[uint32]uint32
 		var cashboxCoinMap map[uint32]uint32
@@ -279,11 +281,9 @@ func packetFromRobo(ctx context.Context, p tele_api.Packet) {
 	if rm.State != 0 {
 		s := rm.State
 		if s == vender_api.State_Boot {
-			if g.Vmc[p.VmId].Version == "" {
-				roboVersion := rm.RoboHardware.GetSwVersion()
-				g.Vmc[p.VmId].Version = roboVersion
-				g.Log.Infof("robot %d boot. app version:%s", p.VmId, roboVersion)
-			}
+			roboVersion := rm.RoboHardware.GetSwVersion()
+			g.Vmc[p.VmId].Version = roboVersion
+			g.Log.Infof("robot %d boot. app version:%s", p.VmId, roboVersion)
 		}
 		// onStateN(ctx, dbConn, p.VmId, s)
 		_ = onState(ctx, dbConn, p.VmId, s)
