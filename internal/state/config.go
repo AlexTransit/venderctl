@@ -53,6 +53,7 @@ type Config struct {
 		TelegrammBotApi string `hcl:"telegram_bot_api"`
 		TelegramAdmin   int64  `hcl:"telegram_admin"`
 		DebugMessages   bool   `hcl:"telegram_debug"`
+		AdminBot        string `hcl:"admin_bot_name"`
 	}
 	Tele tele_config.Config
 
