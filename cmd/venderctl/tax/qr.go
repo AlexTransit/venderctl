@@ -318,7 +318,7 @@ func dbUpdate(query interface{}, params ...interface{}) error {
 
 func waitingForPayment(orderID string) {
 	CashLess.Alive.Add(1)
-	tmr := time.NewTimer(time.Second * (time.Duration(CashLess.g.Config.CashLess.TerminalTimeOutSec) + 120))
+	tmr := time.NewTimer(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalTimeOutSec))
 	refreshTime := time.Duration(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalQRPayRefreshSec))
 	refreshTimer := time.NewTimer(refreshTime)
 	defer func() {
