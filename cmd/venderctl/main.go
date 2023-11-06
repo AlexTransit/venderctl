@@ -101,7 +101,7 @@ func main() {
 			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 			go func() {
 				si := <-sigs
-				fmt.Printf("income OS signal:%v", si)
+				fmt.Printf("income OS signal:%v \n", si)
 				g.CtlStop(ctx)
 			}()
 
