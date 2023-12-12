@@ -225,7 +225,7 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 		return tb.registerNewUser(m)
 	}
 	//parse command
-	switch parseCommad(m.Message.Text) {
+	switch parseCommand(m.Message.Text) {
 	case tgCommandInvalid:
 		return nil
 	case tgCommandBalance:
@@ -252,20 +252,29 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 			break
 		}
 		// обрабатываем команды админа
-		parts := regexp.MustCompile(`^(bablo|credit)(-?\d+)$`).FindStringSubmatch(m.Message.Text)
-		if len(parts) != 0 {
-			tb.forvardMsg = parts
-			break
-		} else if len(tb.forvardMsg) == 0 {
+		parts := regexp.MustCompile(`^((bablo|credit)(-?\d+)|(\d+)c(..*))$`).FindStringSubmatch(m.Message.Text)
+		if parts != nil {
+			switch {
+			case parts[2] != "":
+				tb.forvardMsg = parts
+				return nil // wait next message. forward include client id
+			case parts[4] != "":
+				tb.sendExec(parts[4], parts[5])
+				return nil
+			default:
+				return nil
+			}
+		}
+		if len(tb.forvardMsg) == 0 {
 			p := regexp.MustCompile(`(\d+)`).FindStringSubmatch(m.Message.Text)
 			if len(p) == 2 {
-				tb.forvardMsg = []string{"", "bablo", p[1]}
+				tb.forvardMsg = []string{"", "", "bablo", p[1]}
 				// tb.forvardMsg[1] = "bablo"
 				// tb.forvardMsg[2] = p[1]
 			}
 		}
 		if len(tb.forvardMsg) != 0 {
-			defer clerForwardMessga()
+			defer clearForwardMessage()
 			if m.Message.ForwardFrom == nil {
 				tb.tgSend(tb.admin, "client ID не доступен")
 				tb.forvardMsg[1] = `-` + tb.forvardMsg[1]
@@ -276,17 +285,17 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 				TgSendError(fmt.Sprintf("error get client for put bablo (%v)", err))
 			}
 			switch {
-			case tb.forvardMsg[1] == "bablo":
+			case tb.forvardMsg[2] == "bablo":
 				client.rcook.code = "bablo"
-				bablo, _ := strconv.Atoi(tb.forvardMsg[2])
+				bablo, _ := strconv.Atoi(tb.forvardMsg[3])
 				tb.addCredit(client.id, bablo)
-			case tb.forvardMsg[1] == "credit":
-				credit, _ := strconv.Atoi(tb.forvardMsg[2])
+			case tb.forvardMsg[2] == "credit":
+				credit, _ := strconv.Atoi(tb.forvardMsg[3])
 				tb.setCredit(client.id, credit)
 				tb.tgSend(client.id, fmt.Sprintf("появилась возможность делать отрицательный баланс на : %d", credit))
 				tb.tgSend(tb.admin, fmt.Sprintf("установлен кредит на: %d для: %d", credit, client.id))
 			default:
-				tb.tgSend(client.id, fmt.Sprintf("не пон: %v", tb.forvardMsg))
+				tb.tgSend(tb.admin, fmt.Sprintf("не пон: %v", tb.forvardMsg))
 			}
 		}
 	}
@@ -301,15 +310,15 @@ func (tb *tgbotapiot) addCredit(clientId int64, bablo int) {
 	fmt.Printf("i=%d, type: %T\n", bablo, bablo)
 }
 
-func clerForwardMessga() {
+func clearForwardMessage() {
 	tb.forvardMsg = nil
 }
 
-func parseCommad(cmd string) tgCommand {
+func parseCommand(cmd string) tgCommand {
 	// https://extendsclass.com/regex-tester.html#js
 	// https://regexr.com/
-	rm := `^((/-?\d+_m?[-.0-9]+(.+?)?)|(/balance)|(/help)|(.+)|)$`
-	cmdR := regexp.MustCompile(rm)
+	// rm := `^((/-?\d+_m?[-.0-9]+(.+?)?)|(/balance)|(/help)|(.+)|)$`
+	cmdR := regexp.MustCompile(`^((/-?\d+_m?[-.0-9]+(.+?)?)|(/balance)|(/help)|(.+)|)$`)
 	parts := cmdR.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
 		return tgCommandInvalid
@@ -327,6 +336,15 @@ func parseCommad(cmd string) tgCommand {
 	default:
 		return tgCommandInvalid
 	}
+}
+
+func (tb *tgbotapiot) sendExec(id string, command string) {
+	var vmid int32
+	fmt.Sscan(id, &vmid)
+	cmd := &vender_api.Command{
+		Task: &vender_api.Command_Exec{Exec: &vender_api.Command_ArgExec{Scenario: command}},
+	}
+	tb.g.Tele.CommandTx(vmid, cmd)
 }
 
 func (tb *tgbotapiot) commandCook(m tgbotapi.Message, client tgUser) {
