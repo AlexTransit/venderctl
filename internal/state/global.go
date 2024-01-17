@@ -79,8 +79,12 @@ func (g *Global) InitDB(cmdName string) error {
 func (g *Global) VMCErrorWriteDB(vmid int32, vmtime int64, errCode uint32, message string) {
 	dbConn := g.DB.Conn().WithParam("vmid", vmid).WithParam("vmtime", vmtime)
 	defer dbConn.Close()
+	var ver string
+	if g.Vmc[vmid] != nil {
+		ver = g.Vmc[vmid].Version
+	}
 	const q = `insert into error (vmid,vmtime,received,code,message,app_version) values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1,?2)`
-	_, err := dbConn.Exec(q, errCode, message, g.Vmc[vmid].Version)
+	_, err := dbConn.Exec(q, errCode, message, ver)
 	if err != nil {
 		g.Log.Errorf("error db query=%s error=%v", q, err)
 	}
