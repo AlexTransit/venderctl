@@ -147,9 +147,10 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 
 	res, err := terminalClient.Init(&ir)
 	//*/
+	CashLess.g.Log.Debugf("init request:%+v", ir)
 	if err != nil || res.Status != tinkoff.StatusNew {
 		// CashLess.g.Log.Errorf("bank pay init error:%v", err)
-		CashLessErrorDB("bank pay init error:%v init request:%v", err, ir)
+		CashLessErrorDB("bank pay init error:%v init request:%+v", err, ir)
 
 		return
 	}
