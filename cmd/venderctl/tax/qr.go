@@ -115,6 +115,14 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	qro.Amount = uint64(rm.Order.Amount + persentAmount)
 	qro.Create_date = od
 	qro.Description = menuGetName(vmid, rm.Order.MenuCode)
+	ir := tinkoff.InitRequest{
+		BaseRequest:     tinkoff.BaseRequest{TerminalKey: CashLess.g.Config.CashLess.TerminalKey, Token: "random"},
+		Amount:          qro.Amount,
+		OrderID:         qro.Order_id,
+		Description:     qro.Description,
+		Data:            map[string]string{"Vmc": fmt.Sprintf("%d", vmid)},
+		RedirectDueDate: tinkoff.Time(time.Now().Local().Add(time.Minute * 5)),
+	}
 	// 4 test -----------------------------------
 	/*
 		res := tinkoff.InitResponse{
@@ -125,20 +133,24 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 			PaymentURL: "https://get.lost/world",
 		}
 		var err error
+		_ = ir
 		// err := fmt.Errorf("AAA")
 		/*/
-	res, err := terminalClient.Init(&tinkoff.InitRequest{
-		BaseRequest: tinkoff.BaseRequest{TerminalKey: CashLess.g.Config.CashLess.TerminalKey, Token: "random"},
-		Amount:      qro.Amount,
-		OrderID:     qro.Order_id,
-		Description: qro.Description,
-		Data:        map[string]string{"Vmc": fmt.Sprintf("%d", vmid)},
-		// RedirectDueDate: tinkoff.Time{time.Now().Local().Add(time.Minute * 5)},
-	})
+	//	// res, err := terminalClient.Init(&tinkoff.InitRequest{
+	//	// 	BaseRequest: tinkoff.BaseRequest{TerminalKey: CashLess.g.Config.CashLess.TerminalKey, Token: "random"},
+	//	// 	Amount:      qro.Amount,
+	//	// 	OrderID:     qro.Order_id,
+	//	// 	Description: qro.Description,
+	//	// 	Data:        map[string]string{"Vmc": fmt.Sprintf("%d", vmid)},
+	//	// 	// RedirectDueDate: tinkoff.Time{time.Now().Local().Add(time.Minute * 5)},
+	//	// })
+
+	res, err := terminalClient.Init(&ir)
 	//*/
+	CashLess.g.Log.Debugf("init request:%+v", ir)
 	if err != nil || res.Status != tinkoff.StatusNew {
 		// CashLess.g.Log.Errorf("bank pay init error:%v", err)
-		CashLessErrorDB("bank pay init error:%v", err)
+		CashLessErrorDB("bank pay init error:%v init request:%+v", err, ir)
 
 		return
 	}
