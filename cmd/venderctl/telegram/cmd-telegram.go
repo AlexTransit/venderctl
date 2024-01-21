@@ -188,12 +188,7 @@ func (tb *tgbotapiot) TgChannelParser(m *tgbotapi.Message) {
 			tb.tgSend(tb.admin, responseMessage)
 
 		}()
-		parts := strings.FieldsFunc(m.Text, func(r rune) bool {
-			if r == '_' {
-				return true
-			}
-			return false
-		})
+		parts := strings.FieldsFunc(m.Text, func(r rune) bool { return r == '_' })
 		clid, err := strconv.ParseInt(parts[0], 10, 64)
 
 		if err != nil {

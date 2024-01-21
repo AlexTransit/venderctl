@@ -56,7 +56,7 @@ func taxInit(ctx context.Context) error {
 	}
 
 	cli.SdNotify(daemon.SdNotifyReady)
-	g.Log.Debugf("taxInit complete")
+	g.Log.WarningF("taxInit complete")
 	return nil
 }
 
