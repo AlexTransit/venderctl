@@ -36,8 +36,10 @@ func taxMain(ctx context.Context, flags *flag.FlagSet) error {
 
 	configPath := flags.Lookup("config").Value.String()
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
-	if !g.Config.Tax.Debug {
-		g.Log.SetLevel(log2.LOG_ERR)
+	if g.Config.Tax.DebugLevel < 1 || g.Config.Tax.DebugLevel > 7 {
+		g.Log.SetLevel(log2.LOG_NOTICE)
+	} else {
+		g.Log.SetLevel(log2.Level(g.Config.Tax.DebugLevel))
 	}
 	g.Config.Tele.SetMode("tax")
 	if err := g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {

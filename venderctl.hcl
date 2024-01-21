@@ -24,7 +24,7 @@ money {
 }
 
 tax {
-  debug = false
+  debug_level = 7 // maximum
   ru2019 {
     tag1009 = "payment address"
     tag1187 = "payment place"
