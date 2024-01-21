@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AlexTransit/vender/log2"
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
 	"github.com/AlexTransit/venderctl/internal/state"
@@ -35,6 +36,9 @@ func taxMain(ctx context.Context, flags *flag.FlagSet) error {
 
 	configPath := flags.Lookup("config").Value.String()
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
+	if !g.Config.Tax.Debug {
+		g.Log.SetLevel(log2.LOG_ERR)
+	}
 	g.Config.Tele.SetMode("tax")
 	if err := g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {
 		return err
