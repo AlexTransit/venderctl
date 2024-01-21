@@ -1,3 +1,8 @@
+// default value 
+// if bool not set then this = false
+// if number not set then this = 0
+// if string not set then this = ""
+
 db {
   // github.com/go-pg/pg ParseURL
   url = "postgresql://user:password@server/database"
@@ -19,6 +24,7 @@ money {
 }
 
 tax {
+  debug = false
   ru2019 {
     tag1009 = "payment address"
     tag1187 = "payment place"
