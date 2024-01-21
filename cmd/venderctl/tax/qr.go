@@ -147,7 +147,7 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 
 	res, err := terminalClient.Init(&ir)
 	//*/
-	CashLess.g.Log.Debugf("init request:%+v", ir)
+	CashLess.g.Log.Infof("init request:%+v", ir)
 	if err != nil || res.Status != tinkoff.StatusNew {
 		// CashLess.g.Log.Errorf("bank pay init error:%v", err)
 		CashLessErrorDB("bank pay init error:%v init request:%+v", err, ir)
@@ -397,7 +397,7 @@ func startNotificationsReader(s string) {
 	r.POST(u.Path, func(c *gin.Context) {
 		var n *tinkoff.Notification
 		n, err = terminalClient.ParseNotification(c.Request.Body)
-		CashLess.g.Log.Infof("notification from bank (%v)", n)
+		CashLess.g.Log.Debugf("notification from bank (%v)", n)
 		if err != nil {
 			CashLess.g.Log.Errorf("notification(%v) parse error(%v)", n, err)
 			return
