@@ -27,6 +27,7 @@ type Config struct {
 		Scale int `hcl:"scale"`
 	}
 	Tax struct {
+		Debug  bool
 		Ru2019 struct {
 			Tag1009 string // payment address
 			Tag1187 string // payment place
