@@ -98,7 +98,7 @@ func main() {
 
 			// working term signal
 			sigs := make(chan os.Signal, 1)
-			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 			go func() {
 				si := <-sigs
 				fmt.Printf("income OS signal:%v \n", si)
