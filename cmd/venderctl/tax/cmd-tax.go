@@ -37,7 +37,7 @@ func taxMain(ctx context.Context, flags *flag.FlagSet) error {
 	configPath := flags.Lookup("config").Value.String()
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
 	if g.Config.Tax.DebugLevel < 1 || g.Config.Tax.DebugLevel > 7 {
-		g.Log.SetLevel(log2.LOG_NOTICE)
+		g.Log.SetLevel(log2.LOG_INFO)
 	} else {
 		g.Log.SetLevel(log2.Level(g.Config.Tax.DebugLevel))
 	}
