@@ -44,7 +44,7 @@ type Config struct {
 	CashLess struct {
 		TerminalKey                    string
 		TerminalPass                   string
-		TerminalTimeOutSec             int
+		QRValidTimeSec                 int
 		TerminalQRPayRefreshSec        int
 		TerminalBankCommission         int
 		TerminalMinimalAmount          int
