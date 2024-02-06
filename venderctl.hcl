@@ -41,7 +41,7 @@ tax {
 cashless {
   terminalkey = "terminal key"
   terminalPass = "terminal password"
-  terminalTimeOutSec = 300 // waiting for payment
+  QRValidTimeSec = 300 // QR validet time
   terminalBankCommission = 40 // fixed point. 40 = 0.4%
   terminalMinimalAmount = 1000 // minimal amount. fixed point 
   terminalQRPayRefreshSec = 3 // payment verification 

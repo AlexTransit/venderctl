@@ -51,8 +51,8 @@ var terminalBankCommission, terminalMinimalAmount uint32
 
 func CashLessInit(ctx context.Context) {
 	CashLess.g = state.GetGlobal(ctx)
-	if CashLess.g.Config.CashLess.TerminalTimeOutSec == 0 {
-		CashLess.g.Config.CashLess.TerminalTimeOutSec = 30
+	if CashLess.g.Config.CashLess.QRValidTimeSec == 0 {
+		CashLess.g.Config.CashLess.QRValidTimeSec = 300
 	}
 	terminalBankCommission = uint32(CashLess.g.Config.CashLess.TerminalBankCommission)
 	if CashLess.g.Config.CashLess.TerminalMinimalAmount == 0 {
@@ -109,83 +109,21 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 		return
 	}
 	persentAmount := (rm.Order.Amount * terminalBankCommission) / 10000
-	od := time.Now()
 	qro.Vmid = vmid
-	qro.Order_id = fmt.Sprintf("%d-%s-%s", vmid, od.Format("060102150405"), rm.Order.MenuCode)
 	qro.Amount = uint64(rm.Order.Amount + persentAmount)
+	od := time.Now()
+	qro.Order_id = fmt.Sprintf("%d-%s-%s", vmid, od.Format("060102150405"), rm.Order.MenuCode)
 	qro.Create_date = od
 	qro.Description = menuGetName(vmid, rm.Order.MenuCode)
-	ir := tinkoff.InitRequest{
-		BaseRequest:     tinkoff.BaseRequest{TerminalKey: CashLess.g.Config.CashLess.TerminalKey, Token: "random"},
-		Amount:          qro.Amount,
-		OrderID:         qro.Order_id,
-		Description:     qro.Description,
-		Data:            map[string]string{"Vmc": fmt.Sprintf("%d", vmid)},
-		RedirectDueDate: tinkoff.Time(time.Now().Local().Add(time.Minute * 5)),
-	}
-	// 4 test -----------------------------------
-	/*
-		res := tinkoff.InitResponse{
-			Amount:     qro.Amount,
-			OrderID:    qro.Order_id,
-			Status:     tinkoff.StatusNew,
-			PaymentID:  od.Format("060102150405"),
-			PaymentURL: "https://get.lost/world",
-		}
-		var err error
-		_ = ir
-		// err := fmt.Errorf("AAA")
-		/*/
-	//	// res, err := terminalClient.Init(&tinkoff.InitRequest{
-	//	// 	BaseRequest: tinkoff.BaseRequest{TerminalKey: CashLess.g.Config.CashLess.TerminalKey, Token: "random"},
-	//	// 	Amount:      qro.Amount,
-	//	// 	OrderID:     qro.Order_id,
-	//	// 	Description: qro.Description,
-	//	// 	Data:        map[string]string{"Vmc": fmt.Sprintf("%d", vmid)},
-	//	// 	// RedirectDueDate: tinkoff.Time{time.Now().Local().Add(time.Minute * 5)},
-	//	// })
-
-	res, err := terminalClient.Init(&ir)
-	//*/
-	CashLess.g.Log.Infof("init request:%+v", ir)
-	if err != nil || res.Status != tinkoff.StatusNew {
-		// CashLess.g.Log.Errorf("bank pay init error:%v", err)
-		CashLessErrorDB("bank pay init error:%v init request:%+v", err, ir)
-
+	if ok := qro.initPaySession(); !ok {
 		return
 	}
-	qro.Payment_id = res.PaymentID
-	qro.Paymentid, err = str2uint64(res.PaymentID)
-	if err != nil {
-		CashLess.g.Log.Errorf("bank pay payment id error:%v", err)
+	if ok := qro.getQRdata(); !ok {
 		return
 	}
-	// 4 test -----------------------------------
-	/*
-		pidi, _ := strconv.Atoi(res.PaymentID)
-		qrr := tinkoff.GetQRResponse{
-			OrderID:   qro.Order_id,
-			Data:      "TEST qr code for pay",
-			PaymentID: pidi,
-		}
-		/*/
-	qrr, err := terminalClient.GetQR(&tinkoff.GetQRRequest{
-		PaymentID: res.PaymentID,
-	})
-	//*/
-	if err != nil {
-		CashLess.g.Log.Errorf("bank get QR error:%v", err)
-		return
-	}
-	if err = qro.orderCreate(); err != nil {
-		// CashLess.g.Log.Errorf("bank orger create. write db error:%v", err)
-		CashLessErrorDB("bank orger create. write db error:%v", err)
-		return
-	}
-	qro.ToRoboMessage.ShowQR.QrText = qrr.Data
 	qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_order
 	qro.ToRoboMessage.ShowQR.DataInt = int32(qro.Amount)
-	qro.ToRoboMessage.ShowQR.DataStr = res.PaymentID
+	qro.ToRoboMessage.ShowQR.DataStr = qro.Payment_id
 
 	go waitingForPayment(qro.Order_id)
 
@@ -198,6 +136,55 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 			}()
 		}
 		//*/
+}
+func (o *CashLessOrderStruct) getQRdata() (valid bool) {
+	getQrRequest := tinkoff.GetQRRequest{PaymentID: o.Payment_id}
+	newQrResponse, err := terminalClient.GetQR(&getQrRequest)
+	if err != nil {
+		CashLessErrorDB("bank get QR error:%v order:%v", err, o)
+		return
+	}
+	if newQrResponse.PaymentID != int(o.Paymentid) || newQrResponse.OrderID != o.Order_id {
+		CashLessErrorDB("bank QR paymentID mismatch response(%v) order(%v) ", newQrResponse, o)
+		return
+	}
+	if err = o.orderCreate(); err != nil {
+		// CashLess.g.Log.Errorf("bank orger create. write db error:%v", err)
+		CashLessErrorDB("write db error:%v order(%v)", err, o)
+		return
+	}
+	o.ToRoboMessage.ShowQR.QrText = newQrResponse.Data
+	return true
+}
+
+func (o *CashLessOrderStruct) initPaySession() (valid bool) {
+	ir := tinkoff.InitRequest{
+		BaseRequest:     tinkoff.BaseRequest{TerminalKey: CashLess.g.Config.CashLess.TerminalKey, Token: "random"},
+		Amount:          o.Amount,
+		OrderID:         o.Order_id,
+		Description:     o.Description,
+		Data:            map[string]string{"Vmc": fmt.Sprintf("%d", o.Vmid)},
+		RedirectDueDate: tinkoff.Time(time.Now().Local().Add(time.Minute * 5)),
+	}
+	bankResponse, err := terminalClient.Init(&ir)
+	if err != nil {
+		CashLessErrorDB("bank pay init error:%v orderId:%s. resend init", err, o.Order_id)
+		if bankResponse, err = terminalClient.Init(&ir); err != nil {
+			CashLessErrorDB("two time init error:%+v", ir)
+			return false
+		}
+	}
+	if bankResponse.Status != tinkoff.StatusNew {
+		CashLessErrorDB("bank pay error init response:%v init request:%+v", bankResponse, ir)
+		return false
+	}
+	o.Payment_id = bankResponse.PaymentID
+	o.Paymentid, err = str2uint64(bankResponse.PaymentID)
+	if err != nil {
+		CashLess.g.Log.Errorf("bank pay paymentid(%s) not number:%v", bankResponse.PaymentID, err)
+		return false
+	}
+	return true
 }
 
 func str2uint64(str string) (uint64, error) {
@@ -330,7 +317,7 @@ func dbUpdate(query interface{}, params ...interface{}) error {
 
 func waitingForPayment(orderID string) {
 	CashLess.Alive.Add(1)
-	tmr := time.NewTimer(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalTimeOutSec))
+	tmr := time.NewTimer(time.Second * time.Duration(CashLess.g.Config.CashLess.QRValidTimeSec))
 	refreshTime := time.Duration(time.Second * time.Duration(CashLess.g.Config.CashLess.TerminalQRPayRefreshSec))
 	refreshTimer := time.NewTimer(refreshTime)
 	defer func() {
