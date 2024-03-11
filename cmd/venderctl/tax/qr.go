@@ -166,13 +166,19 @@ func (o *CashLessOrderStruct) initPaySession() (valid bool) {
 		Data:            map[string]string{"Vmc": fmt.Sprintf("%d", o.Vmid)},
 		RedirectDueDate: tinkoff.Time(time.Now().Local().Add(time.Minute * 5)),
 	}
-	bankResponse, err := terminalClient.Init(&ir)
-	if err != nil {
-		CashLessErrorDB("bank pay init error:%v orderId:%s. resend init", err, o.Order_id)
-		if bankResponse, err = terminalClient.Init(&ir); err != nil {
-			CashLessErrorDB("two time init error:%+v", ir)
+	var bankResponse *tinkoff.InitResponse
+	var err error
+	for i := 1; i <= 3; i++ {
+		bankResponse, err = terminalClient.Init(&ir)
+		if err == nil {
+			break
+		}
+		CashLessErrorDB("(%d) bank pay init error:%v orderId:%s. resend init", i, err, o.Order_id)
+		if i >= 3 {
+			CashLessErrorDB("inposible %d-times bank pay init error:%v orderId:%s. resend init", i, err, o.Order_id)
 			return false
 		}
+		time.Sleep(200 * time.Millisecond)
 	}
 	if bankResponse.Status != tinkoff.StatusNew {
 		CashLessErrorDB("bank pay error init response:%v init request:%+v", bankResponse, ir)
