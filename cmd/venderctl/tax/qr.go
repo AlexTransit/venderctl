@@ -255,6 +255,10 @@ func (o *CashLessOrderStruct) refundOrder() {
 }
 
 func (o *CashLessOrderStruct) sendCanselToBank() {
+	if o == nil || o.Paymentid == 0 { // AlexM Mar 11 17:07:52 adn venderctl-test[311564]: panic: runtime error: invalid memory address or nil pointer dereference
+		CashLess.g.VMCErrorWriteDB(0, 0, 0, fmt.Sprintf("fatal (%+v)", o))
+		return
+	}
 	paymentidStr := strconv.Itoa(int(o.Paymentid))
 	cReq := &tinkoff.CancelRequest{
 		PaymentID: paymentidStr,
