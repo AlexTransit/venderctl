@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AlexTransit/vender/currency"
 	"github.com/AlexTransit/vender/log2"
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
@@ -143,7 +144,7 @@ func cashLessLoop(ctx context.Context) {
 					case vender_api.OrderStatus_waitingForPayment:
 					case vender_api.OrderStatus_complete:
 						o.complete()
-						CashLess.g.Log.NoticeF("from robot. vm%d cashless complete (%s) order:%s price:%d", o.Vmid, o.Payer, o.Order_id, o.Amount)
+						CashLess.g.Log.NoticeF("from robot. vm%d cashless complete order:%s price:%s payer:%v ", o.Vmid, o.Order_id, currency.Amount(o.Amount).Format100I(), o.Paymentid)
 					case vender_api.OrderStatus_executionStart:
 						o.startExecution()
 					default:
