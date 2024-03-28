@@ -90,7 +90,7 @@ func processRu2019(ctx context.Context, db *pg.Conn, tj *MTaxJob) error {
 	}
 
 	u := mustUmka(ctx)
-	if err := processRu2019StatusCycleDance(ctx, u, tj); err != nil {
+	if err := processRu2019StatusCycleDance(u, tj); err != nil {
 		return err
 	}
 	if tj.Data.Ru2019.DocNum != 0 {
@@ -169,7 +169,7 @@ func processRu2019Final(ctx context.Context, db *pg.Conn, tj *MTaxJob, note stri
 	return nil
 }
 
-func processRu2019StatusCycleDance(ctx context.Context, u umka.Umker, tj *MTaxJob) error {
+func processRu2019StatusCycleDance(u umka.Umker, tj *MTaxJob) error {
 	for try := 1; try <= 2; try++ {
 		status, err := u.Status()
 		if err != nil {
