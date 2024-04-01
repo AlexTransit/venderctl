@@ -84,7 +84,7 @@ func telegramMain(ctx context.Context, flags *flag.FlagSet) error {
 	if err := telegramInit(ctx); err != nil {
 		return errors.Annotate(err, "telegramInit")
 	}
-	return tb.telegramLoop(ctx)
+	return tb.telegramLoop()
 
 }
 
@@ -112,11 +112,11 @@ func telegramInit(ctx context.Context) error {
 
 	cli.SdNotify(daemon.SdNotifyReady)
 	tb.g.Log.Infof("telegram init complete")
-	return tb.telegramLoop(ctx)
+	return tb.telegramLoop()
 
 }
 
-func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
+func (tb *tgbotapiot) telegramLoop() error {
 	// g := state.GetGlobal(ctx)
 	mqttch := tb.g.Tele.Chan()
 	stopch := tb.g.Alive.StopChan()
@@ -305,7 +305,7 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 func (tb *tgbotapiot) addCredit(clientId int64, bablo int) {
 	msgToUser := fmt.Sprintf("пополнение баланса на: %d\n", bablo)
 	tb.tgSend(tb.admin, fmt.Sprintf("баланс: %d пополнен на: %d", clientId, bablo))
-	tb.rcookWriteDb(clientId, -bablo*100, vender_api.PaymentMethod_Balance, msgToUser)
+	tb.rcookWriteDb(clientId, -bablo*100, msgToUser)
 	fmt.Printf("i=%d, type: %T\n", bablo, bablo)
 }
 
@@ -485,7 +485,7 @@ func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order) {
 			tb.chatId[client].rcook.vmid,
 			ro.MenuCode,
 			amoutToString(int64(ro.Amount)))
-		tb.rcookWriteDb(tb.chatId[client].id, int(ro.Amount), vender_api.PaymentMethod_Balance, finMsg)
+		tb.rcookWriteDb(tb.chatId[client].id, int(ro.Amount), finMsg)
 		if dis := tb.chatId[client].Diskont; dis != 0 {
 			go func() {
 				bonus := (int(ro.Amount) * dis) / 100
@@ -493,7 +493,7 @@ func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order) {
 				cl, _ := tb.getClient(client)
 				cl.rcook.code = "bonus"
 				bunusMgs := fmt.Sprintf("начислен бонус: %s\n", amoutToString(int64(bonus)))
-				tb.rcookWriteDb(cl.id, -bonus, vender_api.PaymentMethod_Balance, bunusMgs)
+				tb.rcookWriteDb(cl.id, -bonus, bunusMgs)
 			}()
 		}
 	default:
@@ -535,10 +535,10 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) {
 				user.Balance = user.Balance - p
 				tb.tgSend(user.id, fmt.Sprintf("начислен бонус: %s", amoutToString(int64(bonus))))
 				cl.rcook.code = "bonus"
-				tb.rcookWriteDb(cl.id, -bonus, vender_api.PaymentMethod_Balance)
+				tb.rcookWriteDb(cl.id, -bonus)
 			}()
 		}
-		tb.rcookWriteDb(user.id, price, vender_api.PaymentMethod_Balance)
+		tb.rcookWriteDb(user.id, price)
 	case vender_api.CookReplay_cookInaccessible:
 		msg = "код недоступен"
 	case vender_api.CookReplay_cookOverdraft:
@@ -553,7 +553,7 @@ func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) {
 	delete(tb.chatId, rm.Executer)
 }
 
-func (tb *tgbotapiot) rcookWriteDb(userId int64, price int, payMethod vender_api.PaymentMethod, addMsg ...string) {
+func (tb *tgbotapiot) rcookWriteDb(userId int64, price int, addMsg ...string) {
 	tb.g.Log.Infof("cooking finished telegram client:%d code:%s", userId, tb.chatId[userId].rcook.code)
 	cl, _ := tb.getClient(userId)
 	cl.Balance -= int64(price)
