@@ -142,6 +142,10 @@ func (tb *tgbotapiot) telegramLoop(ctx context.Context) error {
 			}
 			tb.g.Alive.Add(1)
 			pp := tb.g.ParseMqttPacket(p)
+			if rm != nil && rm.Err != nil {
+				errm := fmt.Sprintf("%v: %v", p.VmId, rm.Err.Message)
+				tb.tgSend(tb.admin, errm)
+			}
 			tb.cookResponse(pp)
 			tb.g.Alive.Done()
 		case tgm := <-tgch:
