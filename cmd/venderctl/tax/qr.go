@@ -408,7 +408,7 @@ func startNotificationsReader(s string) {
 		switch n.Status {
 		case tinkoff.StatusConfirmed:
 			if order.Order_state <= order_start {
-				CashLess.g.Log.WarningF("event from bank. order payed. vmid:%d order:%s amount:%d paymentId:%d", order.Vmid, order.Order_id, order.Amount, order.Paymentid)
+				CashLess.g.Log.Infof("event from bank. order payed. vmid:%d order:%s amount:%d paymentId:%d", order.Vmid, order.Order_id, order.Amount, order.Paymentid)
 				order.paid()
 				return
 			}
