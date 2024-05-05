@@ -141,7 +141,7 @@ func (tb *tgbotapiot) telegramLoop() error {
 				}
 			}
 			tb.g.Alive.Add(1)
-			pp := tb.g.ParseMqttPacket(p)
+			pp := tb.g.ParseMqttPacket(p) // old
 			if rm != nil && rm.Err != nil {
 				errm := fmt.Sprintf("%v: %v", p.VmId, rm.Err.Message)
 				tb.tgSend(tb.admin, errm)
