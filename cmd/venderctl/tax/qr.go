@@ -96,7 +96,7 @@ func MakeQr(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	}
 	qro.ToRoboMessage.Cmd = tele.MessageType_showQR
 	defer func() {
-		CashLess.g.Log.Infof("send message to robo(%d) message(%v)", vmid, qro.ToRoboMessage)
+		CashLess.g.Log.Infof("send qr to robo(%d) order(%s) message(%v)", vmid, qro.Order_id, qro.ToRoboMessage)
 		CashLess.g.Tele.SendToRobo(vmid, qro.ToRoboMessage)
 	}()
 	qro.ToRoboMessage.ShowQR.QrType = tele.ShowQR_error
