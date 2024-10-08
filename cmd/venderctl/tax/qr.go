@@ -289,6 +289,9 @@ func (o *CashLessOrderStruct) paid() {
 		CashLessErrorDB("db update paid order error order(%v)\n error(%v)", o, err)
 		return
 	}
+	if CashLess.g.GetRoboState(o.Vmid) != tele.State_WaitingForExternalPayment {
+		o.sendCanselToBank()
+	}
 	sm := tele.ToRoboMessage{
 		ServerTime: time.Now().Unix(),
 		Cmd:        tele.MessageType_makeOrder,
