@@ -43,7 +43,18 @@ func (g *Global) CtlStop(ctx context.Context) {
 }
 
 func (g *Global) GetRoboState(vmid int32) vender_api.State {
+	if g.Vmc[vmid].State == vender_api.State_Invalid {
+		g.SetRoboState(vmid, g.ReadRoboStateFromDB(vmid))
+	}
 	return g.Vmc[vmid].State
+}
+
+func (g *Global) ReadRoboStateFromDB(vmid int32) vender_api.State {
+	var roboState int32
+	_, _ = g.DB.QueryOne(pg.Scan(&roboState),
+		`SELECT state FROM state WHERE state.vmid = ?0 and state.connected = true limit 1;`,
+		vmid)
+	return vender_api.State(roboState)
 }
 
 func (g *Global) SetRoboState(vmid int32, st vender_api.State) {
