@@ -390,21 +390,23 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 }
 
 func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
-	if !tb.g.RobotConnected(vmid) {
-		tb.tgSend(user, "автомат не в сети.\nили отключено электричество, или недоступен интернет.")
-		return false
+	roboState := tb.g.GetRoboState(vmid)
+	if roboState == vender_api.State_Nominal {
+		return true
 	}
-	if tb.g.Vmc[vmid].State == vender_api.State_Invalid {
-		tb.g.Tele.SendToRobo(vmid, &vender_api.ToRoboMessage{
-			Cmd: vender_api.MessageType_reportState,
-		})
+	messageToClient := ""
+	switch roboState {
+	case vender_api.State_Invalid:
+		messageToClient = "автомат не в сети.\nили отключено электричество, или недоступен интернет.\n"
+	case vender_api.State_Client, vender_api.State_RemoteControl, vender_api.State_WaitingForExternalPayment:
+		messageToClient = "автомат сейчас работает с другим клиентом.\n"
+	case vender_api.State_Broken:
+		messageToClient = "автомат сломался.\nподождите пока его реанимируют (возможно его починят дистанционно)"
+	default:
+		messageToClient = "автомат сейчас не может выполнить заказ. \n"
 	}
-	if tb.g.Vmc[vmid].State != vender_api.State_Nominal && tb.g.Vmc[vmid].State != vender_api.State_WaitingForExternalPayment {
-		errm := "автомат сейчас не может выполнить заказ."
-		tb.tgSend(user, errm)
-		return false
-	}
-	return true
+	tb.tgSend(user, messageToClient)
+	return false
 }
 
 func (tb *tgbotapiot) logTgDbChange(m tgbotapi.Message) {
