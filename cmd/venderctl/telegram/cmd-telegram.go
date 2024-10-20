@@ -237,7 +237,9 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 		if tb.chatId[cl.id].tOut {
 			delete(tb.chatId, cl.id)
 		}
-		if tb.chatId[cl.id].id != 0 {
+		if telegramUser := tb.chatId[cl.id]; telegramUser.id != 0 {
+			msg := fmt.Sprintf("не могу сделать два заказа одновременно. :(\nсейчас робот: %d готовит код: %s", telegramUser.rcook.vmid, telegramUser.rcook.code)
+			tb.tgSend(cl.id, msg)
 			return nil
 		}
 		tb.commandCook(*m.Message, cl)
