@@ -265,6 +265,8 @@ func (o *CashLessOrderStruct) sendCanselToBank() {
 		Amount:    o.Amount,
 	}
 	cRes, err := terminalClient.Cancel(cReq)
+	CashLess.g.Log.WarningF("post cansel order(%v) bank responce(%v) ", o, cReq)
+
 	if err != nil {
 		CashLess.g.VMCErrorWriteDB(o.Vmid, 0, 0, fmt.Sprintf("cancel order request error. (%v) orger %v", err, o))
 	}
