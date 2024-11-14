@@ -22,7 +22,7 @@ require (
 require (
 	github.com/AlexTransit/ru-nalog-go v0.220727.0
 	github.com/gin-gonic/gin v1.8.1
-	github.com/nikita-vanyasin/tinkoff v1.0.5
+	github.com/nikita-vanyasin/tinkoff v1.2.2
 )
 
 require (
