@@ -12,12 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlexTransit/vender/currency"
 	"github.com/AlexTransit/vender/log2"
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
 	"github.com/AlexTransit/venderctl/internal/state"
-	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/go-pg/pg/v9"
 	"github.com/juju/errors"
@@ -109,52 +107,6 @@ func taxLoop(ctx context.Context) error {
 		if err != nil {
 			g.Log.Error("taxStep try")
 			// g.Error(err)
-		}
-	}
-}
-
-func cashLessLoop(ctx context.Context) {
-	g := state.GetGlobal(ctx)
-	g.Alive.Add(1)
-	defer g.Alive.Done()
-
-	stopch := g.Alive.StopChan()
-	mqttch := g.Tele.Chan()
-	for {
-		select {
-		case p := <-mqttch:
-			if p.Kind == tele_api.FromRobo {
-				rm := g.ParseFromRobo(p)
-				if rm.State == vender_api.State_WaitingForExternalPayment {
-					MakeQr(ctx, p.VmId, rm)
-				}
-				if rm.Order != nil && rm.Order.OwnerInt != 0 && rm.Order.OwnerType == vender_api.OwnerType_qrCashLessUser {
-					o, err := getOrderByOwner(rm.Order.OwnerInt)
-					if err != nil {
-						CashLess.g.Log.Errorf("order message from robo (%v) get in db error (%v)", rm.Order, err)
-						return
-					}
-					CashLess.g.Log.Infof("robot:%d started make order:%s paymentId:%d amount:%d ", o.Vmid, o.Order_id, o.Paymentid, o.Amount)
-					switch rm.Order.OrderStatus {
-					case vender_api.OrderStatus_orderError:
-						CashLess.g.Log.Errorf("from robot. cooking error. order (%v)", o)
-						o.refundOrder()
-					case vender_api.OrderStatus_cancel:
-						o.cancel()
-					case vender_api.OrderStatus_waitingForPayment:
-					case vender_api.OrderStatus_complete:
-						o.complete()
-						CashLess.g.Log.NoticeF("from robot. vm%d cashless complete order:%s price:%s payer:%v ", o.Vmid, o.Order_id, currency.Amount(o.Amount).Format100I(), o.Paymentid)
-					case vender_api.OrderStatus_executionStart:
-						o.startExecution()
-					default:
-						// delete(CashLessPay, p.VmId)
-					}
-				}
-			}
-		case <-stopch:
-			CashLessStop()
-			return
 		}
 	}
 }
