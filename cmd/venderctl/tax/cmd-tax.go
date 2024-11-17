@@ -15,7 +15,7 @@ import (
 	"github.com/AlexTransit/vender/log2"
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
-	"github.com/AlexTransit/venderctl/cmd/venderctl/tax/qr"
+	qr_tinkoff "github.com/AlexTransit/venderctl/cmd/venderctl/tax/qr-tinkoff"
 	"github.com/AlexTransit/venderctl/internal/state"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/go-pg/pg/v9"
@@ -49,7 +49,7 @@ func taxMain(ctx context.Context, flags *flag.FlagSet) error {
 	if err := taxInit(ctx); err != nil {
 		return errors.Annotate(err, "taxInit")
 	}
-	qr.TikoffQrInit(ctx)
+	qr_tinkoff.TikoffQrInit(ctx)
 	return taxLoop(ctx)
 }
 
