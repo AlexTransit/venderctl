@@ -1,4 +1,4 @@
-package qr-tinkoff
+package qr_tinkoff
 
 import (
 	"context"
