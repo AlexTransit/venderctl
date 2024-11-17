@@ -1,4 +1,4 @@
-package tax
+package qr-tinkoff
 
 import (
 	"context"
@@ -61,13 +61,13 @@ func getBankOrderStatusName(stateIndex int) string {
 			return k
 		}
 	}
-	CashLess.g.Log.Errorf("unnamed bank state (%d)", stateIndex)
+	// CashLess.g.Log.Errorf("unnamed bank state (%d)", stateIndex)
 	return "unknow"
 }
 func getBankOrderStatusIndex(stateName string) (index int) {
 	index = bankOrderState[stateName]
 	if index == 0 {
-		CashLess.g.Log.Errorf("undefined bank state (%s)", stateName)
+		// CashLess.g.Log.Errorf("undefined bank state (%s)", stateName)
 	}
 	return index
 }
