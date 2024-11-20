@@ -87,15 +87,16 @@ func (g *Global) InitDB(cmdName string) error {
 
 // сохраняет ошибку в базу с маркировкой не просмотрено.
 // saves the error to the base marked not viewed
-func (g *Global) VMCErrorWriteDB(vmid int32, vmtime int64, errCode uint32, message string) {
-	dbConn := g.DB.Conn().WithParam("vmid", vmid).WithParam("vmtime", vmtime)
+func (g *Global) VMCErrorWriteDB(vmid int32, message string) {
+	g.Log.Errorf("vm(%d) write error to db. err(%v)", vmid, message)
+	dbConn := g.DB.Conn().WithParam("vmid", vmid)
 	defer dbConn.Close()
 	var ver string
 	if g.Vmc[vmid] != nil {
 		ver = g.Vmc[vmid].Version
 	}
-	const q = `insert into error (vmid,vmtime,received,code,message,app_version) values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1,?2)`
-	_, err := dbConn.Exec(q, errCode, message, ver)
+	const q = `insert into error (vmid,received,message,app_version) values (?vmid,current_timestamp,?0,?1)`
+	_, err := dbConn.Exec(q, message, ver)
 	if err != nil {
 		g.Log.Errorf("error db query=%s error=%v", q, err)
 	}
