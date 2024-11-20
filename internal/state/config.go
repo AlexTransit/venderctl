@@ -44,11 +44,11 @@ type Config struct {
 	CashLess struct {
 		TerminalKey                    string
 		TerminalPass                   string
-		QRValidTimeSec                 int
-		TerminalQRPayRefreshSec        int
-		TerminalBankCommission         int
-		TerminalMinimalAmount          int
-		URLToListenToBankNotifications string
+		QRValidTimeSec                 int    // order validation time. время валидности заказа
+		TerminalQRPayRefreshSec        int    // interval manualy cheking payment status. как часто опрашивать статус оплаты. во время валидного времени заказа
+		TerminalBankCommission         int    // bank commision. ( 1 = 0.01% ) комиссия бынка в сотых процента/
+		TerminalMinimalAmount          int    // minimal order amount. минимальная суммв заказа
+		URLToListenToBankNotifications string // URL for incoming notifications. ссылка для банки, куда слать уведомления.
 	}
 	Telegram struct {
 		TelegrammBotApi string `hcl:"telegram_bot_api"`
@@ -146,7 +146,7 @@ func MustReadConfig(log *log2.Log, fs FullReader, names ...string) *Config {
 // the value in the configuration should not be less than the default value
 // значение в конфигурации не должно быть меньше значения по умолчанию
 func ConfigInt(configValue int, defaultValue int) int {
-	if configValue < 0 {
+	if configValue < defaultValue {
 		return defaultValue
 	}
 	return configValue

@@ -307,10 +307,10 @@ func packetFromRobo(ctx context.Context, p tele_api.Packet) {
 	}
 	if rm.State == vender_api.State_TemperatureProblem {
 		errM := fmt.Sprintf("temperature not valid (%d)", rm.RoboHardware.Temperature)
-		g.VMCErrorWriteDB(p.VmId, rTime, 0, errM)
+		g.VMCErrorWriteDB(p.VmId, errM)
 	}
 	if rm.Err != nil {
-		g.VMCErrorWriteDB(p.VmId, rTime, rm.Err.Code, rm.Err.Message)
+		g.VMCErrorWriteDB(p.VmId, rm.Err.Message)
 	}
 }
 
