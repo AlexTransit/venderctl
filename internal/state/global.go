@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/AlexTransit/vender/helpers"
@@ -29,15 +31,22 @@ func GetGlobal(ctx context.Context) *Global {
 }
 
 func (g *Global) CtlStop(ctx context.Context) {
-	go func() {
-		time.Sleep(5 * time.Second)
-		g.Log.Infof("venderctl stoped. by timeout")
-		os.Exit(0)
-	}()
+	// AlexM убрать когда выпилю alive
+	go func() { // убрать
+		time.Sleep(5 * time.Second)                 // убрать
+		g.Log.Infof("venderctl stoped. by timeout") // убрать
+		os.Exit(0)                                  // убрать
+	}() // убрать
+	// закрываем теле
 	g.Tele.Close()
-	g.Alive.Stop()
-	g.Alive.Wait()
-	g.Log.Infof("venderctl stoped")
+	g.Alive.Stop() // убрать
+	// ждем когда отработает cancel context
+	time.Sleep(4 * time.Second)
+	// сюда не долдны попасть. отмена контекста выйдет из программы раньше.
+	g.Alive.Wait() // убрать
+	// вывалися по таймауту если вдруг не отработал стоп в контексте
+	// g.Log.Infof("venderctl stoped. by timeout")
+	g.Log.Infof("venderctl stoped") // убрать
 	os.Exit(0)
 
 }
@@ -87,8 +96,12 @@ func (g *Global) InitDB(cmdName string) error {
 
 // сохраняет ошибку в базу с маркировкой не просмотрено.
 // saves the error to the base marked not viewed
-func (g *Global) VMCErrorWriteDB(vmid int32, message string) {
-	g.Log.Errorf("vm(%d) write error to db. err(%v)", vmid, message)
+func (g *Global) VMCErrorWriteDb(vmid int32, message string) {
+	_, file, no, ok := runtime.Caller(1)
+	if ok {
+		file = fmt.Sprintf("caller %s:%d", filepath.Base(file), no)
+	}
+	g.Log.Errorf("%s vm(%d) write error to db. err(%v)", file, vmid, message)
 	dbConn := g.DB.Conn().WithParam("vmid", vmid)
 	defer dbConn.Close()
 	var ver string
