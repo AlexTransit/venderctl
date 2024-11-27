@@ -88,16 +88,20 @@ func (g *Global) InitDB(cmdName string) error {
 	// MaxRetries:1,
 	// PoolSize:2,
 
-	g.DB = pg.Connect(dbOpt)
+	g.DB = pg.Connect(dbOpt).WithTimeout(pingTimeout)
 	g.DB.AddQueryHook(queryHook{g})
-	_, err = g.DB.WithTimeout(pingTimeout).Exec(`select 1`)
+	_, err = g.DB.Exec(`select 1`)
 	return errors.Annotate(err, "db ping")
 }
 
 // сохраняет ошибку в базу с маркировкой не просмотрено.
 // saves the error to the base marked not viewed
-func (g *Global) VMCErrorWriteDb(vmid int32, message string) {
-	_, file, no, ok := runtime.Caller(1)
+func (g *Global) VMCErrorWriteDb(vmid int32, message string, level ...int) {
+	skip := 1
+	if level != nil {
+		skip = level[0]
+	}
+	_, file, no, ok := runtime.Caller(skip)
 	if ok {
 		file = fmt.Sprintf("caller %s:%d", filepath.Base(file), no)
 	}
