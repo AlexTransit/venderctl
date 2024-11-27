@@ -1,42 +1,41 @@
 package cashless_tinkoff
 
-const (
-	StatusNew              = "NEW" // Создан
-	StatusNewI             = 1
-	StatusFormShowed       = "FORMSHOWED" // Платежная форма открыта покупателем
-	StatusFormShowedI      = 2
-	StatusDeadlineExpired  = "DEADLINE_EXPIRED" // Просрочен
-	StatusDeadlineExpiredI = 3
-	StatusCanceled         = "CANCELED" // Отменен
-	StatusCanceledI        = 4
-	StatusPreauthorizing   = "PREAUTHORIZING" // Проверка платежных данных
-	StatusPreauthorizingI  = 5
-	StatusAuthorizing      = "AUTHORIZING" // Резервируется
-	StatusAuthorizingI     = 6
-	StatusAuthorized       = "AUTHORIZED" // Зарезервирован
-	StatusAuthorizedI      = 7
-	StatusAuthFail         = "AUTH_FAIL" // Не прошел авторизацию
-	StatusAuthFailI        = 8
-	StatusRejected         = "REJECTED" // Отклонен
-	StatusRejectedI        = 9
-	Status3DSChecking      = "3DS_CHECKING" // Проверяется по протоколу 3-D Secure
-	Status3DSCheckingI     = 10
-	Status3DSChecked       = "3DS_CHECKED" // Проверен по протоколу 3-D Secure
-	Status3DSCheckedI      = 11
-	StatusReversing        = "REVERSING" // Резервирование отменяется
-	StatusReversingI       = 12
-	StatusReversed         = "REVERSED" // Резервирование отменено
-	StatusReversedI        = 13
-	StatusConfirming       = "CONFIRMING" // Подтверждается
-	StatusConfirmingI      = 14
-	StatusConfirmed        = "CONFIRMED" // Подтвержден
-	StatusConfirmedI       = 15
-	StatusRefunding        = "REFUNDING" // Возвращается
-	StatusRefundingI       = 16
-	StatusQRRefunding      = "ASYNC_REFUNDING" // Возврат QR
-	StatusQRRefundingI     = 17
-	StatusPartialRefunded  = "PARTIAL_REFUNDED" // Возвращен частично
-	StatusPartialRefundedI = 18
-	StatusRefunded         = "REFUNDED" // Возвращен полностью
-	StatusRefundedI        = 19
-)
+import "github.com/nikita-vanyasin/tinkoff"
+
+var bankOrderState = map[string]int{
+	tinkoff.StatusNew:             1,  // Создан
+	tinkoff.StatusFormShowed:      2,  // Платежная форма открыта покупателем
+	tinkoff.StatusDeadlineExpired: 3,  // Просрочен
+	tinkoff.StatusCanceled:        4,  // Отменен
+	tinkoff.StatusPreauthorizing:  5,  // Проверка платежных данных
+	tinkoff.StatusAuthorizing:     6,  // Резервируется
+	tinkoff.StatusAuthorized:      7,  // Зарезервирован
+	tinkoff.StatusAuthFail:        8,  // Не прошел авторизацию
+	tinkoff.StatusRejected:        9,  // Отклонен
+	tinkoff.Status3DSChecking:     10, // Проверяется по протоколу 3-D Secure
+	tinkoff.Status3DSChecked:      11, // Проверен по протоколу 3-D Secure
+	tinkoff.StatusReversing:       12, // Резервирование отменяется
+	tinkoff.StatusReversed:        13, // Резервирование отменено
+	tinkoff.StatusConfirming:      14, // Подтверждается
+	tinkoff.StatusConfirmed:       15, // Подтвержден
+	tinkoff.StatusRefunding:       16, // Возвращается
+	tinkoff.StatusQRRefunding:     17, // Возврат QR
+	tinkoff.StatusPartialRefunded: 18, // Возвращен частично
+	tinkoff.StatusRefunded:        19, // Возвращен полностью
+}
+
+func getBankOrderStatusName(stateIndex int) string {
+	for k, v := range bankOrderState {
+		if v == stateIndex {
+			return k
+		}
+	}
+	return "unknow"
+}
+func getBankOrderStatusIndex(stateName string) int {
+	// index = bankOrderState[stateName]
+	// if index == 0 {
+	// 	// CashLess.g.Log.Errorf("undefined bank state (%s)", stateName)
+	// }
+	return bankOrderState[stateName]
+}
