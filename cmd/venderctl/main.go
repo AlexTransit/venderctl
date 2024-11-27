@@ -94,7 +94,8 @@ func main() {
 				os.Exit(0)
 			}
 
-			ctx, g := state_new.NewContext(cmdName, log, tele.NewTele())
+			ctxN, g := state_new.NewContext(cmdName, log, tele.NewTele())
+			ctx, cancelCTX := context.WithCancel(ctxN)
 
 			// working term signal
 			sigs := make(chan os.Signal, 1)
@@ -102,6 +103,8 @@ func main() {
 			go func() {
 				si := <-sigs
 				fmt.Printf("income OS signal:%v \n", si)
+				log.Infof("stoping %v", c.Name)
+				cancelCTX()
 				g.CtlStop(ctx)
 			}()
 
