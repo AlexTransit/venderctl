@@ -41,10 +41,11 @@ tax {
 cashless {
   terminalkey = "terminal key"
   terminalPass = "terminal password"
-  QRValidTimeSec = 300 // QR validet time
-  terminalBankCommission = 40 // fixed point. 40 = 0.4%
-  terminalMinimalAmount = 1000 // minimal amount. fixed point 
-  terminalQRPayRefreshSec = 3 // payment verification 
+  QRValidTimeSec = 300 // QR validet time. default 300
+  terminalBankCommission = 40 // fixed point. 40 = 0.4%. default 0
+  terminalMinimalAmount = 1000 // minimal amount. fixed point. default 1000 (10 rub.)
+  terminalQRPayRefreshSec = 3 // payment verification. default 3  
+  timeoutToStartManualPaymentVerificationSec = 20 // after how many seconds to start checking the payment status manually. default 20
   urlToListenToBankNotifications = "http://127.0.0.1:1234/bank/notiaicaion"
 }
 

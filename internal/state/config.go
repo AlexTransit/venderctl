@@ -42,13 +42,14 @@ type Config struct {
 		}
 	}
 	CashLess struct {
-		TerminalKey                    string
-		TerminalPass                   string
-		QRValidTimeSec                 int    // order validation time. время валидности заказа
-		TerminalQRPayRefreshSec        int    // interval manualy cheking payment status. как часто опрашивать статус оплаты. во время валидного времени заказа
-		TerminalBankCommission         int    // bank commision. ( 1 = 0.01% ) комиссия бынка в сотых процента/
-		TerminalMinimalAmount          int    // minimal order amount. минимальная суммв заказа
-		URLToListenToBankNotifications string // URL for incoming notifications. ссылка для банки, куда слать уведомления.
+		TerminalKey                                string
+		TerminalPass                               string
+		QRValidTimeSec                             int    // order validation time. время валидности заказа
+		TerminalQRPayRefreshSec                    int    // interval manualy cheking payment status. как часто опрашивать статус оплаты. во время валидного времени заказа
+		TerminalBankCommission                     int    // bank commision. ( 1 = 0.01% ) комиссия бынка в сотых процента/
+		TerminalMinimalAmount                      int    // minimal order amount. минимальная суммв заказа в копейках
+		URLToListenToBankNotifications             string // URL for incoming notifications. ссылка для банки, куда слать уведомления.
+		TimeoutToStartManualPaymentVerificationSec int    // after how many seconds to start checking the payment status manually. через сколько секунд начать проверять статус оплаты вручную
 	}
 	Telegram struct {
 		TelegrammBotApi string `hcl:"telegram_bot_api"`
