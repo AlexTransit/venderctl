@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"time"
 
 	"os"
 	"os/signal"
@@ -102,10 +103,20 @@ func main() {
 			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 			go func() {
 				si := <-sigs
-				fmt.Printf("income OS signal:%v \n", si)
+				log.WarningF("income OS signal:%v \n", si)
 				log.Infof("stoping %v", c.Name)
+				g.Alive.Stop()
+				go func() {
+					time.Sleep(5 * time.Second)
+					g.Log.Infof("venderctl stoped. by timeout")
+					os.Exit(0)
+				}()
+
+				g.Tele.Close()
+				g.Alive.Wait()
 				cancelCTX()
-				g.CtlStop(ctx)
+
+				os.Exit(0)
 			}()
 
 			g.BuildVersion = BuildVersion

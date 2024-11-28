@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -28,27 +27,6 @@ func GetGlobal(ctx context.Context) *Global {
 		return g
 	}
 	panic(fmt.Sprintf("context['%s'] expected type *Global actual=%#v", ContextKey, v))
-}
-
-func (g *Global) CtlStop(ctx context.Context) {
-	// AlexM убрать когда выпилю alive
-	go func() { // убрать
-		time.Sleep(5 * time.Second)                 // убрать
-		g.Log.Infof("venderctl stoped. by timeout") // убрать
-		os.Exit(0)                                  // убрать
-	}() // убрать
-	// закрываем теле
-	g.Tele.Close()
-	g.Alive.Stop() // убрать
-	// ждем когда отработает cancel context
-	time.Sleep(4 * time.Second)
-	// сюда не долдны попасть. отмена контекста выйдет из программы раньше.
-	g.Alive.Wait() // убрать
-	// вывалися по таймауту если вдруг не отработал стоп в контексте
-	// g.Log.Infof("venderctl stoped. by timeout")
-	g.Log.Infof("venderctl stoped") // убрать
-	os.Exit(0)
-
 }
 
 func (g *Global) GetRoboState(vmid int32) vender_api.State {
@@ -95,7 +73,8 @@ func (g *Global) InitDB(cmdName string) error {
 }
 
 // сохраняет ошибку в базу с маркировкой не просмотрено.
-// saves the error to the base marked not viewed
+// saves the error to the base marked not viewed.
+// level - указать какая функция вызвала эту функцию.
 func (g *Global) VMCErrorWriteDb(vmid int32, message string, level ...int) {
 	skip := 1
 	if level != nil {
@@ -135,6 +114,12 @@ type queryHook struct{ g *Global }
 func (q queryHook) BeforeQuery(ctx context.Context, e *pg.QueryEvent) (context.Context, error) {
 	s, err := e.FormattedQuery()
 	q.g.Log.Debugf("sql q=%s err=%v", s, err)
+	// q.g.Log.DebugLevelf(5, "sql q=%s err=%v", s, err)
+	// q.g.Log.DebugLevelf(2, "2sql q=%s err=%v", s, err)
+	// q.g.Log.DebugLevelf(3, "3sql q=%s err=%v", s, err)
+	// q.g.Log.DebugLevelf(4, "4sql q=%s err=%v", s, err)
+	// q.g.Log.DebugLevelf(5, "5sql q=%s err=%v", s, err)
+	// q.g.Log.DebugLevelf(6, "6sql q=%s err=%v", s, err)
 	return ctx, nil
 }
 

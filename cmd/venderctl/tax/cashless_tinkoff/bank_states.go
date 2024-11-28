@@ -2,12 +2,22 @@ package cashless_tinkoff
 
 import "github.com/nikita-vanyasin/tinkoff"
 
-var bankOrderState = map[string]int{
+// --стадии платежа --
+// Отправлен				- StatusNew
+// Платежная форма открыта	- StatusFormShowed
+// Резервируется			- StatusAuthorizing
+// Зарезервирован			- StatusAuthorized
+// Подтверждается			- StatusConfirming
+// Подтвержден				- StatusConfirmed		- credited
+// -- если идет отмена --
+// Возвращается				- StatusRefunding
+// Возвращен полностью		- StatusRefunded		- credited=0
+
+var bankOrderState = map[string]int32{
 	tinkoff.StatusNew:             1,  // Создан
 	tinkoff.StatusFormShowed:      2,  // Платежная форма открыта покупателем
 	tinkoff.StatusDeadlineExpired: 3,  // Просрочен
 	tinkoff.StatusCanceled:        4,  // Отменен
-	tinkoff.StatusPreauthorizing:  5,  // Проверка платежных данных
 	tinkoff.StatusAuthorizing:     6,  // Резервируется
 	tinkoff.StatusAuthorized:      7,  // Зарезервирован
 	tinkoff.StatusAuthFail:        8,  // Не прошел авторизацию
@@ -24,7 +34,7 @@ var bankOrderState = map[string]int{
 	tinkoff.StatusRefunded:        19, // Возвращен полностью
 }
 
-func getBankOrderStatusName(stateIndex int) string {
+func getBankOrderStatusName(stateIndex int32) string {
 	for k, v := range bankOrderState {
 		if v == stateIndex {
 			return k
@@ -32,7 +42,7 @@ func getBankOrderStatusName(stateIndex int) string {
 	}
 	return "unknow"
 }
-func getBankOrderStatusIndex(stateName string) int {
+func getBankOrderStatusIndex(stateName string) int32 {
 	// index = bankOrderState[stateName]
 	// if index == 0 {
 	// 	// CashLess.g.Log.Errorf("undefined bank state (%s)", stateName)
