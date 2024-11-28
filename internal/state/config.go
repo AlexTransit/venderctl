@@ -42,6 +42,7 @@ type Config struct {
 		}
 	}
 	CashLess struct {
+		DebugLevel                                 int
 		TerminalKey                                string
 		TerminalPass                               string
 		QRValidTimeSec                             int    // order validation time. время валидности заказа

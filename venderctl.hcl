@@ -39,6 +39,7 @@ tax {
 }
 
 cashless {
+  DebugLevel = 7 // if not set then maximum
   terminalkey = "terminal key"
   terminalPass = "terminal password"
   QRValidTimeSec = 300 // QR validet time. default 300
