@@ -134,7 +134,7 @@ func createQR(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	}
 	defer func() {
 		QR.Tele.SendToRobo(vmid, &messageForRobot)
-		QR.Log.Infof("robo(%d) show QR type(%+v) ", vmid, messageForRobot)
+		QR.Log.Debugf("-> robo(%d) type(%+v) ", vmid, messageForRobot)
 	}()
 	if QR.Config.CashLess.TerminalKey == "" {
 		QR.Log.Info("cashless system not working. send robot message qrerror")
@@ -183,6 +183,7 @@ func createQR(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	messageForRobot.ShowQR.DataStr = order.paymentIdStr
 
 	go order.manualyPaymentVerification(ctx)
+	QR.Log.Infof("robo(%d) show QR for payment order(%s) ", vmid, order.OrderID)
 	QR.Alive.Done()
 }
 
