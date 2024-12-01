@@ -113,13 +113,8 @@ type queryHook struct{ g *Global }
 
 func (q queryHook) BeforeQuery(ctx context.Context, e *pg.QueryEvent) (context.Context, error) {
 	s, err := e.FormattedQuery()
-	q.g.Log.Debugf("sql q=%s err=%v", s, err)
-	// q.g.Log.DebugLevelf(5, "sql q=%s err=%v", s, err)
-	// q.g.Log.DebugLevelf(2, "2sql q=%s err=%v", s, err)
-	// q.g.Log.DebugLevelf(3, "3sql q=%s err=%v", s, err)
-	// q.g.Log.DebugLevelf(4, "4sql q=%s err=%v", s, err)
-	// q.g.Log.DebugLevelf(5, "5sql q=%s err=%v", s, err)
-	// q.g.Log.DebugLevelf(6, "6sql q=%s err=%v", s, err)
+	// q.g.Log.Debugf("sql q=%s err=%v", s, err)
+	q.g.Log.Debugf("asql q=%s result=%v err=%v", s, e.Result, err)
 	return ctx, nil
 }
 
