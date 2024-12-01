@@ -145,13 +145,16 @@ func MustReadConfig(log *log2.Log, fs FullReader, names ...string) *Config {
 	return c
 }
 
-// the value in the configuration should not be less than the default value
-// значение в конфигурации не должно быть меньше значения по умолчанию
-func ConfigInt(configValue int, defaultValue int) int {
-	if configValue < defaultValue {
+// the value in the configuration should not be less than the minimal value
+// значение в конфигурации не должно быть меньше минимального значения
+func ConfigInt(fromConfig int, mininalValue int, defaultValue int) int {
+	if fromConfig == 0 {
 		return defaultValue
 	}
-	return configValue
+	if fromConfig < mininalValue {
+		return mininalValue
+	}
+	return fromConfig
 }
 
 // if the value is not set in the configuration, then return the default value

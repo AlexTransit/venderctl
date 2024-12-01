@@ -20,6 +20,7 @@ import (
 
 var QR struct {
 	*state.Global
+	qrDb              *pg.DB
 	orderValidTimeSec int // время валидности заказа
 	terminalClient    *tinkoff.Client
 }
@@ -35,18 +36,32 @@ const (
 	order_cancel
 )
 
+type qrOrder struct {
+	Order_state      orderState
+	Bank_order_state int32
+	Vmid             int32
+	date             time.Time
+	OrderID          string
+	Amount           uint64
+	Credited         uint64
+	Paymentid        uint64
+	paymentIdStr     string
+	description      string
+}
+
 func QrInit(ctx context.Context) {
 	QR.Global = state.GetGlobal(ctx)
+	QR.qrDb = (*pg.DB)(QR.DB.Conn().WithParam("worker", "QR").WithTimeout(5 * time.Second))
 	QR.Log.Info("start init QR")
 	if QR.Config.CashLess.DebugLevel < 1 || QR.Config.CashLess.DebugLevel > 7 {
 		QR.Log.SetLevel(log2.LOG_DEBUG)
 	} else {
 		QR.Log.SetLevel(log2.Level(QR.Config.CashLess.DebugLevel))
 	}
-	QR.Config.CashLess.QRValidTimeSec = state.ConfigInt(QR.Config.CashLess.QRValidTimeSec, 300)
-	QR.Config.CashLess.TerminalQRPayRefreshSec = state.ConfigInt(QR.Config.CashLess.TerminalQRPayRefreshSec, 3)
-	QR.Config.CashLess.TerminalMinimalAmount = state.ConfigInt(QR.Config.CashLess.TerminalMinimalAmount, 1000)
-	QR.Config.CashLess.TimeoutToStartManualPaymentVerificationSec = state.ConfigInt(QR.Config.CashLess.TimeoutToStartManualPaymentVerificationSec, 20)
+	QR.Config.CashLess.QRValidTimeSec = state.ConfigInt(QR.Config.CashLess.QRValidTimeSec, 10, 300)
+	QR.Config.CashLess.TerminalQRPayRefreshSec = state.ConfigInt(QR.Config.CashLess.TerminalQRPayRefreshSec, 2, 10)
+	QR.Config.CashLess.TerminalMinimalAmount = state.ConfigInt(QR.Config.CashLess.TerminalMinimalAmount, 1000, 1000)
+	QR.Config.CashLess.TimeoutToStartManualPaymentVerificationSec = state.ConfigInt(QR.Config.CashLess.TimeoutToStartManualPaymentVerificationSec, 2, 30)
 
 	go readerMqtt(ctx) // обработчик событий от роботов
 	if QR.Config.CashLess.TerminalKey == "" {
@@ -88,7 +103,7 @@ func readerMqtt(ctx context.Context) {
 					}
 					switch rm.Order.OrderStatus {
 					case tele.OrderStatus_executionStart:
-						QR.Log.Infof("robot:%d started make order:%s paymentId:%d amount:%d ", o.vmid, o.orderID, o.paymentId, o.amount)
+						QR.Log.Infof("robot:%d started make order:%s paymentId:%d amount:%d ", o.Vmid, o.OrderID, o.Paymentid, o.Amount)
 						o.dbStartExecution(ctx)
 					case tele.OrderStatus_orderError:
 						QR.Log.Errorf("from robot. cooking error. order (%+v)", o)
@@ -98,7 +113,7 @@ func readerMqtt(ctx context.Context) {
 					case tele.OrderStatus_waitingForPayment:
 					case tele.OrderStatus_complete:
 						o.dbComplete(ctx)
-						QR.Log.NoticeF("from robot. vm%d cashless complete order:%s price:%s payer:%d ", o.vmid, o.orderID, currency.Amount(o.amount).Format100I(), o.paymentId)
+						QR.Log.NoticeF("from robot. vm%d cashless complete order:%s price:%s payer:%d ", o.Vmid, o.OrderID, currency.Amount(o.Amount).Format100I(), o.Paymentid)
 					default:
 					}
 				}
@@ -107,19 +122,6 @@ func readerMqtt(ctx context.Context) {
 			return
 		}
 	}
-}
-
-type qrOrder struct {
-	order_state      orderState
-	bank_order_state int32
-	vmid             int32
-	date             time.Time
-	orderID          string
-	amount           uint64
-	credited         uint64
-	paymentId        uint64
-	paymentIdStr     string
-	description      string
 }
 
 func createQR(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
@@ -149,15 +151,17 @@ func createQR(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	}
 	orderCreateDate := time.Now()
 	order := qrOrder{
-		order_state: order_start,
-		vmid:        vmid,
+		Order_state: order_start,
+		Vmid:        vmid,
 		date:        orderCreateDate,
-		orderID:     fmt.Sprintf("%d-%s-%s", vmid, orderCreateDate.Format("060102150405"), rm.Order.MenuCode),
-		amount:      uint64(rm.Order.Amount) + uint64(bankCommision),
+		OrderID:     fmt.Sprintf("%d-%s-%s", vmid, orderCreateDate.Format("060102150405"), rm.Order.MenuCode),
+		Amount:      uint64(rm.Order.Amount) + uint64(bankCommision),
 		description: dbGetOrderDecription(ctx, vmid, rm.Order.MenuCode),
 	}
 	/* test -------------------------------------------------------------------------------------
-	order.paymentId = uint64(time.Now().Unix())
+	order.Paymentid = uint64(time.Now().Unix())
+	order.Paymentid = 5414930555
+	order.OrderID = "88-241201101710-0"
 	//*/
 	if ok := order.initPaySession(ctx); !ok {
 		return
@@ -175,7 +179,7 @@ func createQR(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	}
 	messageForRobot.ShowQR.QrText = qrData
 	messageForRobot.ShowQR.QrType = tele.ShowQR_order
-	messageForRobot.ShowQR.DataInt = int32(order.amount)
+	messageForRobot.ShowQR.DataInt = int32(order.Amount)
 	messageForRobot.ShowQR.DataStr = order.paymentIdStr
 
 	go order.manualyPaymentVerification(ctx)
@@ -185,13 +189,12 @@ func createQR(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 func (o *qrOrder) initPaySession(ctx context.Context) (valid bool) {
 	ir := &tinkoff.InitRequest{
 		BaseRequest: tinkoff.BaseRequest{TerminalKey: QR.Config.CashLess.TerminalKey, Token: "random"},
-		Amount:      o.amount,
-		OrderID:     o.orderID,
+		Amount:      o.Amount,
+		OrderID:     o.OrderID,
 		Description: o.description,
 		Data: map[string]string{
-			"Vmc":    fmt.Sprintf("%d", o.vmid),
-			"fphone": "true",
-			"QR":     "true",
+			"Vmc": fmt.Sprintf("%d", o.Vmid),
+			"QR":  "true",
 		},
 		RedirectDueDate: tinkoff.Time(time.Now().Local().Add(5 * time.Minute)),
 	}
@@ -205,10 +208,10 @@ func (o *qrOrder) initPaySession(ctx context.Context) (valid bool) {
 		/* test -------------------------------------------------------------------------------------------------
 		e = nil
 		bankResponse = &tinkoff.InitResponse{
-			Amount:     o.amount,
-			OrderID:    o.orderID,
+			Amount:     o.Amount,
+			OrderID:    o.OrderID,
 			Status:     tinkoff.StatusNew,
-			PaymentID:  fmt.Sprint(o.paymentId),
+			PaymentID:  fmt.Sprint(o.Paymentid),
 			PaymentURL: "HZ",
 		}
 		//*/
@@ -218,21 +221,21 @@ func (o *qrOrder) initPaySession(ctx context.Context) (valid bool) {
 		QR.Log.Errorf("init payment order(%+v) error (%v)", o, e)
 		errStr = fmt.Sprintf("(%d error - %v) ", i, e.Error()) + errStr
 		if i == 3 {
-			QR.VMCErrorWriteDb(o.vmid, errStr)
+			QR.VMCErrorWriteDb(o.Vmid, errStr)
 			return false
 		}
 	}
 	if bankResponse.Status != tinkoff.StatusNew {
-		QR.VMCErrorWriteDb(o.vmid, fmt.Sprintf("init payment status (need NEW) order(%+v) bark response(%+v)", o, bankResponse))
+		QR.VMCErrorWriteDb(o.Vmid, fmt.Sprintf("init payment status (need NEW) order(%+v) bark response(%+v)", o, bankResponse))
 		return false
 	}
 	o.paymentIdStr = bankResponse.PaymentID
 	i, e := strconv.ParseInt(bankResponse.PaymentID, 10, 64)
 	if e != nil {
-		QR.VMCErrorWriteDb(o.vmid, fmt.Sprintf("bank paimentid(%s) not number. responce(%+v) error(%v)", bankResponse.PaymentID, bankResponse, e))
+		QR.VMCErrorWriteDb(o.Vmid, fmt.Sprintf("bank paimentid(%s) not number. responce(%+v) error(%v)", bankResponse.PaymentID, bankResponse, e))
 		return false
 	}
-	o.paymentId = uint64(i)
+	o.Paymentid = uint64(i)
 	return true
 }
 
@@ -242,33 +245,27 @@ func (o *qrOrder) getQrCode(ctx context.Context) (valid bool, data string) {
 	qrResponse, err := QR.terminalClient.GetQRWithContext(ctxWichTimeOut, qrRequest)
 	cancel()
 	if err != nil {
-		QR.VMCErrorWriteDb(o.vmid, fmt.Sprintf("bank get QR error:%v order id:%s", err, o.orderID))
+		QR.VMCErrorWriteDb(o.Vmid, fmt.Sprintf("bank get QR error:%v order id:%s", err, o.OrderID))
 		return false, ""
 	}
-	if qrResponse.PaymentID != int(o.paymentId) {
-		QR.VMCErrorWriteDb(o.vmid, fmt.Sprintf("bank QR paymentID mismatch response(%v) order(%v) response(%v) ", qrResponse, o, qrResponse))
+	if qrResponse.PaymentID != int(o.Paymentid) {
+		QR.VMCErrorWriteDb(o.Vmid, fmt.Sprintf("bank QR paymentID mismatch response(%v) order(%v) response(%v) ", qrResponse, o, qrResponse))
 		return false, ""
 	}
 	return true, qrResponse.Data
 }
 
 func (o *qrOrder) manualyPaymentVerification(ctx context.Context) {
-	QR.Log.Infof("run checking payment status order(%s) ", o.orderID)
+	QR.Log.Infof("run checking payment status order(%s) ", o.OrderID)
 	QR.Alive.Add(1)
-	/* test -------------------------------------------------------------------------------------
-	ctxTimeOutQR, cancelQRctx := context.WithTimeout(ctx, time.Second*time.Duration(60))
-	QR.Config.CashLess.TimeoutToStartManualPaymentVerificationSec = 3
-	/*/
-	ctxTimeOutQR, cancelQRctx := context.WithTimeout(ctx, time.Second*time.Duration(QR.Config.CashLess.QRValidTimeSec))
-	//*/
-
+	qrTimeout := time.NewTimer(time.Second * time.Duration(QR.Config.CashLess.QRValidTimeSec))
 	refreshTime := time.Duration(time.Second * time.Duration(QR.Config.CashLess.TerminalQRPayRefreshSec))
 	// start the poll timer after timeout. запускаем таймер опроса после задержки
 	refreshTimer := time.NewTimer(time.Second * time.Duration(QR.Config.CashLess.TimeoutToStartManualPaymentVerificationSec))
 	defer func() {
 		refreshTimer.Stop()
-		cancelQRctx()
-		QR.Log.Infof("stop checking payment status order(%s) ", o.orderID)
+		//		cancelQRctx()
+		QR.Log.Infof("stop checking payment status order(%s) ", o.OrderID)
 		QR.Alive.Done()
 	}()
 	/* test -------------------------------------------------------------------------------------
@@ -277,7 +274,7 @@ func (o *qrOrder) manualyPaymentVerification(ctx context.Context) {
 		fmt.Printf("\033[41m test \033[0m\n")
 		_, _ = QR.terminalClient.SBPPayTestWithContext(ctx, &tinkoff.SBPPayTestRequest{
 			PaymentID:         o.paymentIdStr,
-			IsDeadlineExpired: true,
+			IsDeadlineExpired: false,
 			IsRejected:        false,
 		})
 	}()
@@ -287,31 +284,32 @@ func (o *qrOrder) manualyPaymentVerification(ctx context.Context) {
 		select {
 		case <-refreshTimer.C:
 			refreshTimer.Reset(refreshTime)
-			ctxSessionTimeOut, cancelSession := context.WithTimeout(ctxTimeOutQR, time.Second*5)
+			ctxSessionTimeOut, cancelSession := context.WithTimeout(ctx, time.Second*5)
 			orderState, err := QR.terminalClient.GetStateWithContext(ctxSessionTimeOut, &tinkoff.GetStateRequest{PaymentID: o.paymentIdStr})
 			cancelSession()
 			/* test -------------------------------------------------------------------------------------
 			fmt.Printf("\033[41m read bank state \033[0m\n")
 			orderState = new(tinkoff.GetStateResponse)
-			orderState.Status = tinkoff.Status3DSChecked
+			orderState.Status = tinkoff.StatusAuthorized
 			orderState.PaymentID = o.paymentIdStr
-			orderState.OrderID = o.orderID
+			orderState.OrderID = o.OrderID
 			err = nil
 			//*/
 			if err != nil {
-				QR.Log.Errorf("check state order(%s) error(%v)", o.orderID, err)
+				QR.Log.Errorf("check state order(%s) error(%v)", o.OrderID, err)
 				continue
 			}
 			if ok := o.compareOrder(orderState.OrderID, orderState.PaymentID); !ok {
 				continue
 			}
+			o.dbGetOrderStatus(ctx)
 			if refresh := o.dbUpdateOrdreStatus(ctx, orderState.Status); !refresh {
 				return
 			}
 		case <-stpch:
 			return
-		case <-ctxTimeOutQR.Done():
-			QR.Log.Debugf("QR canceled by timeout order(%s) ", o.orderID)
+		case <-qrTimeout.C:
+			QR.Log.Debugf("QR canceled by timeout order(%s) ", o.OrderID)
 			o.cancelOrder(ctx)
 			return
 		}
@@ -325,42 +323,42 @@ func (o *qrOrder) compareOrder(orderID string, paymentID interface{}) (ok bool) 
 			ok = true
 		}
 	case uint64:
-		if o.paymentId == paymentID {
+		if o.Paymentid == paymentID {
 			ok = true
 		}
 	default:
 		ok = false
 	}
-	if ok && o.orderID == orderID {
+	if ok && o.OrderID == orderID {
 		return true
 	}
-	QR.VMCErrorWriteDb(o.vmid, fmt.Sprintf("BAD BANK. request mismash orderID<>responseID (%s<>%s) or paymentid<>responseID (%s<>%+v)", o.orderID, orderID, o.paymentIdStr, paymentID))
+	QR.VMCErrorWriteDb(o.Vmid, fmt.Sprintf("BAD BANK. request mismash orderID<>responseID (%s<>%s) or paymentid<>responseID (%s<>%+v)", o.OrderID, orderID, o.paymentIdStr, paymentID))
 	return false
 }
 
 func (o *qrOrder) sendMessageMakeOrder(ctx context.Context) {
 	o.dbGetOrderStatus(ctx)
-	if o.order_state > order_prepay {
+	if o.Order_state > order_prepay {
 		return
 	}
 	mToRobo := tele.ToRoboMessage{
 		Cmd:        tele.MessageType_makeOrder,
 		ServerTime: time.Now().Unix(),
 		MakeOrder: &tele.Order{
-			Amount:      uint32(o.amount),
+			Amount:      uint32(o.Amount),
 			OrderStatus: tele.OrderStatus_doSelected,
-			OwnerInt:    int64(o.paymentId),
+			OwnerInt:    int64(o.Paymentid),
 			OwnerType:   tele.OwnerType_qrCashLessUser,
 		},
 	}
-	dbUpdate(ctx, fmt.Sprintf(`UPDATE cashless SET order_state = %d WHERE order_id = '%s';`, order_prepay, o.orderID))
-	QR.Tele.SendToRobo(o.vmid, &mToRobo)
+	dbUpdate(ctx, fmt.Sprintf(`UPDATE cashless SET order_state = %d WHERE order_id = '%s';`, order_prepay, o.OrderID))
+	QR.Tele.SendToRobo(o.Vmid, &mToRobo)
 	QR.Log.Infof("->robo (%+v)", mToRobo)
 }
 
 func (o *qrOrder) sendMessageImpossibleMake(ctx context.Context) {
 	o.dbGetOrderStatus(ctx)
-	if o.order_state == order_cancel {
+	if o.Order_state == order_cancel {
 		return
 	}
 	mToRobo := tele.ToRoboMessage{
@@ -369,96 +367,97 @@ func (o *qrOrder) sendMessageImpossibleMake(ctx context.Context) {
 			QrType: tele.ShowQR_errorOverdraft,
 		},
 	}
-	dbUpdate(ctx, fmt.Sprintf(`UPDATE cashless SET order_state = %d WHERE order_id = '%s';`, order_cancel, o.orderID))
-	QR.Tele.SendToRobo(o.vmid, &mToRobo)
+	dbUpdate(ctx, fmt.Sprintf(`UPDATE cashless SET order_state = %d WHERE order_id = '%s';`, order_cancel, o.OrderID))
+	QR.Tele.SendToRobo(o.Vmid, &mToRobo)
 }
 
 func (o *qrOrder) dbComplete(ctx context.Context) {
-	query := fmt.Sprintf(`UPDATE cashless SET order_state = %d, finish_date = now() WHERE order_id = '%s';`, order_complete, o.orderID)
+	query := fmt.Sprintf(`UPDATE cashless SET order_state = %d, finish_date = now() WHERE order_id = '%s';`, order_complete, o.OrderID)
 	dbUpdate(ctx, query)
 }
 
 func (o *qrOrder) dbStartExecution(ctx context.Context) {
-	query := fmt.Sprintf(`UPDATE cashless SET order_state = %d, finish_date = now() WHERE order_id = '%s';`, order_execute, o.orderID)
+	query := fmt.Sprintf(`UPDATE cashless SET order_state = %d, finish_date = now() WHERE order_id = '%s';`, order_execute, o.OrderID)
 	dbUpdate(ctx, query)
 }
 
 func (o *qrOrder) cancelOrder(ctx context.Context) {
 	o.dbGetOrderStatus(ctx)
-	QR.Log.Debugf("QR cancel. bank order state:%s. order(%s)", getBankOrderStatusName(o.bank_order_state), o.orderID)
-	if o.order_state >= order_complete {
-		QR.Log.Info("ignore cancel command on complete or canceled QR order")
+	if o.Order_state == order_cancel {
 		return
 	}
-	if o.order_state <= order_start && o.bank_order_state <= 2 {
-		o.credited = 0
+	QR.Log.Debugf("begin QR cancel procedure. bank order state:%s. order(%s)", getBankOrderStatusName(o.Bank_order_state), o.OrderID)
+	if o.Order_state >= order_complete {
+		QR.Log.Info("ignore QR cancel. order complete or canceled")
+		return
 	}
-	dbUpdate(ctx, fmt.Sprintf(`UPDATE cashless SET order_state = %d WHERE order_id = '%s';`, order_cancel, o.orderID))
+	dbUpdate(ctx, fmt.Sprintf(`UPDATE cashless SET order_state = %d WHERE order_id = '%s';`, order_cancel, o.OrderID))
+	if o.Order_state <= order_start && o.Bank_order_state <= 2 {
+		o.Credited = 0
+	}
 	cReq := &tinkoff.CancelRequest{
 		PaymentID: o.paymentIdStr,
-		Amount:    o.credited,
+		Amount:    o.Credited,
 	}
 	cRes, err := QR.terminalClient.Cancel(cReq)
 	/* test -------------------------------------------------------------------------------------
 	cRes = &tinkoff.CancelResponse{
 		OriginalAmount: 0,
 		NewAmount:      0,
-		OrderID:        o.orderID,
-		Status:         tinkoff.StatusConfirmed,
+		OrderID:        o.OrderID,
+		Status:         tinkoff.StatusQRRefunding,
 		PaymentID:      o.paymentIdStr,
 	}
 	err = nil
 	//*/
-	errStr := fmt.Sprintf("cancel order(%s) error(%v) request(%+v) response(%+v)", o.orderID, err, cReq, cRes)
+	QR.Log.Debugf("bank cancel order(%s) error(%+v) request(%+v) response(%+v)", o.OrderID, err, cReq, cRes)
 	if err != nil {
-		QR.VMCErrorWriteDb(0, errStr)
+		QR.VMCErrorWriteDb(o.Vmid, "error cansel order "+o.OrderID)
 		return
 	}
 	if ok := o.compareOrder(cRes.OrderID, cRes.PaymentID); !ok {
 		return
 	}
-	switch cRes.Status {
-	case tinkoff.StatusCanceled, tinkoff.StatusRefunded, tinkoff.StatusQRRefunding:
-		o.amount = cRes.NewAmount
-		o.dbUpdateOrdreStatus(ctx, cRes.Status)
-	default:
-		dbUpdate(ctx, fmt.Sprintf(`UPDATE cashless SET credited = %d, finish_date = now() WHERE order_id = '%s';`, cRes.NewAmount, o.orderID))
-		QR.VMCErrorWriteDb(0, errStr)
-	}
+	o.Amount = cRes.NewAmount
+	o.dbUpdateOrdreStatus(ctx, cRes.Status)
 }
 
 func (o *qrOrder) dbCreateOrder(ctx context.Context) bool {
 	const q = `INSERT INTO cashless (order_state, vmid, paymentid, create_date, order_id, amount, bank_order_state) VALUES ( ?0 ,?1, ?2, NOW(), ?3, ?4, ?5 );`
-	_, err := QR.DB.ExecContext(
+	_, err := QR.qrDb.ExecContext(
 		ctx,
 		q,
 		order_start,
-		o.vmid,
-		o.paymentId,
-		o.orderID,
-		o.amount,
+		o.Vmid,
+		o.Paymentid,
+		o.OrderID,
+		o.Amount,
 		getBankOrderStatusIndex(tinkoff.StatusNew),
 	)
 	if err == nil {
 		return true
 	}
-	QR.VMCErrorWriteDb(o.vmid, fmt.Sprintf("create order(%+v) in database error(%v)", o, err))
+	QR.VMCErrorWriteDb(o.Vmid, fmt.Sprintf("create order(%+v) in database error(%v)", o, err))
 	return false
 }
 
-func (o *qrOrder) dbGetOrderStatus(ctx context.Context) bool {
-	_, err := QR.DB.QueryOneContext(ctx, pg.Scan(&o.order_state, &o.bank_order_state), `SELECT order_state, bank_order_state FROM cashless WHERE order_id = ?0;`, o.orderID)
+func (o *qrOrder) dbGetOrderStatus(ctx context.Context) (needsProcessing bool) {
+	odb := qrOrder{}
+	query := fmt.Sprintf("SELECT order_state, bank_order_state FROM cashless WHERE order_id = '%s'", o.OrderID)
+	_, err := QR.qrDb.QueryOneContext(ctx, &odb, query)
 	if err != nil {
-		QR.VMCErrorWriteDb(o.vmid, fmt.Sprintf("db get order order(%v) status error(%v)", o, err))
+		QR.VMCErrorWriteDb(o.Vmid, fmt.Sprintf("read order(%s) from db error(%v)", o.OrderID, err))
 		return false
 	}
-	return true
+	o.Order_state = odb.Order_state
+	if odb.Bank_order_state != o.Bank_order_state {
+		needsProcessing = true
+	}
+	o.Bank_order_state = odb.Bank_order_state
+	return
 }
 
 func (o *qrOrder) dbUpdateOrdreStatus(ctx context.Context, bankOrderStatusStr string, payer ...string) (refresh bool) {
-	if ok := o.dbGetOrderStatus(ctx); !ok {
-		return false
-	}
 	bankOrderStatusI := getBankOrderStatusIndex(bankOrderStatusStr)
 	if bankOrderStatusI == 0 {
 		QR.VMCErrorWriteDb(0, "undefined new bank status ("+bankOrderStatusStr+")", 2)
@@ -470,33 +469,41 @@ func (o *qrOrder) dbUpdateOrdreStatus(ctx context.Context, bankOrderStatusStr st
 	}
 	switch bankOrderStatusStr {
 	case tinkoff.StatusAuthorizing:
-		query = fmt.Sprintf(`UPDATE cashless SET payer = '%s' WHERE order_id = '%s';`, payerOwn, o.orderID)
+		query = fmt.Sprintf(`UPDATE cashless SET bank_order_state = %d, payer = '%s' WHERE order_id = '%s';`, bankOrderStatusI, payerOwn, o.OrderID)
+		refresh = true
 	case tinkoff.StatusConfirmed:
-		query = fmt.Sprintf(`UPDATE cashless SET  bank_order_state = %d, credited = %d, payer = '%s', credit_date = NOW() WHERE order_id = '%s';`, bankOrderStatusI, o.amount, payerOwn, o.orderID)
-		o.credited = o.amount
-		go o.sendMessageMakeOrder(ctx)
-		refresh = false
-	case tinkoff.StatusRefunded,
-		tinkoff.StatusPartialRefunded:
-		query = fmt.Sprintf(`UPDATE cashless SET  bank_order_state = %d, credited = %d, finish_date = NOW() WHERE order_id = '%s';`, bankOrderStatusI, o.amount, o.orderID)
+		query = fmt.Sprintf(`UPDATE cashless SET bank_order_state = %d, credited = %d, payer = '%s', credit_date = NOW() WHERE order_id = '%s';`, bankOrderStatusI, o.Amount, payerOwn, o.OrderID)
+		o.Credited = o.Amount
+		if o.Bank_order_state != bankOrderStatusI {
+			defer o.sendMessageMakeOrder(ctx)
+		}
 		refresh = false
 	case tinkoff.StatusCanceled,
-		tinkoff.StatusDeadlineExpired,
+		tinkoff.StatusRefunded,
+		tinkoff.StatusQRRefunding,
+		tinkoff.StatusPartialRefunded:
+		query = fmt.Sprintf(`UPDATE cashless SET bank_order_state = %d, credited = %d, finish_date = NOW() WHERE order_id = '%s';`, bankOrderStatusI, o.Amount, o.OrderID)
+		refresh = false
+	case tinkoff.StatusDeadlineExpired,
 		tinkoff.StatusAuthFail,
 		tinkoff.StatusRejected:
-		query = fmt.Sprintf(`UPDATE cashless SET bank_order_state = %d, finish_date = NOW() WHERE order_id = '%s';`, bankOrderStatusI, o.orderID)
-		go o.sendMessageImpossibleMake(ctx)
+		query = fmt.Sprintf(`UPDATE cashless SET bank_order_state = %d, finish_date = NOW() WHERE order_id = '%s';`, bankOrderStatusI, o.OrderID)
+		if o.Bank_order_state != bankOrderStatusI {
+			defer o.sendMessageImpossibleMake(ctx)
+		}
 		refresh = false
 	default:
-		query = fmt.Sprintf(`UPDATE cashless SET bank_order_state = %d WHERE order_id = '%s';`, bankOrderStatusI, o.orderID)
+		query = fmt.Sprintf(`UPDATE cashless SET bank_order_state = %d WHERE order_id = '%s';`, bankOrderStatusI, o.OrderID)
 		refresh = true
 	}
-	dbUpdate(ctx, query)
+	if o.Bank_order_state != bankOrderStatusI {
+		dbUpdate(ctx, query)
+	}
 	return refresh
 }
 
 func dbUpdate(ctx context.Context, query interface{}, params ...interface{}) error {
-	r, err := QR.DB.ExecContext(ctx, query, params...)
+	r, err := QR.qrDb.ExecContext(ctx, query, params...)
 	if err != nil || r.RowsAffected() != 1 {
 		QR.VMCErrorWriteDb(0, fmt.Sprintf("fail db update sql(%s) parameters (%+v) error(%v)", query, params, err), 2)
 		return err
@@ -504,21 +511,26 @@ func dbUpdate(ctx context.Context, query interface{}, params ...interface{}) err
 	return nil
 }
 
-func dbGetOrderByOwner(ctx context.Context, payId uint64) (o qrOrder, err error) {
-	_, err = QR.DB.QueryOneContext(ctx, pg.Scan(&o.orderID, &o.paymentId, &o.amount, &o.credited),
-		`select order_id, paymentid, amount, credited FROM cashless where paymentid=?;`, payId)
-	o.paymentIdStr = strconv.FormatInt(int64(o.paymentId), 10)
-	return o, err
+func dbGetOrderByOwner(ctx context.Context, payId uint64) (qrOrder, error) {
+	O := qrOrder{}
+	query := fmt.Sprintf(`SELECT vmid, order_id, paymentid, amount, credited, order_state, bank_order_state FROM cashless WHERE paymentid=%d;`, payId)
+	_, err := QR.qrDb.QueryOneContext(ctx, &O, query)
+	if err != nil {
+		QR.Log.Errorf("db get order by payer(%d) error(%v)", payId, err)
+		return O, err
+	}
+	O.paymentIdStr = strconv.FormatInt(int64(O.Paymentid), 10)
+	return O, err
 }
 
-func dbGetOrderDecription(ctx context.Context, vmid int32, code string) (description string) {
-	_, err := QR.DB.QueryOneContext(ctx, pg.Scan(&description),
+func dbGetOrderDecription(ctx context.Context, vmid int32, code string) (Name string) {
+	_, err := QR.qrDb.QueryOneContext(ctx, &Name,
 		`SELECT name from CATALOG WHERE vmid= ?0 and code = ?1 limit 1;`,
 		vmid, code)
 	if err != nil {
 		return fmt.Sprintf("код: %s", code)
 	}
-	return description
+	return Name
 }
 
 func startNotificationsReaderServer(ctx context.Context, s string) {
@@ -538,15 +550,38 @@ func startNotificationsReaderServer(ctx context.Context, s string) {
 
 	r.POST(u.Path, func(c *gin.Context) {
 		var n *tinkoff.Notification
+		/* test -------------------------------------------------------------------------------------
+		n = &tinkoff.Notification{
+			OrderID:   "88-241201101710-0",
+			PaymentID: 5414930555,
+			Amount:    1005,
+			PAN:       "+7 963 012 9955",
+		}
+		n.PaymentID = 5414930555
+		b, _ := io.ReadAll(c.Request.Body)
+		switch b[0] {
+		case 'a':
+			n.Status = tinkoff.StatusConfirmed
+		case 'c':
+			n.Status = tinkoff.StatusCanceled
+		default:
+			n.Status = tinkoff.StatusAuthorized
+		}
+		/*/
 		n, err = QR.terminalClient.ParseNotification(c.Request.Body)
-		QR.Log.Infof("notification from bank (%+v)", n)
+		QR.Log.Debugf("notification from bank (%+v)", n)
 		if err != nil {
 			QR.Log.Errorf("notification(%v) parse error(%v)", n, err)
 			return
 		}
 		c.String(http.StatusOK, QR.terminalClient.GetNotificationSuccessResponse())
+		//*/
 		o, err := dbGetOrderByOwner(ctx, n.PaymentID)
-		_, _ = err, o
+		if err != nil {
+			QR.Log.Errorf("unknown payer(%+v)", n)
+			QR.VMCErrorWriteDb(0, fmt.Sprintf("notification for unknown payer(%d)", n.PaymentID))
+			return
+		}
 		if ok := o.compareOrder(n.OrderID, n.PaymentID); !ok {
 			return
 		}
