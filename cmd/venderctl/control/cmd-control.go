@@ -59,7 +59,6 @@ func controlMain(ctx context.Context, flags *flag.FlagSet) error {
 		return err
 	}
 	// g.Log.Debugf("config=%+v", g.Config)
-	defer g.CtlStop(ctx)
 	switch cmd {
 	case "report":
 		cmd := &vender_api.Command{

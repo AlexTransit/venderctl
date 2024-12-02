@@ -1,9 +1,9 @@
 
 # Golang Tinkoff Acquiring API (v2) client
 
-The package allows to send [token-signed](https://oplata.tinkoff.ru/develop/api/request-sign/) requests to Tinkoff Acquiring API and parse incoming HTTP notifications.
+The package allows to send token-signed requests to Tinkoff Acquiring API and parse incoming HTTP notifications.
 
-Acquiring API Docs: https://oplata.tinkoff.ru/develop/api/payments/
+Acquiring API Docs: https://www.tinkoff.ru/kassa/dev/payments/
 
 
 ## Contents
@@ -22,9 +22,8 @@ Acquiring API Docs: https://oplata.tinkoff.ru/develop/api/payments/
 
 
 ## Installation
-Use **go mod** as usual or install the package with **dep**:
 ```bash
-dep ensure -add github.com/nikita-vanyasin/tinkoff
+go get github.com/nikita-vanyasin/tinkoff@latest
 ```
 
 ## Usage
@@ -37,11 +36,17 @@ Some examples of usage can be found in `*_test.go` files.
 #### Create client
 Provide terminal key and password from terminal settings page.
 ```go
-client := tinkoff.NewClient(terminalKey, terminalPassword)
+client := tinkoff.NewClientWithOptions(
+  WithTerminalKey(terminalKey),
+  WithPassword(password),
+  // Optional override HTTP client:
+  // WithHTTPClient(myClient),
+  // Optional override base Tinkoff Acquiring API URL:
+  // WithBaseURL(myURL),
+)
 ```
 
 #### Handle HTTP notification
-[Docs](https://oplata.tinkoff.ru/develop/api/notifications/setup-request/).
 Example using [gin](https://github.com/gin-gonic/gin):
 ```go
 router.POST("/payment/notification/tinkoff", func(c *gin.Context) {
@@ -59,7 +64,6 @@ router.POST("/payment/notification/tinkoff", func(c *gin.Context) {
 ```
 
 #### Create payment
-[Init](https://oplata.tinkoff.ru/develop/api/payments/init-description/)
 ```go
 req := &tinkoff.InitRequest{
     Amount:      60000,
@@ -88,7 +92,13 @@ req := &tinkoff.InitRequest{
         "custom data field 2": "0",
     },
 }
-res, err := client.Init(req)
+
+// Set timeout for Init request:
+ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+defer cancel()
+
+// Execute:
+res, err := client.InitWithContext(ctx, req)
 // ...
 fmt.Println("payment form url: %s", res.PaymentPageURL)
 ```
@@ -100,26 +110,25 @@ req := &tinkoff.InitRequest{
     OrderID:     "123456",
     Data: map[string]string{"": "",},  // nil - недопустим.
 res, err := client.Init(req)
+// ...
 gqr := &tinkoff.GetQrRequest{
-    PaymentID: res.PayID,
+    PaymentID: res.PaymentID,
 }
-resQR, errQ := client.GetQR(gqr)
+resQR, err := client.GetQRWithContext(ctx, gqr)
 ```
 
 #### Cancel or refund payment
-[Cancel](https://oplata.tinkoff.ru/develop/api/payments/cancel-description/)
 ```go
 req := &tinkoff.CancelRequest{
     PaymentID: "66623",
     Amount: 60000,
 }
-res, err := client.Cancel(req)
+res, err := client.CancelWithContext(ctx, req)
 ```
 
 #### Get payment state
-[GetState](https://oplata.tinkoff.ru/develop/api/payments/getstate-description/)
 ```go
-res, err := client.GetState(&tinkoff.GetStateRequest{PaymentID: "3293"})
+res, err := client.GetStateWithContext(ctx, &tinkoff.GetStateRequest{PaymentID: "3293"})
 // ...
 if res.Status == tinkoff.StatusConfirmed {
     fmt.Println("payment completed")
@@ -127,9 +136,8 @@ if res.Status == tinkoff.StatusConfirmed {
 ```
 
 #### Confirm two-step payment
-[Confirm](https://oplata.tinkoff.ru/develop/api/payments/confirm-description/)
 ```go
-res, err := client.Confirm(&tinkoff.ConfirmRequest{PaymentID: "3294"})
+res, err := client.ConfirmWithContext(ctx, &tinkoff.ConfirmRequest{PaymentID: "3294"})
 // ...
 if res.Status == tinkoff.StatusConfirmed {
     fmt.Println("payment completed")
@@ -137,11 +145,10 @@ if res.Status == tinkoff.StatusConfirmed {
 ```
 
 #### Resend notifications
-[Resend](https://oplata.tinkoff.ru/develop/api/payments/resend-description/)
 ```go
-res, err := c.Resend()
+res, err := c.ResendWithContext(ctx)
 // ...
-fmt.Println("resend scheduled for %d notifications", res.Count)
+fmt.Println("resend has been scheduled for %d notifications", res.Count)
 ```
 
 #### Helper functions
@@ -153,18 +160,14 @@ type myCouponUpgradeRequest struct {
   PaymentID string `json:"PaymentId"`
   Coupon    string `json:"coupon"`
 }
-httpResp, err := client.PostRequest(&myCouponUpgradeRequest{PaymentID: "3293", Coupon: "whatever"})
+httpResp, err := client.PostRequestWithContext(ctx, &myCouponUpgradeRequest{PaymentID: "3293", Coupon: "whatever"})
 ```
 
 ## References
 The code in this repo based on some code from [koorgoo/tinkoff](https://github.com/koorgoo/tinkoff). Differences:
 - Support for API v2
-- 'reflect' package is not used
+- 'reflect' package is not used. Zero dependencies.
 - No additional error wrapping
-
-More useful links:
-- Official [Tinkoff Acquiring API SDK for Android (java)](https://github.com/TinkoffCreditSystems/tinkoff-asdk-android)
-- Official [PHP client and integration examples](https://oplata.tinkoff.ru/develop/api/examples/)
 
 ## Contribution
 All contributions are welcome! There are plenty of API methods that are not implemented yet due to their rare use-cases:

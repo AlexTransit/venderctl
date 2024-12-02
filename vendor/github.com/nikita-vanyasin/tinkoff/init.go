@@ -1,6 +1,7 @@
 package tinkoff
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -19,13 +20,15 @@ type InitRequest struct {
 	Language        string            `json:"Language,omitempty"`        // Язык платежной формы: ru или en
 	Recurrent       string            `json:"Recurrent,omitempty"`       // Y для регистрации автоплатежа. Можно использовать SetIsRecurrent(true)
 	CustomerKey     string            `json:"CustomerKey,omitempty"`     // Идентификатор покупателя в системе продавца. Передается вместе с параметром CardId. См. метод GetCardList
-	Data            map[string]string `json:"DATA"`                      // Дополнительные параметры платежа
+	Data            map[string]string `json:"DATA,omitempty"`            // Дополнительные параметры платежа
 	Receipt         *Receipt          `json:"Receipt,omitempty"`         // Чек
 	RedirectDueDate Time              `json:"RedirectDueDate,omitempty"` // Срок жизни ссылки
 	NotificationURL string            `json:"NotificationURL,omitempty"` // Адрес для получения http нотификаций
 	SuccessURL      string            `json:"SuccessURL,omitempty"`      // Страница успеха
 	FailURL         string            `json:"FailURL,omitempty"`         // Страница ошибки
 	PayType         string            `json:"PayType,omitempty"`         // Тип оплаты. см. PayType*
+	Shops           *[]Shop           `json:"Shops,omitempty"`           // Объект с данными партнера
+	Descriptor      string            `json:"Descriptor,omitempty"`      // Динамический дескриптор точки
 }
 
 func (i *InitRequest) SetIsRecurrent(r bool) {
@@ -61,8 +64,15 @@ type InitResponse struct {
 	PaymentURL string `json:"PaymentURL,omitempty"` // Ссылка на страницу оплаты. По умолчанию ссылка доступна в течении 24 часов.
 }
 
+// Init prepares new payment transaction
+// Deprecated: use InitWithContext instead
 func (c *Client) Init(request *InitRequest) (*InitResponse, error) {
-	response, err := c.PostRequest("/Init", request)
+	return c.InitWithContext(context.Background(), request)
+}
+
+// InitWithContext prepares new payment transaction
+func (c *Client) InitWithContext(ctx context.Context, request *InitRequest) (*InitResponse, error) {
+	response, err := c.PostRequestWithContext(ctx, "/Init", request)
 	if err != nil {
 		return nil, err
 	}
