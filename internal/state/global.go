@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/AlexTransit/vender/helpers"
@@ -26,20 +27,6 @@ func GetGlobal(ctx context.Context) *Global {
 		return g
 	}
 	panic(fmt.Sprintf("context['%s'] expected type *Global actual=%#v", ContextKey, v))
-}
-
-func (g *Global) CtlStop(ctx context.Context) {
-	go func() {
-		time.Sleep(5 * time.Second)
-		g.Log.Infof("venderctl stoped. by timeout")
-		os.Exit(0)
-	}()
-	g.Tele.Close()
-	g.Alive.Stop()
-	g.Alive.Wait()
-	g.Log.Infof("venderctl stoped")
-	os.Exit(0)
-
 }
 
 func (g *Global) GetRoboState(vmid int32) vender_api.State {
@@ -79,23 +66,33 @@ func (g *Global) InitDB(cmdName string) error {
 	// MaxRetries:1,
 	// PoolSize:2,
 
-	g.DB = pg.Connect(dbOpt)
+	g.DB = pg.Connect(dbOpt).WithTimeout(pingTimeout)
 	g.DB.AddQueryHook(queryHook{g})
-	_, err = g.DB.WithTimeout(pingTimeout).Exec(`select 1`)
+	_, err = g.DB.Exec(`select 1`)
 	return errors.Annotate(err, "db ping")
 }
 
 // сохраняет ошибку в базу с маркировкой не просмотрено.
-// saves the error to the base marked not viewed
-func (g *Global) VMCErrorWriteDB(vmid int32, vmtime int64, errCode uint32, message string) {
-	dbConn := g.DB.Conn().WithParam("vmid", vmid).WithParam("vmtime", vmtime)
+// saves the error to the base marked not viewed.
+// level - указать какая функция вызвала эту функцию.
+func (g *Global) VMCErrorWriteDb(vmid int32, message string, level ...int) {
+	skip := 1
+	if level != nil {
+		skip = level[0]
+	}
+	_, file, no, ok := runtime.Caller(skip)
+	if ok {
+		file = fmt.Sprintf("caller %s:%d", filepath.Base(file), no)
+	}
+	g.Log.Errorf("%s vm(%d) write error to db. err(%v)", file, vmid, message)
+	dbConn := g.DB.Conn().WithParam("vmid", vmid)
 	defer dbConn.Close()
 	var ver string
 	if g.Vmc[vmid] != nil {
 		ver = g.Vmc[vmid].Version
 	}
-	const q = `insert into error (vmid,vmtime,received,code,message,app_version) values (?vmid,to_timestamp(?vmtime),current_timestamp,?0,?1,?2)`
-	_, err := dbConn.Exec(q, errCode, message, ver)
+	const q = `insert into error (vmid,received,message,app_version) values (?vmid,current_timestamp,?0,?1)`
+	_, err := dbConn.Exec(q, message, ver)
 	if err != nil {
 		g.Log.Errorf("error db query=%s error=%v", q, err)
 	}
@@ -116,7 +113,8 @@ type queryHook struct{ g *Global }
 
 func (q queryHook) BeforeQuery(ctx context.Context, e *pg.QueryEvent) (context.Context, error) {
 	s, err := e.FormattedQuery()
-	q.g.Log.Debugf("sql q=%s err=%v", s, err)
+	// q.g.Log.Debugf("sql q=%s err=%v", s, err)
+	q.g.Log.Debugf("asql q=%s result=%v err=%v", s, e.Result, err)
 	return ctx, nil
 }
 

@@ -12,12 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlexTransit/vender/currency"
 	"github.com/AlexTransit/vender/log2"
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
+	"github.com/AlexTransit/venderctl/cmd/venderctl/tax/cashless_tinkoff"
 	"github.com/AlexTransit/venderctl/internal/state"
-	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/go-pg/pg/v9"
 	"github.com/juju/errors"
@@ -32,129 +31,83 @@ var Cmd = cli.Cmd{
 	Action: taxMain,
 }
 
+type taxStruct struct {
+	*state.Global
+}
+
+var tax taxStruct
+
 func taxMain(ctx context.Context, flags *flag.FlagSet) error {
-	g := state.GetGlobal(ctx)
+	tax.Global = state.GetGlobal(ctx)
 
 	configPath := flags.Lookup("config").Value.String()
-	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
-	if g.Config.Tax.DebugLevel < 1 || g.Config.Tax.DebugLevel > 7 {
-		g.Log.SetLevel(log2.LOG_INFO)
+	tax.Config = state.MustReadConfig(tax.Log, state.NewOsFullReader(), configPath)
+	if tax.Config.Tax.DebugLevel < 1 || tax.Config.Tax.DebugLevel > 7 {
+		tax.Log.SetLevel(log2.LOG_INFO)
 	} else {
-		g.Log.SetLevel(log2.Level(g.Config.Tax.DebugLevel))
+		tax.Log.SetLevel(log2.Level(tax.Config.Tax.DebugLevel))
 	}
-	g.Config.Tele.SetMode("tax")
-	if err := g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {
+	tax.Config.Tele.SetMode("tax")
+	if err := tax.Tele.Init(ctx, tax.Log, tax.Config.Tele); err != nil {
 		return err
 	}
 
-	if err := taxInit(ctx); err != nil {
+	if err := tax.taxInit(); err != nil {
 		return errors.Annotate(err, "taxInit")
 	}
-	CashLessInit(ctx)
-	return taxLoop(ctx)
+	return tax.taxLoop(ctx)
 }
 
-func taxInit(ctx context.Context) error {
-	g := state.GetGlobal(ctx)
-	g.InitVMC()
+func (tax *taxStruct) taxInit() error {
+	tax.InitVMC()
 
-	if err := g.InitDB(CmdName); err != nil {
+	if err := tax.InitDB(CmdName); err != nil {
 		return errors.Annotate(err, "InitDB")
 	}
 
 	cli.SdNotify(daemon.SdNotifyReady)
-	g.Log.WarningF("taxInit complete")
+	tax.Log.WarningF("taxInit complete")
 	return nil
 }
 
-func taxLoop(ctx context.Context) error {
+func (tax *taxStruct) taxLoop(ctx context.Context) error {
+	tax.Log.Info("start cash receipt notifiner")
+	defer tax.Log.Info("cash receipt notifiner stoped")
 	const pollInterval = 53 * time.Second
-	g := state.GetGlobal(ctx)
-	stopch := g.Alive.StopChan()
 	hostname, _ := os.Hostname()
 	randomString := time.Now().Format("20060102-150405")
 	worker := fmt.Sprintf("%s:%d:%s", hostname, os.Getpid(), randomString)
 
-	llSched := g.DB.Listen("tax_job_sched")
+	llSched := tax.DB.Listen("tax_job_sched")
 	defer llSched.Close()
 	chSched := llSched.Channel()
+	cashless_tinkoff.QrInit(ctx)
 
-	g.Alive.Add(1)
-	db := g.DB.Conn()
-	try, err := taxStep(ctx, db, worker)
-	g.Log.Debugf("taxStep try=%t err=%v", try, err)
+	db := tax.DB.Conn()
+	try, err := tax.taxStep(ctx, db, worker)
+	tax.Log.Debugf("taxStep try=%t err=%v", try, err)
 	_ = db.Close()
-	g.Alive.Done()
 	if err != nil {
-		g.Log.Error("taxStep try")
+		tax.Log.Error("taxStep try")
 	}
 
 	for {
 		if !try {
 			select {
 			case <-chSched:
-				g.Log.Debugf("notified tax_job_sched")
+				tax.Log.Debugf("notified tax_job_sched")
 			case <-time.After(pollInterval):
-
-			case <-stopch:
+			case <-ctx.Done():
 				return nil
 			}
 		}
-		g.Alive.Add(1)
-		db = g.DB.Conn()
-		try, err = taxStep(ctx, db, worker)
-		g.Log.Debugf("taxStep try=%t err=%v", try, err)
+		db = tax.DB.Conn()
+		try, err = tax.taxStep(ctx, db, worker)
+		tax.Log.Debugf("taxStep try=%t err=%v", try, err)
 		_ = db.Close()
-		g.Alive.Done()
 		if err != nil {
-			g.Log.Error("taxStep try")
+			tax.Log.Error("taxStep try")
 			// g.Error(err)
-		}
-	}
-}
-
-func cashLessLoop(ctx context.Context) {
-	g := state.GetGlobal(ctx)
-	g.Alive.Add(1)
-	defer g.Alive.Done()
-
-	stopch := g.Alive.StopChan()
-	mqttch := g.Tele.Chan()
-	for {
-		select {
-		case p := <-mqttch:
-			if p.Kind == tele_api.FromRobo {
-				rm := g.ParseFromRobo(p)
-				if rm.State == vender_api.State_WaitingForExternalPayment {
-					MakeQr(ctx, p.VmId, rm)
-				}
-				if rm.Order != nil && rm.Order.OwnerInt != 0 && rm.Order.OwnerType == vender_api.OwnerType_qrCashLessUser {
-					o, err := getOrderByOwner(rm.Order.OwnerInt)
-					if err != nil {
-						CashLess.g.Log.Errorf("order message from robo (%v) get in db error (%v)", rm.Order, err)
-						return
-					}
-					CashLess.g.Log.Infof("robot:%d started make order:%s paymentId:%d amount:%d ", o.Vmid, o.Order_id, o.Paymentid, o.Amount)
-					switch rm.Order.OrderStatus {
-					case vender_api.OrderStatus_orderError:
-						CashLess.g.Log.Errorf("from robot. cooking error. order (%v)", o)
-						o.refundOrder()
-					case vender_api.OrderStatus_cancel:
-						o.cancel()
-					case vender_api.OrderStatus_waitingForPayment:
-					case vender_api.OrderStatus_complete:
-						o.complete()
-						CashLess.g.Log.NoticeF("from robot. vm%d cashless complete order:%s price:%s payer:%v ", o.Vmid, o.Order_id, currency.Amount(o.Amount).Format100I(), o.Paymentid)
-					case vender_api.OrderStatus_executionStart:
-						o.startExecution()
-					default:
-						// delete(CashLessPay, p.VmId)
-					}
-				}
-			}
-		case <-stopch:
-			CashLessStop()
-			return
 		}
 	}
 }
@@ -257,22 +210,22 @@ func (o *TaxJobOp) KeyString() string {
 
 // try to take next job in queue and process it
 // error during taxProcess() changes state=help and logs error into tax_job.notes
-func taxStep(ctx context.Context, db *pg.Conn, worker string) (bool, error) {
-	g := state.GetGlobal(ctx)
+func (tax *taxStruct) taxStep(ctx context.Context, db *pg.Conn, worker string) (bool, error) {
 	db = db.WithParam("worker", worker)
 
 	var tj MTaxJob
-	_, err := db.QueryOne(&tj, `select * from tax_job_take(?worker)`)
+	// _, err := db.QueryOne(&tj, `select * from tax_job_take(?worker)`)
+	_, err := db.QueryOneContext(ctx, &tj, `select * from tax_job_take(?worker)`)
 	if err == pg.ErrNoRows {
 		return false, nil
 	} else if err != nil {
 		return false, errors.Annotate(err, "tax_job_take")
 	}
-	g.Log.Debugf("tj=%#v data=%s", tj, tj.Data.String())
+	tax.Log.Debugf("tj=%#v data=%s", tj, tj.Data.String())
 	if err = taxProcess(ctx, db, &tj); err != nil {
 		tj.State = "help"
 		e := tj.Update(db, "notes=array_append(notes,?0)", "error:"+errors.Details(err))
-		g.Log.Error(e)
+		tax.Log.Error(e)
 		return true, err
 	}
 	return true, nil
