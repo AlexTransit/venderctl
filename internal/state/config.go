@@ -42,13 +42,15 @@ type Config struct {
 		}
 	}
 	CashLess struct {
-		TerminalKey                    string
-		TerminalPass                   string
-		QRValidTimeSec                 int
-		TerminalQRPayRefreshSec        int
-		TerminalBankCommission         int
-		TerminalMinimalAmount          int
-		URLToListenToBankNotifications string
+		DebugLevel                                 int
+		TerminalKey                                string
+		TerminalPass                               string
+		QRValidTimeSec                             int    // order validation time. время валидности заказа
+		TerminalQRPayRefreshSec                    int    // interval manualy cheking payment status. как часто опрашивать статус оплаты. во время валидного времени заказа
+		TerminalBankCommission                     int    // bank commision. ( 1 = 0.01% ) комиссия бынка в сотых процента/
+		TerminalMinimalAmount                      int    // minimal order amount. минимальная суммв заказа в копейках
+		URLToListenToBankNotifications             string // URL for incoming notifications. ссылка для банки, куда слать уведомления.
+		TimeoutToStartManualPaymentVerificationSec int    // after how many seconds to start checking the payment status manually. через сколько секунд начать проверять статус оплаты вручную
 	}
 	Telegram struct {
 		TelegrammBotApi string `hcl:"telegram_bot_api"`
@@ -141,4 +143,25 @@ func MustReadConfig(log *log2.Log, fs FullReader, names ...string) *Config {
 		log.Fatal(errors.ErrorStack(err))
 	}
 	return c
+}
+
+// the value in the configuration should not be less than the minimal value
+// значение в конфигурации не должно быть меньше минимального значения
+func ConfigInt(fromConfig int, mininalValue int, defaultValue int) int {
+	if fromConfig == 0 {
+		return defaultValue
+	}
+	if fromConfig < mininalValue {
+		return mininalValue
+	}
+	return fromConfig
+}
+
+// if the value is not set in the configuration, then return the default value
+// если значение в конфигурации не установлено, тогда возвращаем значение по умолчанию
+func ConfigString(configValue string, defaultValue string) string {
+	if configValue == "" {
+		return defaultValue
+	}
+	return configValue
 }

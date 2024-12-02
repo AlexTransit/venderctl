@@ -127,6 +127,9 @@ func (self *tele) msgInvalidMode() string {
 }
 
 func (t *tele) SendToRobo(vmid int32, m *vender_api.ToRoboMessage) {
+	if m == nil {
+		return
+	}
 	payload, err := proto.Marshal(m)
 	if err != nil {
 		t.log.Errorf("tele.SendCommand marshal error(%v)", err)
