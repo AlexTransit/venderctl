@@ -20,9 +20,8 @@ import (
 
 var QR struct {
 	*state.Global
-	qrDb              *pg.DB
-	orderValidTimeSec int // время валидности заказа
-	terminalClient    *tinkoff.Client
+	qrDb           *pg.DB
+	terminalClient *tinkoff.Client
 }
 
 type orderState int
