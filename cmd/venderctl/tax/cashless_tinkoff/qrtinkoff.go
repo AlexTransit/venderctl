@@ -345,10 +345,11 @@ func (o *qrOrder) sendMessageMakeOrder(ctx context.Context) {
 		Cmd:        tele.MessageType_makeOrder,
 		ServerTime: time.Now().Unix(),
 		MakeOrder: &tele.Order{
-			Amount:      uint32(o.Amount),
-			OrderStatus: tele.OrderStatus_doSelected,
-			OwnerInt:    int64(o.Paymentid),
-			OwnerType:   tele.OwnerType_qrCashLessUser,
+			Amount:        uint32(o.Amount),
+			OrderStatus:   tele.OrderStatus_doSelected,
+			PaymentMethod: tele.PaymentMethod_Cashless,
+			OwnerInt:      int64(o.Paymentid),
+			OwnerType:     tele.OwnerType_qrCashLessUser,
 		},
 	}
 	dbUpdate(ctx, fmt.Sprintf(`UPDATE cashless SET order_state = %d WHERE order_id = '%s';`, order_prepay, o.OrderID))
