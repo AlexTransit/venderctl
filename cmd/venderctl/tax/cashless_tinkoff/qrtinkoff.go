@@ -290,7 +290,7 @@ func (o *qrOrder) manualyPaymentVerification(ctx context.Context) {
 			/* test -------------------------------------------------------------------------------------
 			fmt.Printf("\033[41m read bank state \033[0m\n")
 			orderState = new(tinkoff.GetStateResponse)
-			orderState.Status = tinkoff.StatusAuthorized
+			orderState.Status = tinkoff.StatusConfirmed
 			orderState.PaymentID = o.paymentIdStr
 			orderState.OrderID = o.OrderID
 			err = nil
