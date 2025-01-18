@@ -164,6 +164,7 @@ func processRu2019Final(ctx context.Context, db *pg.Conn, tj *MTaxJob, note stri
 				QrText: tj.ExtId,
 			},
 		}
+		g.Log.NoticeF("shows payment receipt. vmid:%d code:%s price:%d method:%s", vmid, tj.Ops[0].Code, tj.Ops[0].Price, tj.Ops[0].Method.String())
 		g.Tele.SendToRobo(vmid, &rm)
 	}
 	return nil
