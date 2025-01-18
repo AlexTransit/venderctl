@@ -502,7 +502,7 @@ func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order) {
 		}
 	default:
 		msg = "что то пошло не так. без паники. хозяину уже в сообщили."
-		TgSendError(fmt.Sprintf("vmid=%d code error invalid order=%s", tb.chatId[client].rcook.vmid, ro.String()))
+		TgSendError(fmt.Sprintf("cook responce status unknow. vmid=%d code error invalid order=%s", tb.chatId[client].rcook.vmid, ro.String()))
 	}
 	tb.tgSend(client, msg)
 	delete(tb.chatId, client)

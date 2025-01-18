@@ -20,9 +20,8 @@ import (
 
 var QR struct {
 	*state.Global
-	qrDb              *pg.DB
-	orderValidTimeSec int // время валидности заказа
-	terminalClient    *tinkoff.Client
+	qrDb           *pg.DB
+	terminalClient *tinkoff.Client
 }
 
 type orderState int
@@ -291,7 +290,7 @@ func (o *qrOrder) manualyPaymentVerification(ctx context.Context) {
 			/* test -------------------------------------------------------------------------------------
 			fmt.Printf("\033[41m read bank state \033[0m\n")
 			orderState = new(tinkoff.GetStateResponse)
-			orderState.Status = tinkoff.StatusAuthorized
+			orderState.Status = tinkoff.StatusConfirmed
 			orderState.PaymentID = o.paymentIdStr
 			orderState.OrderID = o.OrderID
 			err = nil
@@ -346,10 +345,11 @@ func (o *qrOrder) sendMessageMakeOrder(ctx context.Context) {
 		Cmd:        tele.MessageType_makeOrder,
 		ServerTime: time.Now().Unix(),
 		MakeOrder: &tele.Order{
-			Amount:      uint32(o.Amount),
-			OrderStatus: tele.OrderStatus_doSelected,
-			OwnerInt:    int64(o.Paymentid),
-			OwnerType:   tele.OwnerType_qrCashLessUser,
+			Amount:        uint32(o.Amount),
+			OrderStatus:   tele.OrderStatus_doSelected,
+			PaymentMethod: tele.PaymentMethod_Cashless,
+			OwnerInt:      int64(o.Paymentid),
+			OwnerType:     tele.OwnerType_qrCashLessUser,
 		},
 	}
 	dbUpdate(ctx, fmt.Sprintf(`UPDATE cashless SET order_state = %d WHERE order_id = '%s';`, order_prepay, o.OrderID))
