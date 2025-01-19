@@ -146,8 +146,9 @@ func createQR(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	// считаем комиссию и округляем до целой копейки
 	bankCommision := QR.Config.CashLess.TerminalBankCommission * int(rm.Order.Amount) / 1000
 	if bankCommision%10 > 0 {
-		bankCommision = bankCommision/10 + 1
+		bankCommision += 10
 	}
+	bankCommision /= 10
 	orderCreateDate := time.Now()
 	order := qrOrder{
 		Order_state: order_start,
