@@ -52,13 +52,11 @@ func controlMain(ctx context.Context, flags *flag.FlagSet) error {
 	configPath := flags.Lookup("config").Value.String()
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
 	g.Config.Tele.SetMode("command")
-	// if err := g.Config.Tele.EnableClient(tele_config.RoleControl); err != nil {
-	// 	return err
-	// }
 	if err := g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {
 		return err
 	}
-	// g.Log.Debugf("config=%+v", g.Config)
+	defer g.Tele.Close()
+
 	switch cmd {
 	case "report":
 		cmd := &vender_api.Command{
@@ -96,36 +94,11 @@ func controlMain(ctx context.Context, flags *flag.FlagSet) error {
 
 	case "exec":
 		scenario := strings.Join(flags.Args()[argOffset+2:], " ")
-		// vat execId int := -
 		cmd := &vender_api.Command{
-			// Executer:             54321,
-			Task:                 &vender_api.Command_Exec{Exec: &vender_api.Command_ArgExec{Scenario: scenario}},
-			XXX_NoUnkeyedLiteral: struct{}{},
-			XXX_unrecognized:     []byte{},
-			XXX_sizecache:        0,
+			Task: &vender_api.Command_Exec{Exec: &vender_api.Command_ArgExec{Scenario: scenario}},
 		}
 		g.Tele.CommandTx(targetId, cmd)
 		return nil
-
-	// case "lock":
-	// 	durationString := flags.Arg(argOffset + 2)
-	// 	duration, err := time.ParseDuration(durationString)
-	// 	if err != nil {
-	// 		return errors.Annotatef(err, "invalid lock duration=%s", durationString)
-	// 	}
-	// 	if duration < time.Second {
-	// 		return errors.Annotatef(err, "invalid lock duration=%v must be >= 1s", duration)
-	// 	}
-	// 	sec := int32(duration / time.Second)
-	// 	if time.Duration(sec)*time.Second != duration {
-	// 		sec++
-	// 	}
-	// 	g.Log.Infof("duration=%v rounded up to %d seconds", duration, sec)
-	// 	cmd := &vender_api.Command{
-	// 		Task: &vender_api.Command_Lock{Lock: &vender_api.Command_ArgLock{Duration: sec}},
-	// 	}
-	// 	_, err = g.Tele.CommandTx(targetId, cmd)
-	// 	return err
 
 	case "qr":
 		qrText := flags.Arg(argOffset + 2)

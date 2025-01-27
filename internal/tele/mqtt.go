@@ -23,7 +23,7 @@ import (
 
 // const SecretsStale = 5 * time.Second
 
-func (self *tele) mqttInit(ctx context.Context, log *log2.Log) error {
+func (self *tele) mqttInit(_ context.Context, log *log2.Log) error {
 	mlog := log.Clone(log2.LOG_INFO)
 	if self.conf.MqttLogDebug {
 		mlog.SetLevel(log2.LOG_DEBUG)
