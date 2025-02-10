@@ -484,7 +484,7 @@ func (o *qrOrder) dbUpdateOrdreStatus(ctx context.Context, bankOrderStatusStr st
 		tinkoff.StatusRefunded,
 		tinkoff.StatusQRRefunding,
 		tinkoff.StatusPartialRefunded:
-		query = fmt.Sprintf(`UPDATE cashless SET bank_order_state = %d, credited = %d, finish_date = NOW() WHERE order_id = '%s';`, bankOrderStatusI, o.Amount, o.OrderID)
+		query = fmt.Sprintf(`UPDATE cashless SET bank_order_state = %d, credited = credited - %d, finish_date = NOW() WHERE order_id = '%s';`, bankOrderStatusI, o.Amount, o.OrderID)
 		refresh = false
 	case tinkoff.StatusDeadlineExpired,
 		tinkoff.StatusAuthFail,
