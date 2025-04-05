@@ -283,7 +283,7 @@ func packetFromRobo(ctx context.Context, p tele_api.Packet) {
 		if s == vender_api.State_Boot {
 			if roboVersion := rm.RoboHardware.GetSwVersion(); roboVersion != "" {
 				g.Vmc[p.VmId].Version = roboVersion
-				g.Log.Infof("robot %d boot. app version:%s", p.VmId, roboVersion)
+				g.Log.WarningF("robot %d boot. app version:%s", p.VmId, roboVersion)
 			}
 		}
 		// onStateN(ctx, dbConn, p.VmId, s)

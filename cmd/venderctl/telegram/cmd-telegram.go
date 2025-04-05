@@ -128,7 +128,6 @@ func (tb *tgbotapiot) telegramLoop() error {
 	for {
 		select {
 		case p := <-mqttch:
-			// старый и новый обработчик
 			rm := tb.g.ParseFromRobo(p)
 			if p.Kind == tele_api.FromRobo {
 				if rm.Order != nil {
@@ -140,14 +139,10 @@ func (tb *tgbotapiot) telegramLoop() error {
 					}
 				}
 			}
-			tb.g.Alive.Add(1)
-			pp := tb.g.ParseMqttPacket(p) // old
 			if rm != nil && rm.Err != nil {
 				errm := fmt.Sprintf("%v: %v", p.VmId, rm.Err.Message)
 				tb.tgSend(tb.admin, errm)
 			}
-			tb.cookResponse(pp)
-			tb.g.Alive.Done()
 		case tgm := <-tgch:
 			if tgm.Message == nil && tgm.EditedMessage != nil {
 				tb.g.Log.Infof("telegramm message change (%v)", tgm.EditedMessage)
@@ -373,7 +368,8 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 	// приготовить робот:88 код:3 cream:4 sugar:4 (сливики/сахар необязательные)
 	// 1 - robo, 2 - code , 3 - valid creame, 4 - value creme, 5 - valid sugar, 6 value sugar
 	// var cs cookSruct
-	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m?([-.0-9]+)(_?[c,C,с,С]([0-6]))?(_?[s,S]([0-8]))?$`)
+	// reCmdMake := regexp.MustCompile(`^/(-?\d+)_m?([-.0-9]+)(_?[c,C,с,С]([0-6]))?(_?[s,S]([0-8]))?$`)
+	reCmdMake := regexp.MustCompile(`^/(-?\d+)_m?([-.0-9]+)(_?[c,C,с,С](\d))?(_?[s,S](\d))?$`)
 	parts := reCmdMake.FindStringSubmatch(cmd)
 	if len(parts) == 0 {
 		return cs, false
@@ -507,55 +503,6 @@ func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order) {
 	tb.tgSend(client, msg)
 	delete(tb.chatId, client)
 }
-func (tb *tgbotapiot) cookResponse(rm *vender_api.Response) {
-	if rm == nil || rm.Executer == 0 {
-		return
-	}
-	var msg string
-	client := rm.Executer
-	switch rm.CookReplay {
-	case vender_api.CookReplay_vmcbusy:
-		msg = "автомат в данный момент обрабатывает другой заказ. попробуйте позднее."
-	case vender_api.CookReplay_cookStart:
-		msg = fmt.Sprintf("начинаю готовить. \nкод: %s автомат: %d", tb.chatId[client].rcook.code, tb.chatId[client].rcook.vmid)
-		tb.tgSend(int64(rm.Executer), msg)
-		return
-	case vender_api.CookReplay_cookFinish:
-		user := tb.chatId[rm.Executer]
-		price := int(rm.ValidateReplay)
-		codeOrder := rm.Data
-		if codeOrder == "" {
-			codeOrder = user.rcook.code
-		}
-		msg = fmt.Sprintf("автомат : %d приготовил код: %s цена: %s", user.rcook.vmid, codeOrder, amoutToString(int64(price)))
-		tb.tgSend(user.id, msg)
-		msg = "приятного аппетита."
-		if tb.chatId[rm.Executer].Diskont != 0 {
-			go func() {
-				bonus := (price * tb.chatId[rm.Executer].Diskont) / 100
-				p := int64(price)
-				time.Sleep(10 * time.Second)
-				cl, _ := tb.getClient(user.id)
-				user.Balance = user.Balance - p
-				tb.tgSend(user.id, fmt.Sprintf("начислен бонус: %s", amoutToString(int64(bonus))))
-				cl.rcook.code = "bonus"
-				tb.rcookWriteDb(cl.id, -bonus)
-			}()
-		}
-		tb.rcookWriteDb(user.id, price)
-	case vender_api.CookReplay_cookInaccessible:
-		msg = "код недоступен"
-	case vender_api.CookReplay_cookOverdraft:
-		msg = "недостаточно средств. пополните баланс и попробуйте снова."
-	case vender_api.CookReplay_cookError:
-		msg = "ошибка приготовления."
-	default:
-		msg = "что то пошло не так. без паники. хозяину уже в сообщили."
-		TgSendError(fmt.Sprintf("vmid=%d code error invalid packet=%s", tb.chatId[rm.Executer].rcook.vmid, rm.String()))
-	}
-	tb.tgSend(int64(rm.Executer), msg)
-	delete(tb.chatId, rm.Executer)
-}
 
 func (tb *tgbotapiot) rcookWriteDb(userId int64, price int, addMsg ...string) {
 	tb.g.Log.Infof("cooking finished telegram client:%d code:%s", userId, tb.chatId[userId].rcook.code)
@@ -669,13 +616,9 @@ func (tb *tgbotapiot) replayCommandHelp(cl int64) error {
 		"пример: хочется заказать атомату 5 напиток с кодом 23. для этого боту надо написать\n" +
 		"/5_23\n" +
 		"для тюнинга сливок и сахара надо добавить _с (это cream = сливки) и/или _s (это sugar = сахар ) например:\n" +
-		"/5_23_c3_s2\n" +
-		"или теперь можно так\n" +
 		"/5_23c3s2\n" +
 		"это означает, автомату=5, приготовить код=23, сливки=3, сахар=2\n" +
-		"если непонятно, позвоните/напишите @Alexey_Milko, он расскажет.\n" +
-		"\n" +
-		"PS позднее будет сделан более удобный механизм заказа"
+		"если непонятно, позвоните/напишите @Alexey_Milko, он расскажет.\n"
 	tb.tgSend(cl, msg)
 	return nil
 }
