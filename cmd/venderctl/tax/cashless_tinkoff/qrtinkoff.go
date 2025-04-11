@@ -415,6 +415,16 @@ func (o *qrOrder) cancelOrder(ctx context.Context) {
 	QR.Log.Debugf("bank cancel order(%s) error(%+v) request(%+v) response(%+v)", o.OrderID, err, cReq, cRes)
 	if err != nil {
 		QR.VMCErrorWriteDb(o.Vmid, "error cansel order "+o.OrderID)
+		go func() {
+			time.Sleep(30 * time.Second)
+			cR, e := QR.terminalClient.Cancel(cReq)
+			if e == nil {
+				QR.VMCErrorWriteDb(o.Vmid, "resend fix cancel order"+o.OrderID)
+				return
+			}
+			m := fmt.Sprintf("bank cancel order(%s) error(%+v) response(%+v)", o.OrderID, e, cR)
+			QR.VMCErrorWriteDb(o.Vmid, m)
+		}()
 		return
 	}
 	if ok := o.compareOrder(cRes.OrderID, cRes.PaymentID); !ok {
