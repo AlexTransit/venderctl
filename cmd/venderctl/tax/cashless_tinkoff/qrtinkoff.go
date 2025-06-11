@@ -203,7 +203,7 @@ func (o *qrOrder) initPaySession(ctx context.Context) (valid bool) {
 	var errStr string
 	for i := 1; i <= 3; i++ {
 		var e error
-		ctxWichTimeOut, cancel := context.WithTimeout(ctx, time.Second*2)
+		ctxWichTimeOut, cancel := context.WithTimeout(ctx, time.Second*3)
 		bankResponse, e = QR.terminalClient.InitWithContext(ctxWichTimeOut, ir)
 		cancel()
 		/* test -------------------------------------------------------------------------------------------------
@@ -241,7 +241,7 @@ func (o *qrOrder) initPaySession(ctx context.Context) (valid bool) {
 }
 
 func (o *qrOrder) getQrCode(ctx context.Context) (valid bool, data string) {
-	ctxWichTimeOut, cancel := context.WithTimeout(ctx, time.Second*2)
+	ctxWichTimeOut, cancel := context.WithTimeout(ctx, time.Second*5)
 	qrRequest := &tinkoff.GetQRRequest{PaymentID: o.paymentIdStr}
 	qrResponse, err := QR.terminalClient.GetQRWithContext(ctxWichTimeOut, qrRequest)
 	cancel()
