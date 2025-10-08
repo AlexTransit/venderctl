@@ -1,6 +1,6 @@
 module github.com/AlexTransit/venderctl
 
-go 1.23
+go 1.25
 
 require (
 	github.com/AlexTransit/vender v0.221130.1
