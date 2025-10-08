@@ -174,9 +174,9 @@ func onState(ctx context.Context, dbConn *pg.Conn, vmid int32, s vender_api.Stat
 			fmt.Sprintf("new=%d", s),
 			fmt.Sprintf("prev=%d", oldState),
 		}
-		g.Alive.Add(1)
 		go func() {
-			defer g.Alive.Done()
+			// g.Alive.Add(1)
+			// defer g.Alive.Done()
 			execOutput, execErr := cmd.CombinedOutput()
 			prettyEnv := strings.Join(cmd.Env, " ")
 			if execErr != nil {
