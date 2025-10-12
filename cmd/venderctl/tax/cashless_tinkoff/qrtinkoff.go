@@ -261,8 +261,12 @@ func (o *qrOrder) manualyPaymentVerification(ctx context.Context) {
 	QR.Alive.Add(1)
 	qrTimeout := time.NewTimer(time.Second * time.Duration(QR.Config.CashLess.QRValidTimeSec))
 	refreshTime := time.Duration(time.Second * time.Duration(QR.Config.CashLess.TerminalQRPayRefreshSec))
-	// start the poll timer after timeout. запускаем таймер опроса после задержки
+	/* start the poll timer after timeout. запускаем таймер опроса после задержки
+	refreshTimer := time.NewTimer(time.Second * 3)
+	/*/
 	refreshTimer := time.NewTimer(time.Second * time.Duration(QR.Config.CashLess.TimeoutToStartManualPaymentVerificationSec))
+	//*/
+
 	defer func() {
 		refreshTimer.Stop()
 		//		cancelQRctx()
