@@ -115,7 +115,6 @@ func (self *tele) SendCommand(vmid int32, c *vender_api.Command) {
 		self.log.Errorf("tele.SendCommand mqtt send error(%v)", err)
 		return
 	}
-	return
 }
 
 func (self *tele) CommandTx(vmid int32, c *vender_api.Command) {
