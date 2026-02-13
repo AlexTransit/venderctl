@@ -1,7 +1,9 @@
 {
     "go.autocompleteUnimportedPackages": true,
     // "go.buildFlags": ["-race"],
-    "go.formatFlags": ["-s"],
+    "go.formatFlags": [
+        "-s"
+    ],
     "go.formatTool": "goimports",
     "go.installDependenciesWhenBuilding": false,
     "go.lintTool": "golangci-lint",
@@ -9,4 +11,8 @@
     "go.testTimeout": "15s",
     "go.useCodeSnippetsOnFunctionSuggest": true,
     "go.useCodeSnippetsOnFunctionSuggestWithoutType": true
+    // ,
+    //     "github.copilot.enable": {
+    //         "go": true
+    //     }
 }
