@@ -20,15 +20,14 @@ type Config struct {
 	XXX_Include []ConfigSource `hcl:"include"`
 
 	DB struct {
-		PingTimeoutMs int    `hcl:"ping_timeout_ms"`
 		URL           string `hcl:"url"`
+		PingTimeoutMs int    `hcl:"ping_timeout_ms"`
 	}
 	Money struct {
 		Scale int `hcl:"scale"`
 	}
 	Tax struct {
-		DebugLevel int `hcl:"debug_level"`
-		Ru2019     struct {
+		Ru2019 struct {
 			Tag1009 string // payment address
 			Tag1187 string // payment place
 			Tag1018 string // business INN
@@ -40,23 +39,29 @@ type Config struct {
 				XXX_testRT http.RoundTripper `hcl:"-"`
 			}
 		}
+		DebugLevel int `hcl:"debug_level"`
 	}
 	CashLess struct {
-		DebugLevel                                 int
 		TerminalKey                                string
 		TerminalPass                               string
-		QRValidTimeSec                             int    // order validation time. время валидности заказа
-		TerminalQRPayRefreshSec                    int    // interval manualy cheking payment status. как часто опрашивать статус оплаты. во время валидного времени заказа
-		TerminalBankCommission                     int    // bank commision. ( 1 = 0.01% ) комиссия бынка в сотых процента/
-		TerminalMinimalAmount                      int    // minimal order amount. минимальная суммв заказа в копейках
 		URLToListenToBankNotifications             string // URL for incoming notifications. ссылка для банки, куда слать уведомления.
-		TimeoutToStartManualPaymentVerificationSec int    // after how many seconds to start checking the payment status manually. через сколько секунд начать проверять статус оплаты вручную
+		DebugLevel                                 int
+		QRValidTimeSec                             int // order validation time. время валидности заказа
+		TerminalQRPayRefreshSec                    int // interval manualy cheking payment status. как часто опрашивать статус оплаты. во время валидного времени заказа
+		TerminalBankCommission                     int // bank commision. ( 1 = 0.01% ) комиссия бынка в сотых процента/
+		TerminalMinimalAmount                      int // minimal order amount. минимальная суммв заказа в копейках
+		TimeoutToStartManualPaymentVerificationSec int // after how many seconds to start checking the payment status manually. через сколько секунд начать проверять статус оплаты вручную
 	}
 	Telegram struct {
 		TelegrammBotApi string `hcl:"telegram_bot_api"`
-		TelegramAdmin   int64  `hcl:"telegram_admin"`
-		DebugMessages   bool   `hcl:"telegram_debug"`
-		AdminBot        string `hcl:"admin_bot_name"`
+		// TelegrammBotToken string `hcl:"telegram_bot_token"`
+		AdminBot      string `hcl:"admin_bot_name"`
+		TelegramAdmin int64  `hcl:"telegram_admin"`
+		DebugMessages bool   `hcl:"telegram_debug"`
+	}
+	Web struct {
+		SecretKey     string `hcl:"secret_key"`
+		DebugPassword string `hcl:"pass"`
 	}
 	Tele tele_config.Config
 

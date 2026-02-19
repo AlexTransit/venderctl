@@ -14,6 +14,6 @@ func Log2stdlib(l2 *log2.Log) *log.Logger {
 type log2stdWrap struct{ *log2.Log }
 
 func (l log2stdWrap) Write(b []byte) (int, error) {
-	l.Printf(string(b))
+	l.Printf("%s", string(b))
 	return len(b), nil
 }

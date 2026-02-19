@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vender Web</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
+        .header { background: #0088cc; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .container { padding: 15px; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; }
+        
+        /* Авторизация */
+        #auth-section { display: block; text-align: center; padding-top: 50px; }
+        .login-input { width: 90%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; }
+        .btn-blue { background: #0088cc; color: white; border: none; padding: 12px; width: 90%; border-radius: 10px; font-weight: bold; font-size: 16px; }
+        
+        /* Кабинет */
+        #user-info { display: none; }
+        .balance-label { color: #888; font-size: 14px; margin-top: 10px; }
+        .balance-val { font-size: 2.5rem; font-weight: bold; color: #2ecc71; margin-bottom: 20px; }
+        
+        /* Кнопка смены (меню) */
+        .btn-menu { background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 5px 12px; border-radius: 8px; font-size: 14px; }
+        
+        /* Список напитков */
+        .drinks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+
+        /* Боковое меню */
+        .side-menu {
+            position: fixed; top: 0; right: -280px; width: 280px; height: 100%;
+            background: white; z-index: 1001; transition: 0.3s;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.1); padding: 20px; box-sizing: border-box;
+        }
+        .side-menu.active { right: 0; }
+
+        /* Затемнение фона */
+        #menu-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 1000;
+        }
+
+        /* Элементы меню */
+        .menu-item {
+            padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 18px;
+        }
+        .menu-item:active { background: #f0f0f0; }
+        .menu-header { font-weight: bold; margin-bottom: 20px; color: #0088cc; font-size: 20px; }
+
+    </style>
+</head>
+<body>
+
+    <!-- ВЕРХНЯЯ ПАНЕЛЬ (ПОЯВИТСЯ ПОСЛЕ ВХОДА) -->
+    <div id="nav-bar" class="header" style="display: none;">
+        <span id="current-machine-label" style="font-weight: bold;">№ --</span>
+        <!-- Кнопка бургер -->
+        <button onclick="toggleMenu()" style="background:none; border:none; color:white; font-size:24px;">☰</button>
+    </div>
+
+    <!-- ЗАТЕМНЕНИЕ И МЕНЮ -->
+    <div id="menu-overlay" onclick="toggleMenu()"></div>
+    <div id="side-menu" class="side-menu">
+        <div class="menu-header">Настройки</div>
+        <!-- Переход в бота -->
+        <a href="tg://resolve?domain=FreeBenderTestBot" class="menu-item" style="display: flex; align-items: center; text-decoration: none;">
+            <span style="margin-right: 10px;">🤖</span> Перейти в телеграм бот
+        </a>        
+        <div class="menu-item" onclick="openMachineList()">📍 Сменить автомат</div>
+        <div class="menu-item" style="color: #ff4d4d; margin-top: 20px;" onclick="logout()">🚪 Выход</div>
+    </div>
+
+    <div class="container">
+        <!-- БЛОК ВХОДА -->
+        <div id="auth-section">
+            <h1>Кофейный автомат</h1>
+            
+            <!-- КОНТЕЙНЕР ДЛЯ ВИДЖЕТА ТЕЛЕГРАМ -->
+            <div id="tg-login-container" style="min-height: 40px; margin-bottom: 30px;">
+                <!-- Скрипт вставится сюда динамически для надежности -->
+            </div>
+
+            <p style="color: #888;">Или вход по паролю:</p>
+            <input type="number" id="id-input" class="login-input" placeholder="Ваш ID">
+            <input type="password" id="pass-input" class="login-input" placeholder="Пароль">
+            <button class="btn-blue" onclick="login()">Войти</button>
+        </div>
+
+<!-- ЛИЧНЫЙ КАБИНЕТ -->
+        <div id="user-info" class="card">
+            <div id="welcome-user" style="font-size: 18px;">Приветствую!</div>
+            <div class="balance-label">Ваш баланс:</div>
+            <div class="balance-val"><span id="balance">0.00</span> ₽</div>
+            <!-- Надпись, которая появится только при долге -->
+            <div id="credit-status" style="display:none; color: #e74c3c; font-size: 12px; margin-top: -15px; margin-bottom: 10px; font-weight: bold;">
+                ☕ отгружаю в кредит
+            </div>            
+            <!-- ОДНА СТРОКА: МЕЛКО И СЕРО -->
+            <div id="user-perks" style="font-size: 11px; color: #999; margin-top: -12px; margin-bottom: 15px;">
+                <span id="discount-info"></span>
+                <span id="perks-separator" style="display:none; margin: 0 4px; opacity: 0.5;">|</span>
+                <span id="credit-info"></span>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #eee;">
+
+            <div id="order-card" class="card" style="margin-top: 20px; text-align: left;">
+                <h4 style="text-align: center; margin-top: 0;">☕ Заказать напиток</h4>
+                
+                <!-- Популярные (Топ-5) -->
+                <div id="popular-drinks" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px;"></div>
+
+                <!-- Поле ввода кода -->
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <input type="number" id="drink-id" placeholder="Код" style="width: 80px; font-size: 24px; text-align: center; border: 2px solid #0088cc;">
+                </div>
+
+                <!-- Настройки Сливки/Сахар -->
+                <div class="adj-row" style="margin-bottom: 10px;">
+                    <label>🥛 Сливки: <b id="val-c">4</b></label>
+                    <input type="range" id="cream" min="0" max="6" value="4" oninput="document.getElementById('val-c').innerText=this.value" style="width: 100%;">
+                </div>
+
+                <div class="adj-row" style="margin-bottom: 20px;">
+                    <label>🍬 Сахар: <b id="val-s">4</b></label>
+                    <input type="range" id="sugar" min="0" max="8" value="4" oninput="document.getElementById('val-s').innerText=this.value" style="width: 100%;">
+                </div>
+
+                <button onclick="makeOrder()" class="btn-blue" style="width: 100%; height: 50px; font-size: 18px;">ЗАКАЗАТЬ</button>
+            </div>
+
+            
+        </div>
+<!-- ОКНО ПОДТВЕРЖДЕНИЯ (скрыто по умолчанию) -->
+        <div id="confirm-card" class="card" style="display:none; margin-top: 20px; border: 2px solid #2ecc71; background: #fafffa;">
+            <h3 style="color: #27ae60; margin-top: 0;">✅ Автомат готов!</h3>
+            <div style="font-size: 18px; line-height: 1.6;">
+                Автомат: <b id="conf-vmid">--</b><br>
+                Напиток: <b id="conf-name">--</b> (код <span id="conf-code">--</span>)<br>
+                Стоимость: <b id="conf-price">--</b> ₽
+            </div>
+            <br>
+            <button onclick="startBrewing()" class="btn-blue" style="background: #27ae60; height: 60px; font-size: 20px;">ПРИГОТОВИТЬ</button>
+            <button onclick="cancelOrder()" style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Отмена</button>
+        </div>        
+    </div>
+
+    <script>
+        // ДИНАМИЧЕСКАЯ ЗАГРУЗКА ВИДЖЕТА (чтобы он не пропадал)
+        let currentDefaultVmid = null; 
+        let pendingCommand = ""; // Сюда сохраним готовую команду для MQTT
+        
+        function injectTelegramWidget() {
+            const container = document.getElementById('tg-login-container');
+            const script = document.createElement('script');
+            script.async = true;
+            script.src = "https://telegram.org/js/telegram-widget.js?22";
+            script.setAttribute('data-telegram-login', "FreeBenderTestBot");
+            script.setAttribute('data-size', "large");
+            script.setAttribute('data-auth-url', "https://am.inkcat.net/auth/callback");
+            container.appendChild(script);
+        }
+        injectTelegramWidget();
+
+        function login() {
+            const id = document.getElementById('id-input').value;
+            const pass = document.getElementById('pass-input').value;
+            if (id && pass) window.location.href = `/auth/callback?id=${id}&pass=${pass}`;
+        }
+
+        function logout() { window.location.href = '/auth/logout'; }
+
+        function toggleMenu() {
+            const menu = document.getElementById('side-menu');
+            const overlay = document.getElementById('menu-overlay');
+            menu.classList.toggle('active');
+            overlay.style.display = menu.classList.contains('active') ? 'block' : 'none';
+        }
+        function openMachineList() { 
+            // Пока вызовем простую промпт-выборку, чтобы не громоздить модалки
+            const newId = prompt("Введите номер автомата (VMID):");
+            if (newId) saveFavorite(newId);
+        }
+        
+        function makeOrder() {
+            const drink = document.getElementById('drink-id').value;
+            const cream = document.getElementById('cream').value;
+            const sugar = document.getElementById('sugar').value;
+
+            if (!drink) return alert("Введите код напитка");
+            
+            // Формируем команду для подтверждения (напр. /16_55c3s4)
+            const cmdPreview = `/${currentDefaultVmid}_${drink}c${cream}s${sugar}`;
+            
+            if(!confirm(`Заказать напиток ${drink}?\n(Сливки: ${cream}, Сахар: ${sugar})`)) return;
+
+            fetch('api/order', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    vmid: parseInt(currentDefaultVmid),
+                    drink: parseInt(drink),
+                    cream: parseInt(cream),
+                    sugar: parseInt(sugar)
+                })
+            }).then(res => res.ok ? location.reload() : alert("Ошибка заказа"));
+        }
+
+        // Загрузка популярных напитков
+        function loadPopular() {
+            fetch('api/drinks/popular')
+                .then(res => res.json())
+                .then(drinks => {
+                    const container = document.getElementById('popular-drinks');
+                    container.innerHTML = drinks.map(d => {
+                        // Формируем строку добавок только если они НЕ равны 4
+                        const creamTxt = d.cream !== 4 ? `🥛${d.cream}` : '';
+                        const sugarTxt = d.sugar !== 4 ? `🍬${d.sugar}` : '';
+                        const extras = (creamTxt || sugarTxt) ? `<br><small>${creamTxt} ${sugarTxt}</small>` : '';
+
+                        return `
+                            <button onclick="setPreset(${d.drink}, ${d.cream}, ${d.sugar})" 
+                                    style="padding: 10px 15px; border-radius: 10px; border: 1px solid #0088cc; background: #fff; font-size: 14px; min-width: 60px;">
+                                <b style="font-size: 28px;">${d.drink}</b>
+                                ${extras}
+                            </button>
+                        `;
+                    }).join('');
+                });
+        }
+
+        function setPreset(drink, cream, sugar) {
+            document.getElementById('drink-id').value = drink;
+            
+            // Устанавливаем значения ползунков
+            document.getElementById('cream').value = cream;
+            document.getElementById('sugar').value = sugar;
+            
+            // Обновляем цифры на экране (текст рядом с ползунками)
+            document.getElementById('val-c').innerText = cream;
+            document.getElementById('val-s').innerText = sugar;
+        }
+
+        function saveFavorite(vmid) {
+            fetch('/api/favorite', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ vmid: parseInt(vmid) })
+            }).then(res => res.ok && location.reload());
+        }
+
+
+        function makeOrder() {
+            const drink = document.getElementById('drink-id').value;
+            const cream = document.getElementById('cream').value;
+            const sugar = document.getElementById('sugar').value;
+
+            if (!drink || !currentDefaultVmid) return alert("Проверьте ID автомата и код напитка");
+
+            // 1. Шлем запрос на проверку (vmid, drink, cream, sugar)
+            fetch('/api/order/check', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    vmid: parseInt(currentDefaultVmid),
+                    drink: parseInt(drink),
+                    cream: parseInt(cream),
+                    sugar: parseInt(sugar)
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert("Внимание: " + data.error);
+                    return;
+                }
+
+                // 2. Если всё ОК — показываем блок подтверждения
+                document.getElementById('order-card').style.display = 'none'; // Прячем ввод
+                document.getElementById('confirm-card').style.display = 'block'; // Показываем чек
+                
+                document.getElementById('conf-vmid').innerText = currentDefaultVmid;
+                document.getElementById('conf-name').innerText = data.name;
+                document.getElementById('conf-code').innerText = drink;
+                document.getElementById('conf-price').innerText = (data.price / 100).toFixed(2);
+                
+                // Сохраняем команду для финального шага
+                pendingCommand = data.command; 
+            })
+            .catch(err => alert("Ошибка связи с сервером"));
+        }
+
+        function startBrewing() {
+            // 3. Финальный вызов — списание и старт
+            fetch('/api/order/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ command: pendingCommand })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "ok") {
+                    alert("Поехали! Забирайте ваш кофе.");
+                    location.reload();
+                }
+            });
+        }
+
+        function cancelOrder() {
+            document.getElementById('confirm-card').style.display = 'none';
+            document.getElementById('order-card').style.display = 'block';
+        }
+// Загрузка данных профиля
+        fetch('/api/balance')
+            .then(res => res.ok ? res.json() : Promise.reject())
+            .then(data => {
+                document.getElementById('auth-section').style.display = 'none';
+                document.getElementById('user-info').style.display = 'block';
+                document.getElementById('nav-bar').style.display = 'flex';
+                
+                const welcomeElem = document.getElementById('welcome-user');
+                const balanceElem = document.getElementById('balance');
+                const creditStatus = document.getElementById('credit-status');
+                
+                // ЛОГИКА ДОЛЖНИКА
+                if (data.balance < 0) {
+                    welcomeElem.innerText = `Приветствую, должничок ${data.user_name || ''}!`;
+                    balanceElem.style.color = "#e74c3c"; // Красный цвет суммы
+                    creditStatus.style.display = "block";
+                } else {
+                    welcomeElem.innerText = `Приветствую, ${data.user_name || 'мой господин'}!`;
+                    balanceElem.style.color = "#2ecc71"; // Зеленый цвет суммы
+                    creditStatus.style.display = "none";
+                }
+
+                balanceElem.innerText = data.balance.toFixed(2);
+
+                // Обработка скидки и кредита (мелко)
+                const discElem = document.getElementById('discount-info');
+                const credElem = document.getElementById('credit-info');
+                const sepElem = document.getElementById('perks-separator');
+
+                if (data.discount > 0) {
+                    discElem.innerHTML = `🏷️скидка <b>${data.discount}% </b>`;
+                }
+                if (data.credit > 0) {
+                    credElem.innerHTML = `💳кредит <b>${data.credit.toFixed(0)}₽</b>`;
+                }
+                if (data.discount > 0 && data.credit > 0) {
+                    sepElem.style.display = 'inline';
+                }
+
+                currentDefaultVmid = data.vm_id;
+                document.getElementById('current-machine-label').innerText = data.vm_id ? `Автомат №${data.vm_id}` : "Выберите автомат";
+                
+                loadPopular(); // Запускаем загрузку кнопок
+            })
+            .catch(() => console.log("Нужен логин"));
+
+    </script>
+</body>
+</html>
