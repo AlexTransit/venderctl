@@ -388,22 +388,11 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 }
 
 func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
-	roboState := tb.g.GetRoboState(vmid)
-	if roboState == vender_api.State_Nominal {
+	ok, text := tb.g.СheckRobotMakeState(vmid)
+	if ok {
 		return true
 	}
-	messageToClient := ""
-	switch roboState {
-	case vender_api.State_Invalid:
-		messageToClient = "автомат не в сети.\nили отключено электричество, или недоступен интернет.\n"
-	case vender_api.State_Client, vender_api.State_RemoteControl, vender_api.State_WaitingForExternalPayment:
-		messageToClient = "автомат сейчас работает с другим клиентом.\n"
-	case vender_api.State_Broken:
-		messageToClient = "автомат сломался.\nподождите пока его реанимируют (возможно его починят дистанционно)"
-	default:
-		messageToClient = "автомат сейчас не может выполнить заказ. \n"
-	}
-	tb.tgSend(user, messageToClient)
+	tb.tgSend(user, text)
 	return false
 }
 

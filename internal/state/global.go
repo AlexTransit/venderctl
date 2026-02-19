@@ -105,7 +105,7 @@ func (g *Global) Error(err error, args ...interface{}) {
 			args = args[1:]
 			err = errors.Annotatef(err, msg, args...)
 		}
-		g.Log.Errorf(errors.ErrorStack(err))
+		g.Log.Errorf("%s", errors.ErrorStack(err))
 	}
 }
 

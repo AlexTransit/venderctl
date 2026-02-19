@@ -14,29 +14,16 @@
             "buildFlags": "-ldflags='-X main.BuildVersion=debug'",
             "args": [
                 "-config",
-                "/home/alexm/${input:configFile}.hcl",
+                "/home/alexm/dev.hcl",
                 "${input:command}"
             ]
         }
     ],
     "inputs": [
-        // {
-        //     "id": "command",
-        //     "type": "pickString",
-        //     "description": "Что запускаем?",
-        //     "options": [
-        //         "version",
-        //         "sponge",
-        //         "tax",
-        //         "telegram",
-        //         "control"
-        //     ],
-        //     "default": "version"
-        // },
         {
-            "id": "configFile",
+            "id": "command",
             "type": "pickString",
-            "description": "Какой конфиг?",
+            "description": "Что запускаем?",
             "options": [
                 "version",
                 "sponge",
@@ -47,6 +34,21 @@
             ],
             "default": "web"
         }
+        // ,
+        // {
+        //     "id": "configFile",
+        //     "type": "pickString",
+        //     "description": "Какой конфиг?",
+        //     "options": [
+        //         "version",
+        //         "sponge",
+        //         "tax",
+        //         "telegram",
+        //         "control",
+        //         "web"
+        //     ],
+        //     "default": "web"
+        // }
     ]
 }
 // {
