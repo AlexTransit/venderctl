@@ -3,7 +3,7 @@ module github.com/AlexTransit/venderctl
 go 1.26
 
 require (
-	github.com/AlexTransit/vender v0.221130.1
+	github.com/AlexTransit/vender v0.260220.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/go-pg/pg/v9 v9.2.1
@@ -22,6 +22,7 @@ require (
 require (
 	github.com/AlexTransit/ru-nalog-go v0.220727.0
 	github.com/gin-gonic/gin v1.10.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/nikita-vanyasin/tinkoff v1.2.2
 )
 
@@ -39,7 +40,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.20.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
@@ -64,7 +64,7 @@ require (
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
-	google.golang.org/protobuf v1.34.1 // indirect
+	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	mellium.im/sasl v0.3.2 // indirect

@@ -2,8 +2,8 @@
 ## explicit; go 1.18
 github.com/AlexTransit/ru-nalog-go
 github.com/AlexTransit/ru-nalog-go/umka
-# github.com/AlexTransit/vender v0.221130.1
-## explicit; go 1.19
+# github.com/AlexTransit/vender v0.260220.0
+## explicit; go 1.24.0
 github.com/AlexTransit/vender/currency
 github.com/AlexTransit/vender/helpers
 github.com/AlexTransit/vender/log2
@@ -272,8 +272,8 @@ google.golang.org/appengine/internal/datastore
 google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
-# google.golang.org/protobuf v1.34.1
-## explicit; go 1.17
+# google.golang.org/protobuf v1.35.2
+## explicit; go 1.21
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
 google.golang.org/protobuf/internal/descfmt
