@@ -14,7 +14,7 @@
             "buildFlags": "-ldflags='-X main.BuildVersion=debug'",
             "args": [
                 "-config",
-                "/home/alexm/dev.hcl",
+                "/etc/venderctl/dev.hcl",
                 "${input:command}"
             ]
         }

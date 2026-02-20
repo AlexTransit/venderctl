@@ -1,6 +1,6 @@
 {
     "recommendations": [
-        "serhioromano.vscode-gitflow",
-        "github.copilot"
+        "serhioromano.vscode-gitflow"
+        // ,        "github.copilot"
     ]
 }
