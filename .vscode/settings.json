@@ -8,7 +8,10 @@
     "go.installDependenciesWhenBuilding": false,
     "go.lintTool": "golangci-lint",
     "go.testEnvFile": ".env",
-    "go.testTimeout": "15s"
+    "go.testTimeout": "15s",
+    "[html]": {
+        "editor.defaultFormatter": "vscode.html-language-features"
+    }
 }
 // {
 //     "go.autocompleteUnimportedPackages": true,

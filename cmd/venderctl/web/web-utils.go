@@ -9,24 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *WebHandler) setAuthCookie(c *gin.Context, userId int64) {
+func (h *WebHandler) setAuthCookie(c *gin.Context, userId int64, token string) {
 	value := fmt.Sprintf("%d", userId)
-
-	// Подписываем userId
 	secret := h.App.Config.Web.SecretKey
-	sig := signValue(secret, value)
-
-	cookie := fmt.Sprintf("%s:%s", value, sig)
-
-	c.SetCookie(
-		"auth_user_id",
-		cookie,
-		3600*24,
-		"/",
-		"",
-		false, // временно HTTP
-		true,  // httpOnly
-	)
+	sig := signValue(secret, value+token)
+	cookie := fmt.Sprintf("%s:%s:%s", value, token, sig)
+	c.SetCookie("auth_user_id", cookie, 3600*24*30, "/", "", false, true)
 }
 
 func signValue(secret, value string) string {

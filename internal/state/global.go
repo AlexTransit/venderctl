@@ -30,10 +30,11 @@ func GetGlobal(ctx context.Context) *Global {
 }
 
 func (g *Global) GetRoboState(vmid int32) vender_api.State {
-	if g.Vmc[vmid].State == vender_api.State_Invalid {
-		g.SetRoboState(vmid, g.ReadRoboStateFromDB(vmid))
+	rs, ok := g.Vmc[vmid]
+	if !ok || rs == nil || rs.Connect == false {
+		return vender_api.State_Invalid
 	}
-	return g.Vmc[vmid].State
+	return rs.State
 }
 
 func (g *Global) ReadRoboStateFromDB(vmid int32) vender_api.State {

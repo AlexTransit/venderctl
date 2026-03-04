@@ -60,6 +60,7 @@ type Config struct {
 		DebugMessages bool   `hcl:"telegram_debug"`
 	}
 	Web struct {
+		BaseURL       string `hcl:"web_url"`
 		SecretKey     string `hcl:"secret_key"`
 		DebugPassword string `hcl:"pass"`
 	}
