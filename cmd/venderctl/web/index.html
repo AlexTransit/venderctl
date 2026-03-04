@@ -1,60 +1,170 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Vender Web</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
-        .header { background: #0088cc; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .container { padding: 15px; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; }
-        
+        body {
+            font-family: -apple-system, sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            background: #0088cc;
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .container {
+            padding: 15px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
         /* Авторизация */
-        #auth-section { display: block; text-align: center; padding-top: 50px; }
-        .login-input { width: 90%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; }
-        .btn-blue { background: #0088cc; color: white; border: none; padding: 12px; width: 90%; border-radius: 10px; font-weight: bold; font-size: 16px; }
-        
+        #auth-section {
+            display: block;
+            text-align: center;
+            padding-top: 50px;
+        }
+
+        .login-input {
+            width: 90%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+
+        .btn-blue {
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 90%;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
         /* Кабинет */
-        #user-info { display: none; }
-        .balance-label { color: #888; font-size: 14px; margin-top: 10px; }
-        .balance-val { font-size: 2.5rem; font-weight: bold; color: #2ecc71; margin-bottom: 20px; }
-        
+        #user-info {
+            display: none;
+        }
+
+        .balance-label {
+            color: #888;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .balance-val {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2ecc71;
+            margin-bottom: 20px;
+        }
+
         /* Кнопка смены (меню) */
-        .btn-menu { background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 5px 12px; border-radius: 8px; font-size: 14px; }
-        
+        .btn-menu {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid white;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
         /* Список напитков */
-        .drinks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .drinks-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
 
         /* Боковое меню */
         .side-menu {
-            position: fixed; top: 0; right: -280px; width: 280px; height: 100%;
-            background: white; z-index: 1001; transition: 0.3s;
-            box-shadow: -5px 0 15px rgba(0,0,0,0.1); padding: 20px; box-sizing: border-box;
+            position: fixed;
+            top: 0;
+            right: -280px;
+            width: 280px;
+            height: 100%;
+            background: white;
+            z-index: 1001;
+            transition: 0.3s;
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            box-sizing: border-box;
         }
-        .side-menu.active { right: 0; }
+
+        .side-menu.active {
+            right: 0;
+        }
 
         /* Затемнение фона */
         #menu-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 1000;
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
         }
 
         /* Элементы меню */
         .menu-item {
-            padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 18px;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            font-size: 18px;
         }
-        .menu-item:active { background: #f0f0f0; }
-        .menu-header { font-weight: bold; margin-bottom: 20px; color: #0088cc; font-size: 20px; }
 
+        .menu-item:active {
+            background: #f0f0f0;
+        }
+
+        .menu-header {
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #0088cc;
+            font-size: 20px;
+        }
+
+        /* Статус заказа */
+        #status-msg {
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #0088cc;
+            min-height: 28px;
+        }
     </style>
 </head>
+
 <body>
 
     <!-- ВЕРХНЯЯ ПАНЕЛЬ (ПОЯВИТСЯ ПОСЛЕ ВХОДА) -->
     <div id="nav-bar" class="header" style="display: none;">
         <span id="current-machine-label" style="font-weight: bold;">№ --</span>
-        <!-- Кнопка бургер -->
         <button onclick="toggleMenu()" style="background:none; border:none; color:white; font-size:24px;">☰</button>
     </div>
 
@@ -62,40 +172,35 @@
     <div id="menu-overlay" onclick="toggleMenu()"></div>
     <div id="side-menu" class="side-menu">
         <div class="menu-header">Настройки</div>
-        <!-- Переход в бота -->
-        <a href="tg://resolve?domain=FreeBenderTestBot" class="menu-item" style="display: flex; align-items: center; text-decoration: none;">
+        <a href="tg://resolve?domain=FreeBenderTestBot" class="menu-item"
+            style="display: flex; align-items: center; text-decoration: none;">
             <span style="margin-right: 10px;">🤖</span> Перейти в телеграм бот
-        </a>        
+        </a>
         <div class="menu-item" onclick="openMachineList()">📍 Сменить автомат</div>
+        <div class="menu-item" onclick="openOrders()">📋 Заказы</div>
         <div class="menu-item" style="color: #ff4d4d; margin-top: 20px;" onclick="logout()">🚪 Выход</div>
     </div>
 
     <div class="container">
         <!-- БЛОК ВХОДА -->
         <div id="auth-section">
-            <h1>Кофейный автомат</h1>
-            
-            <!-- КОНТЕЙНЕР ДЛЯ ВИДЖЕТА ТЕЛЕГРАМ -->
-            <div id="tg-login-container" style="min-height: 40px; margin-bottom: 30px;">
-                <!-- Скрипт вставится сюда динамически для надежности -->
-            </div>
+            <h1>Автопоилка</h1>
 
-            <p style="color: #888;">Или вход по паролю:</p>
-            <input type="number" id="id-input" class="login-input" placeholder="Ваш ID">
+            <p style="color: #888;">вход по паролю:</p>
+            <input type="text" id="id-input" class="login-input" placeholder="Логин">
             <input type="password" id="pass-input" class="login-input" placeholder="Пароль">
             <button class="btn-blue" onclick="login()">Войти</button>
         </div>
 
-<!-- ЛИЧНЫЙ КАБИНЕТ -->
+        <!-- ЛИЧНЫЙ КАБИНЕТ -->
         <div id="user-info" class="card">
             <div id="welcome-user" style="font-size: 18px;">Приветствую!</div>
             <div class="balance-label">Ваш баланс:</div>
             <div class="balance-val"><span id="balance">0.00</span> ₽</div>
-            <!-- Надпись, которая появится только при долге -->
-            <div id="credit-status" style="display:none; color: #e74c3c; font-size: 12px; margin-top: -15px; margin-bottom: 10px; font-weight: bold;">
+            <div id="credit-status"
+                style="display:none; color: #e74c3c; font-size: 12px; margin-top: -15px; margin-bottom: 10px; font-weight: bold;">
                 ☕ отгружаю в кредит
-            </div>            
-            <!-- ОДНА СТРОКА: МЕЛКО И СЕРО -->
+            </div>
             <div id="user-perks" style="font-size: 11px; color: #999; margin-top: -12px; margin-bottom: 15px;">
                 <span id="discount-info"></span>
                 <span id="perks-separator" style="display:none; margin: 0 4px; opacity: 0.5;">|</span>
@@ -103,70 +208,134 @@
             </div>
             <hr style="border: 0; border-top: 1px solid #eee;">
 
+            <!-- ШАГ 1: ФОРМА ЗАКАЗА -->
             <div id="order-card" class="card" style="margin-top: 20px; text-align: left;">
                 <h4 style="text-align: center; margin-top: 0;">☕ Заказать напиток</h4>
-                
-                <!-- Популярные (Топ-5) -->
-                <div id="popular-drinks" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px;"></div>
 
-                <!-- Поле ввода кода -->
-                <div style="text-align: center; margin-bottom: 15px;">
-                    <input type="number" id="drink-id" placeholder="Код" style="width: 80px; font-size: 24px; text-align: center; border: 2px solid #0088cc;">
+                <div id="popular-drinks" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px;">
                 </div>
 
-                <!-- Настройки Сливки/Сахар -->
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <input type="text" id="drink-id" placeholder="Код"
+                        style="width: 80px; font-size: 24px; text-align: center; border: 2px solid #0088cc;">
+                </div>
+
                 <div class="adj-row" style="margin-bottom: 10px;">
                     <label>🥛 Сливки: <b id="val-c">4</b></label>
-                    <input type="range" id="cream" min="0" max="6" value="4" oninput="document.getElementById('val-c').innerText=this.value" style="width: 100%;">
+                    <input type="range" id="cream" min="0" max="6" value="4"
+                        oninput="document.getElementById('val-c').innerText=this.value" style="width: 100%;">
                 </div>
 
                 <div class="adj-row" style="margin-bottom: 20px;">
                     <label>🍬 Сахар: <b id="val-s">4</b></label>
-                    <input type="range" id="sugar" min="0" max="8" value="4" oninput="document.getElementById('val-s').innerText=this.value" style="width: 100%;">
+                    <input type="range" id="sugar" min="0" max="8" value="4"
+                        oninput="document.getElementById('val-s').innerText=this.value" style="width: 100%;">
                 </div>
 
-                <button onclick="makeOrder()" class="btn-blue" style="width: 100%; height: 50px; font-size: 18px;">ЗАКАЗАТЬ</button>
+                <button onclick="makeOrder()" class="btn-blue"
+                    style="width: 100%; height: 50px; font-size: 18px;">ЗАКАЗАТЬ</button>
             </div>
-
-            
         </div>
-<!-- ОКНО ПОДТВЕРЖДЕНИЯ (скрыто по умолчанию) -->
-        <div id="confirm-card" class="card" style="display:none; margin-top: 20px; border: 2px solid #2ecc71; background: #fafffa;">
-            <h3 style="color: #27ae60; margin-top: 0;">✅ Автомат готов!</h3>
+
+        <!-- ШАГ 2: ПОДТВЕРЖДЕНИЕ -->
+        <div id="confirm-card" class="card"
+            style="display:none; margin-top: 20px; border: 2px solid #2ecc71; background: #fafffa;">
+            <!-- <h3 style="color: #27ae60; margin-top: 0;">✅ Автомат готов!</h3> -->
             <div style="font-size: 18px; line-height: 1.6;">
                 Автомат: <b id="conf-vmid">--</b><br>
                 Напиток: <b id="conf-name">--</b> (код <span id="conf-code">--</span>)<br>
-                Стоимость: <b id="conf-price">--</b> ₽
+                <!-- Стоимость: <b id="conf-price">--</b> ₽ -->
             </div>
             <br>
-            <button onclick="startBrewing()" class="btn-blue" style="background: #27ae60; height: 60px; font-size: 20px;">ПРИГОТОВИТЬ</button>
-            <button onclick="cancelOrder()" style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Отмена</button>
-        </div>        
+            <button onclick="startBrewing()" id="btn-brew" class="btn-blue"
+                style="background: #27ae60; height: 60px; font-size: 20px;">ПРИГОТОВИТЬ</button>
+            <button id="btn-ok" onclick="cancelOrder()" class="btn-blue"
+                style="display:none; background:#888; height: 60px; font-size: 20px;">Ok</button>
+            <br>
+            <button id="btn-cancel" onclick="cancelOrder()"
+                style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Отмена</button>
+
+            <!-- Статус от робота -->
+            <div id="status-msg"></div>
+        </div>
+        <!-- ИСТОРИЯ ЗАКАЗОВ -->
+        <div id="orders-card" class="card" style="display:none; margin-top: 20px;">
+            <h4 style="margin-top:0;">📋 История заказов</h4>
+            <div id="orders-list"></div>
+            <button id="orders-more" onclick="loadMoreOrders()"
+                style="display:none; width:100%; margin-top:10px; padding:10px; border:1px solid #0088cc; background:#fff; color:#0088cc; border-radius:10px; cursor:pointer;">
+                Загрузить ещё
+            </button>
+            <br>
+            <button onclick="closeOrders()"
+                style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Закрыть</button>
+        </div>
     </div>
 
     <script>
-        // ДИНАМИЧЕСКАЯ ЗАГРУЗКА ВИДЖЕТА (чтобы он не пропадал)
-        let currentDefaultVmid = null; 
-        let pendingCommand = ""; // Сюда сохраним готовую команду для MQTT
-        
-        function injectTelegramWidget() {
-            const container = document.getElementById('tg-login-container');
-            const script = document.createElement('script');
-            script.async = true;
-            script.src = "https://telegram.org/js/telegram-widget.js?22";
-            script.setAttribute('data-telegram-login', "FreeBenderTestBot");
-            script.setAttribute('data-size', "large");
-            script.setAttribute('data-auth-url', "https://am.inkcat.net/auth/callback");
-            container.appendChild(script);
-        }
-        injectTelegramWidget();
+        let currentDefaultVmid = null;
+        let pendingOrder = null; // параметры текущего заказа
+        let ordersOffset = 0;
 
+        function openOrders() {
+            toggleMenu();
+            ordersOffset = 0;
+            document.getElementById('orders-list').innerHTML = '';
+            document.getElementById('orders-card').style.display = 'block';
+            document.getElementById('order-card').style.display = 'none';
+            loadMoreOrders();
+        }
+
+        function closeOrders() {
+            document.getElementById('orders-card').style.display = 'none';
+            document.getElementById('order-card').style.display = 'block';
+        }
+
+        function loadMoreOrders() {
+            fetch(`/api/orders?offset=${ordersOffset}`)
+                .then(res => res.json())
+                .then(orders => {
+                    const list = document.getElementById('orders-list');
+                    if (orders.length === 0 && ordersOffset === 0) {
+                        list.innerHTML = '<p style="color:#888; text-align:center;">Заказов пока нет</p>';
+                        document.getElementById('orders-more').style.display = 'none';
+                        return;
+                    }
+                    orders.forEach(o => {
+                        const date = new Date(o.date).toLocaleString('ru-RU');
+                        const div = document.createElement('div');
+                        div.style = 'padding:10px; border-bottom:1px solid #eee; font-size:14px;';
+                        div.innerHTML = `<span style="color:#888; font-size:12px;">${date}</span><br>${o.action}`;
+                        list.appendChild(div);
+                    });
+                    ordersOffset += orders.length;
+                    document.getElementById('orders-more').style.display = orders.length === 10 ? 'block' : 'none';
+                });
+        }
+
+        // === АВТОРИЗАЦИЯ ===
         function login() {
-            const id = document.getElementById('id-input').value;
+            const login = document.getElementById('id-input').value;
             const pass = document.getElementById('pass-input').value;
-            if (id && pass) window.location.href = `/auth/callback?id=${id}&pass=${pass}`;
-        }
+            if (!login || !pass) return;
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/auth/callback';
+            form.style.display = 'none';
 
+            const loginInput = document.createElement('input');
+            loginInput.name = 'login';
+            loginInput.value = login;
+            form.appendChild(loginInput);
+
+            const passInput = document.createElement('input');
+            passInput.name = 'pass';
+            passInput.value = pass;
+            form.appendChild(passInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
         function logout() { window.location.href = '/auth/logout'; }
 
         function toggleMenu() {
@@ -175,50 +344,25 @@
             menu.classList.toggle('active');
             overlay.style.display = menu.classList.contains('active') ? 'block' : 'none';
         }
-        function openMachineList() { 
-            // Пока вызовем простую промпт-выборку, чтобы не громоздить модалки
+
+        function openMachineList() {
             const newId = prompt("Введите номер автомата (VMID):");
             if (newId) saveFavorite(newId);
         }
-        
-        function makeOrder() {
-            const drink = document.getElementById('drink-id').value;
-            const cream = document.getElementById('cream').value;
-            const sugar = document.getElementById('sugar').value;
 
-            if (!drink) return alert("Введите код напитка");
-            
-            // Формируем команду для подтверждения (напр. /16_55c3s4)
-            const cmdPreview = `/${currentDefaultVmid}_${drink}c${cream}s${sugar}`;
-            
-            if(!confirm(`Заказать напиток ${drink}?\n(Сливки: ${cream}, Сахар: ${sugar})`)) return;
+        // === ПОПУЛЯРНЫЕ НАПИТКИ ===
 
-            fetch('api/order', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    vmid: parseInt(currentDefaultVmid),
-                    drink: parseInt(drink),
-                    cream: parseInt(cream),
-                    sugar: parseInt(sugar)
-                })
-            }).then(res => res.ok ? location.reload() : alert("Ошибка заказа"));
-        }
-
-        // Загрузка популярных напитков
         function loadPopular() {
             fetch('api/drinks/popular')
                 .then(res => res.json())
                 .then(drinks => {
                     const container = document.getElementById('popular-drinks');
                     container.innerHTML = drinks.map(d => {
-                        // Формируем строку добавок только если они НЕ равны 4
                         const creamTxt = d.cream !== 4 ? `🥛${d.cream}` : '';
                         const sugarTxt = d.sugar !== 4 ? `🍬${d.sugar}` : '';
                         const extras = (creamTxt || sugarTxt) ? `<br><small>${creamTxt} ${sugarTxt}</small>` : '';
-
                         return `
-                            <button onclick="setPreset(${d.drink}, ${d.cream}, ${d.sugar})" 
+                            <button onclick="setPreset('${d.drink}', ${d.cream}, ${d.sugar})" 
                                     style="padding: 10px 15px; border-radius: 10px; border: 1px solid #0088cc; background: #fff; font-size: 14px; min-width: 60px;">
                                 <b style="font-size: 28px;">${d.drink}</b>
                                 ${extras}
@@ -230,12 +374,8 @@
 
         function setPreset(drink, cream, sugar) {
             document.getElementById('drink-id').value = drink;
-            
-            // Устанавливаем значения ползунков
             document.getElementById('cream').value = cream;
             document.getElementById('sugar').value = sugar;
-            
-            // Обновляем цифры на экране (текст рядом с ползунками)
             document.getElementById('val-c').innerText = cream;
             document.getElementById('val-s').innerText = sugar;
         }
@@ -243,104 +383,226 @@
         function saveFavorite(vmid) {
             fetch('/api/favorite', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ vmid: parseInt(vmid) })
             }).then(res => res.ok && location.reload());
         }
 
+        // === ЗАКАЗ ===
 
+        // ШАГ 1: нажали ЗАКАЗАТЬ — проверяем автомат, показываем подтверждение
         function makeOrder() {
             const drink = document.getElementById('drink-id').value;
-            const cream = document.getElementById('cream').value;
-            const sugar = document.getElementById('sugar').value;
+            const cream = parseInt(document.getElementById('cream').value);
+            const sugar = parseInt(document.getElementById('sugar').value);
 
-            if (!drink || !currentDefaultVmid) return alert("Проверьте ID автомата и код напитка");
+            if (!drink) return alert("Введите код напитка");
+            if (!currentDefaultVmid) return alert("Выберите автомат в меню ☰");
 
-            // 1. Шлем запрос на проверку (vmid, drink, cream, sugar)
             fetch('/api/order/check', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     vmid: parseInt(currentDefaultVmid),
-                    drink: parseInt(drink),
-                    cream: parseInt(cream),
-                    sugar: parseInt(sugar)
+                    drink: String(drink),
+                    cream: cream,
+                    sugar: sugar
                 })
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    alert("Внимание: " + data.error);
-                    return;
-                }
+                .then(res => res.json().catch(() => { throw new Error('HTTP ' + res.status) }))
+                .then(data => {
+                    if (data.error) {
+                        alert("Ошибка: " + data.error);
+                        return;
+                    }
 
-                // 2. Если всё ОК — показываем блок подтверждения
-                document.getElementById('order-card').style.display = 'none'; // Прячем ввод
-                document.getElementById('confirm-card').style.display = 'block'; // Показываем чек
-                
-                document.getElementById('conf-vmid').innerText = currentDefaultVmid;
-                document.getElementById('conf-name').innerText = data.name;
-                document.getElementById('conf-code').innerText = drink;
-                document.getElementById('conf-price').innerText = (data.price / 100).toFixed(2);
-                
-                // Сохраняем команду для финального шага
-                pendingCommand = data.command; 
-            })
-            .catch(err => alert("Ошибка связи с сервером"));
+                    // Сохраняем параметры для финального шага
+                    pendingOrder = {
+                        vmid: parseInt(currentDefaultVmid),
+                        drink_code: String(drink),
+                        cream: cream,
+                        sugar: sugar
+                    };
+
+                    // Заполняем карточку подтверждения
+                    document.getElementById('conf-vmid').innerText = currentDefaultVmid;
+                    document.getElementById('conf-name').innerText = data.drink_name || '—';
+                    document.getElementById('conf-code').innerText = drink;
+                    document.getElementById('status-msg').innerText = '';
+
+                    // Переключаем экраны
+                    document.getElementById('order-card').style.display = 'none';
+                    document.getElementById('confirm-card').style.display = 'block';
+                })
+                .catch(err => alert("Ошибка: " + (err.message || "связи с сервером")));
         }
 
+        // ШАГ 2: нажали ПРИГОТОВИТЬ — открываем WS, отправляем команду роботу
         function startBrewing() {
-            // 3. Финальный вызов — списание и старт
-            fetch('/api/order/start', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ command: pendingCommand })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === "ok") {
-                    alert("Поехали! Забирайте ваш кофе.");
-                    location.reload();
+            let orderFinished = false;
+            if (!pendingOrder) return;
+
+            // Блокируем кнопку чтобы не нажали дважды
+            const btn = document.getElementById('btn-brew');
+            btn.disabled = true;
+            btn.innerText = 'Отправляю...';
+
+            // Прячем кнопку Отмена
+            document.getElementById('btn-cancel').style.display = 'none';
+
+            showStatus('⏳ Подключаюсь к автомату...');
+
+            // 1. Сначала открываем WebSocket
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(proto + '//' + location.host + '/api/order/ws');
+
+            // Таймаут 30 секунд
+            const timeout = setTimeout(() => {
+                ws.close();
+                alert('Проблема со связью.');
+                cancelOrder();
+            }, 60000);
+
+            ws.onopen = () => {
+                // 2. Только после открытия WS отправляем заказ
+                fetch('/api/order/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pendingOrder)
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.error) {
+                            showStatus('❌ ' + data.error);
+                            ws.close();
+                            btn.disabled = false;
+                            btn.innerText = 'ПРИГОТОВИТЬ';
+                            return;
+                        }
+                        showStatus('⏳ Команда отправлена, жду автомат...');
+                    })
+                    .catch(() => {
+                        showStatus('❌ Ошибка связи');
+                        ws.close();
+                        btn.disabled = false;
+                        btn.innerText = 'ПРИГОТОВИТЬ';
+                    });
+            };
+
+            // 3. Получаем статусы от робота
+            ws.onmessage = (e) => {
+                console.log('WS message:', e.data);
+                clearTimeout(timeout); // ответ пришёл — таймаут не нужен
+                const event = JSON.parse(e.data);
+                switch (event.status) {
+                    case 'executionStart':
+                        showStatus('☕ Готовлю... стоимость заказа:' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
+                        btn.style.display = 'none';
+                        break;
+                    case 'complete':
+                        orderFinished = true;
+                        ws.close();
+                        if (event.cashback) {
+                            showStatus('✅ Готово! Приятного аппетита. Кэшбек: ' + event.cashback.toFixed(2) + ' ₽');
+                        } else {
+                            showStatus('✅ Готово! Приятного аппетита.');
+                        }
+                        setTimeout(() => location.reload(), 3000);
+                        break;
+                    case 'executionInaccessible':
+                        orderFinished = true;
+                        showStatus('❌ Код недоступен или мало ингредиентов.');
+                        ws.close();
+                        showOkButton();
+                        break;
+                    case 'overdraft':
+                        orderFinished = true;
+                        showStatus('💸 Недостаточно средств.');
+                        ws.close();
+                        showOkButton();
+                        break;
+                    case 'robotIsBusy':
+                        orderFinished = true;
+                        showStatus('🔄 Автомат занят, попробуйте позже.');
+                        ws.close();
+                        showOkButton();
+                        break;
+                    default:
+                        orderFinished = true;
+                        ws.close();
+                        alert(event.message || event.status);
+                        cancelOrder();
+                        break;
                 }
-            });
+            };
+            ws.onerror = () => {
+                clearTimeout(timeout);
+                orderFinished = true;
+                showStatus('❌ Ошибка соединения');
+                showOkButton();
+            };
+            ws.onclose = () => {
+                clearTimeout(timeout);
+                setTimeout(() => {
+                    if (!orderFinished) {
+                        showStatus('⚠️ Связь прервана. Проверьте подключение к интернету.');
+                        showOkButton();
+                    }
+                }, 3000);
+            };
+        }
+
+        function showOkButton() {
+            document.getElementById('btn-brew').style.display = 'none';
+            document.getElementById('btn-ok').style.display = '';
         }
 
         function cancelOrder() {
             document.getElementById('confirm-card').style.display = 'none';
             document.getElementById('order-card').style.display = 'block';
+            document.getElementById('btn-brew').style.display = '';
+            document.getElementById('btn-brew').disabled = false;
+            document.getElementById('btn-brew').innerText = 'ПРИГОТОВИТЬ';
+            document.getElementById('btn-ok').style.display = 'none';
+            document.getElementById('btn-cancel').style.display = 'inline';
+            document.getElementById('status-msg').innerText = '';
+            pendingOrder = null;
         }
-// Загрузка данных профиля
+
+        function showStatus(msg) {
+            document.getElementById('status-msg').innerText = msg;
+        }
+
+        // === ЗАГРУЗКА ПРОФИЛЯ ===
         fetch('/api/balance')
             .then(res => res.ok ? res.json() : Promise.reject())
             .then(data => {
                 document.getElementById('auth-section').style.display = 'none';
                 document.getElementById('user-info').style.display = 'block';
                 document.getElementById('nav-bar').style.display = 'flex';
-                
+
                 const welcomeElem = document.getElementById('welcome-user');
                 const balanceElem = document.getElementById('balance');
                 const creditStatus = document.getElementById('credit-status');
-                
-                // ЛОГИКА ДОЛЖНИКА
+
                 if (data.balance < 0) {
                     welcomeElem.innerText = `Приветствую, должничок ${data.user_name || ''}!`;
-                    balanceElem.style.color = "#e74c3c"; // Красный цвет суммы
+                    balanceElem.style.color = "#e74c3c";
                     creditStatus.style.display = "block";
                 } else {
                     welcomeElem.innerText = `Приветствую, ${data.user_name || 'мой господин'}!`;
-                    balanceElem.style.color = "#2ecc71"; // Зеленый цвет суммы
+                    balanceElem.style.color = "#2ecc71";
                     creditStatus.style.display = "none";
                 }
 
                 balanceElem.innerText = data.balance.toFixed(2);
 
-                // Обработка скидки и кредита (мелко)
                 const discElem = document.getElementById('discount-info');
                 const credElem = document.getElementById('credit-info');
                 const sepElem = document.getElementById('perks-separator');
 
                 if (data.discount > 0) {
-                    discElem.innerHTML = `🏷️скидка <b>${data.discount}% </b>`;
+                    discElem.innerHTML = `🏷️скидка <b>${data.discount}%</b>`;
                 }
                 if (data.credit > 0) {
                     credElem.innerHTML = `💳кредит <b>${data.credit.toFixed(0)}₽</b>`;
@@ -351,11 +613,12 @@
 
                 currentDefaultVmid = data.vm_id;
                 document.getElementById('current-machine-label').innerText = data.vm_id ? `Автомат №${data.vm_id}` : "Выберите автомат";
-                
-                loadPopular(); // Запускаем загрузку кнопок
+
+                loadPopular();
             })
             .catch(() => console.log("Нужен логин"));
 
     </script>
 </body>
+
 </html>

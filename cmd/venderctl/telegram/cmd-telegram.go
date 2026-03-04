@@ -41,27 +41,28 @@ const (
 	tgCommandHelp
 	tgCommandBabloToUser
 	tgCommandOther
-	// tgCommandTest
+	tgCommandWeb
+	tgCommandSetPassword
 )
 
 type tgbotapiot struct {
-	bot          *tgbotapi.BotAPI
-	updateConfig tgbotapi.UpdateConfig
-	admin        int64
-	g            *state.Global
-	chatId       map[int64]tgUser
 	forvardMsg   []string
+	chatId       map[int64]tgUser
+	updateConfig tgbotapi.UpdateConfig
+	bot          *tgbotapi.BotAPI
+	g            *state.Global
+	admin        int64
 }
 
 type tgUser struct {
-	tOut          bool   // cook timeout. true after 200 seconds
-	Ban           bool   //banned client
-	Credit        uint32 //client credit
+	rcook         cookSruct
+	id            int64  //telegramm id
 	Balance       int64  // client ballanse. possible minus
 	MoneyAvalible int64  // balanse + credit
+	Credit        uint32 //client credit
 	Diskont       int
-	id            int64 //telegramm id
-	rcook         cookSruct
+	tOut          bool // cook timeout. true after 200 seconds
+	Ban           bool //banned client
 }
 
 type cookSruct struct {
@@ -103,7 +104,7 @@ func telegramInit(ctx context.Context) error {
 		log.Fatalf("Bot connect fail :%s ", err)
 		os.Exit(1)
 	}
-
+	tb.setBotMenu()
 	tb.bot.Debug = tb.g.Config.Telegram.DebugMessages
 	tb.chatId = make(map[int64]tgUser)
 	tb.admin = tb.g.Config.Telegram.TelegramAdmin
@@ -114,6 +115,23 @@ func telegramInit(ctx context.Context) error {
 	tb.g.Log.Infof("telegram init complete")
 	return tb.telegramLoop()
 
+}
+
+func (tb *tgbotapiot) setBotMenu() {
+	configs := []tgbotapi.BotCommand{
+		{Command: "start", Description: "Запустить бота"},
+		{Command: "help", Description: "Помощь"},
+		{Command: "setpassword", Description: "установить пароль для входа через браузер"},
+		{Command: "web", Description: "перейти в браузер"},
+	}
+
+	// Создаем конфиг установки команд
+	setCommandsConfig := tgbotapi.NewSetMyCommands(configs...)
+
+	// Отправляем запрос
+	if _, err := tb.bot.Request(setCommandsConfig); err != nil {
+		log.Printf("Ошибка при установке меню: %v", err)
+	}
 }
 
 func (tb *tgbotapiot) telegramLoop() error {
@@ -218,8 +236,45 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 	if err != nil {
 		return tb.registerNewUser(m)
 	}
+
+	if m.Message.From.ID == tb.admin {
+		text := m.Message.Text
+		if strings.HasPrefix(text, "/approve_") {
+			token := strings.TrimPrefix(text, "/approve_")
+			tb.approveSession(token)
+			return nil
+		}
+		if strings.HasPrefix(text, "/deny_") {
+			token := strings.TrimPrefix(text, "/deny_")
+			tb.denySession(token)
+			return nil
+		}
+	}
+
 	//parse command
 	switch parseCommand(m.Message.Text) {
+	case tgCommandSetPassword:
+		parts := strings.SplitN(m.Message.Text, " ", 2)
+		if len(parts) != 2 || parts[1] == "" {
+			tb.tgSend(cl.id, "укажите пароль: /setpassword ваш_пароль")
+			return nil
+		}
+		password := parts[1]
+		if err := tb.setWebPassword(cl.id, password); err != nil {
+			tb.tgSend(cl.id, "ошибка сохранения пароля")
+			return nil
+		}
+		tb.tgSend(cl.id, fmt.Sprintf("пароль установлен.\nдля входа на сайт используйте логин: %d", cl.id))
+		return nil
+	case tgCommandWeb:
+		token, err := tb.g.CreateWebAuthToken(cl.id, int(vender_api.OwnerType_telegramUser))
+		if err != nil {
+			tb.tgSend(cl.id, "ошибка генерации ссылки")
+			return nil
+		}
+		url := fmt.Sprintf("%s/auth/callback?token=%s", tb.g.Config.Web.BaseURL, token)
+		tb.tgSend(cl.id, "Ваша ссылка для входа:\n"+url+"\n\nСсылка действительна 5 минут.")
+		return nil
 	case tgCommandInvalid:
 		return nil
 	case tgCommandBalance:
@@ -238,7 +293,6 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 			return nil
 		}
 		tb.commandCook(*m.Message, cl)
-
 	case tgCommandHelp:
 		return tb.replayCommandHelp(cl.id)
 	case tgCommandOther:
@@ -299,6 +353,36 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 	return nil
 }
 
+func (tb *tgbotapiot) setWebPassword(userId int64, password string) error {
+	hash := tb.g.Sha256sum(password)
+	_, err := tb.g.DB.Exec(`
+        INSERT INTO users (userid, user_type, login, hash) 
+        VALUES (?0, ?1, ?2, ?3)
+        ON CONFLICT (login) DO UPDATE SET hash = ?3`,
+		userId, int32(vender_api.OwnerType_telegramUser), fmt.Sprintf("%d", userId), hash)
+	return err
+}
+
+func (tb *tgbotapiot) approveSession(token string) {
+	_, err := tb.g.DB.Exec(
+		"UPDATE user_sessions SET approved = true WHERE token = ?", token)
+	if err != nil {
+		tb.tgSend(tb.admin, "ошибка подтверждения сессии")
+		return
+	}
+	tb.tgSend(tb.admin, "сессия подтверждена")
+}
+
+func (tb *tgbotapiot) denySession(token string) {
+	_, err := tb.g.DB.Exec(
+		"DELETE FROM user_sessions WHERE token = ?", token)
+	if err != nil {
+		tb.tgSend(tb.admin, "ошибка удаления сессии")
+		return
+	}
+	tb.tgSend(tb.admin, "сессия отклонена")
+}
+
 func (tb *tgbotapiot) addCredit(clientId int64, bablo int) {
 	msgToUser := fmt.Sprintf("пополнение баланса на: %d\n", bablo)
 	tb.tgSend(tb.admin, fmt.Sprintf("баланс: %d пополнен на: %d", clientId, bablo))
@@ -314,20 +398,25 @@ func parseCommand(cmd string) tgCommand {
 	// https://extendsclass.com/regex-tester.html#js
 	// https://regexr.com/
 	// rm := `^((/-?\d+_m?[-.0-9]+(.+?)?)|(/balance)|(/help)|(.+)|)$`
-	cmdR := regexp.MustCompile(`^((/-?\d+_m?[-.0-9]+(.+?)?)|(/balance)|(/help)|(.+)|)$`)
+	// cmdR := regexp.MustCompile(`^((/-?\d+_m?[-.0-9]+(.+?)?)|(/balance)|(/help)|(.+)|)$`)
+	cmdR := regexp.MustCompile(`^((/-?\d+_m?[-.0-9]+(.+?)?)|(.+))$`)
 	parts := cmdR.FindStringSubmatch(cmd)
-	if len(parts) == 0 {
-		return tgCommandInvalid
-	}
+	// if len(parts) == 0 {
+	// 	return tgCommandInvalid
+	// }
 
 	switch {
+	case cmd == "/balance":
+		return tgCommandBalance
+	case cmd == "/help":
+		return tgCommandHelp
+	case cmd == "/web":
+		return tgCommandWeb
+	case strings.HasPrefix(cmd, "/setpassword "):
+		return tgCommandSetPassword
 	case parts[2] != "":
 		return tgCommandCook
 	case parts[4] != "":
-		return tgCommandBalance
-	case parts[5] != "":
-		return tgCommandHelp
-	case parts[6] != "":
 		return tgCommandOther
 	default:
 		return tgCommandInvalid
@@ -562,7 +651,7 @@ func (tb *tgbotapiot) addUserToDB(c *tgbotapi.Contact, dt int) error {
 }
 
 func (tb *tgbotapiot) registerNewUser(m tgbotapi.Update) error {
-	const regMess = "Для работы с роботом, нужно зарегестрироваться в системе."
+	const regMess = "Для продолжения работы, нужно боту разрешить увидеть Ваш номер телефона."
 	var msg tgbotapi.MessageConfig
 	var err error
 
@@ -583,7 +672,7 @@ func (tb *tgbotapiot) registerNewUser(m tgbotapi.Update) error {
 	if err = tb.addUserToDB(m.Message.Contact, m.Message.Date); err != nil {
 		return err
 	}
-	complitMessage := "регистрация завершена. \n/help - получить справку."
+	complitMessage := "теперь можно заказывать. \n/help - получить справку."
 	msg = tgbotapi.NewMessage(m.Message.Chat.ID, complitMessage)
 	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 	_, _ = tb.bot.Send(msg)

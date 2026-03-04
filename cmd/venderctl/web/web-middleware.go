@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-pg/pg/v9"
 )
 
 func (h *WebHandler) CheckAuth() gin.HandlerFunc {
@@ -17,15 +16,16 @@ func (h *WebHandler) CheckAuth() gin.HandlerFunc {
 		}
 
 		parts := strings.Split(cookie, ":")
-		if len(parts) != 2 {
+		if len(parts) != 3 {
 			c.AbortWithStatusJSON(401, gin.H{"error": "Invalid cookie"})
 			return
 		}
 
 		userIdStr := parts[0]
-		sig := parts[1]
+		token := parts[1]
+		sig := parts[2]
 
-		expected := signValue(h.App.Config.Web.SecretKey, userIdStr)
+		expected := signValue(h.App.Config.Web.SecretKey, userIdStr+token)
 		if sig != expected {
 			c.AbortWithStatusJSON(401, gin.H{"error": "Invalid signature"})
 			return
@@ -37,16 +37,20 @@ func (h *WebHandler) CheckAuth() gin.HandlerFunc {
 			return
 		}
 
-		var exists bool
-		_, err = h.App.DB.QueryOne(pg.Scan(&exists),
-			"SELECT EXISTS(SELECT 1 FROM tg_user WHERE userid = ?)", uid)
+		var session struct {
+			Approved bool  `pg:"approved"`
+			UserType int `pg:"user_type"`
+		}
 
-		if err != nil || !exists {
-			c.AbortWithStatusJSON(401, gin.H{"error": "User not found"})
+		_, err = h.App.DB.QueryOne(&session,
+			"SELECT approved, user_type FROM user_sessions WHERE token = ? AND userid = ?", token, uid)
+		if err != nil || !session.Approved {
+			c.AbortWithStatusJSON(401, gin.H{"error": "Session not approved"})
 			return
 		}
 
 		c.Set("user_id", uid)
+		c.Set("user_type", session.UserType)
 		c.Next()
 	}
 }

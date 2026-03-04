@@ -17,8 +17,6 @@ func (h *WebHandler) GetMachines(c *gin.Context) {
 		Vmnum int `pg:"vmnum" json:"vmnumber"`
 	}
 
-	db := h.App.DB.Conn()
-	defer db.Close()
 	query := `SELECT vmid, vmnum FROM robot ORDER BY vmid ASC;`
 
 	_, err := h.App.DB.Query(&machines, query)

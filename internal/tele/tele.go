@@ -65,6 +65,10 @@ func (self *tele) Init(ctx context.Context, log *log2.Log, teleConfig tele_confi
 	case tele_config.ModeTelegram:
 		self.clientId = "telegram"
 		self.clientPasword = "telegrampass"
+	case tele_config.ModeWeb:
+		self.clientId = "web"
+		self.clientPasword = "webpass"
+
 	default:
 		panic(self.msgInvalidMode())
 	}
