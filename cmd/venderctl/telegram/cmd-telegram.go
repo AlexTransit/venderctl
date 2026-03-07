@@ -16,7 +16,6 @@ import (
 	"github.com/AlexTransit/venderctl/internal/state"
 	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
 	"github.com/coreos/go-systemd/daemon"
-	"github.com/go-pg/pg/v9"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/juju/errors"
 )
@@ -47,7 +46,6 @@ const (
 
 type tgbotapiot struct {
 	forvardMsg   []string
-	chatId       map[int64]tgUser
 	updateConfig tgbotapi.UpdateConfig
 	bot          *tgbotapi.BotAPI
 	g            *state.Global
@@ -55,14 +53,8 @@ type tgbotapiot struct {
 }
 
 type tgUser struct {
-	rcook         cookSruct
-	id            int64  //telegramm id
-	Balance       int64  // client ballanse. possible minus
-	MoneyAvalible int64  // balanse + credit
-	Credit        uint32 //client credit
-	Diskont       int
-	tOut          bool // cook timeout. true after 200 seconds
-	Ban           bool //banned client
+	state.Client
+	rcook cookSruct
 }
 
 type cookSruct struct {
@@ -73,14 +65,11 @@ type cookSruct struct {
 }
 
 func telegramMain(ctx context.Context, flags *flag.FlagSet) error {
-
 	g := state.GetGlobal(ctx)
 	g.InitVMC()
 	configPath := flags.Lookup("config").Value.String()
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
 	g.Config.Tele.SetMode("telegram")
-	// g.Vmc = make(map[int32]bool)
-	// g.Vmc[1] = true
 
 	if err := telegramInit(ctx); err != nil {
 		return errors.Annotate(err, "telegramInit")
@@ -95,31 +84,27 @@ func telegramInit(ctx context.Context) error {
 	if err = tb.g.InitDB(CmdName); err != nil {
 		return errors.Annotate(err, "telegramm_db_init")
 	}
-
 	if err = tb.g.Tele.Init(ctx, tb.g.Log, tb.g.Config.Tele); err != nil {
 		return errors.Annotate(err, "MQTT.Init")
 	}
 
 	if tb.bot, err = tgbotapi.NewBotAPI(tb.g.Config.Telegram.TelegrammBotApi); err != nil {
-		log.Fatalf("Bot connect fail :%s ", err)
+		tb.g.Log.Fatalf("Bot connect fail :%s ", err)
 		os.Exit(1)
 	}
 	tb.setBotMenu()
 	tb.bot.Debug = tb.g.Config.Telegram.DebugMessages
-	tb.chatId = make(map[int64]tgUser)
 	tb.admin = tb.g.Config.Telegram.TelegramAdmin
-
-	// log.Printf("Authorized on account '%s'", tb.bot.Self.UserName)
 
 	cli.SdNotify(daemon.SdNotifyReady)
 	tb.g.Log.Infof("telegram init complete")
-	return tb.telegramLoop()
+	return nil
 
 }
 
 func (tb *tgbotapiot) setBotMenu() {
 	configs := []tgbotapi.BotCommand{
-		{Command: "start", Description: "Запустить бота"},
+		{Command: "balance", Description: "Посмотреть текущий баланс"},
 		{Command: "help", Description: "Помощь"},
 		{Command: "setpassword", Description: "установить пароль для входа через браузер"},
 		{Command: "web", Description: "перейти в браузер"},
@@ -152,7 +137,7 @@ func (tb *tgbotapiot) telegramLoop() error {
 					if rm.Order.OwnerType == vender_api.OwnerType_telegramUser {
 						tb.g.Log.Infof("order telegramm message from robot (%v)", rm)
 						tb.g.Alive.Add(1)
-						tb.cookResponseN(rm.Order)
+						tb.cookResponseN(rm.Order, p.VmId)
 						tb.g.Alive.Done()
 					}
 				}
@@ -174,8 +159,7 @@ func (tb *tgbotapiot) telegramLoop() error {
 			if tgm.Message == nil {
 				break
 			}
-			notBot := !tgm.Message.From.IsBot
-			if !notBot {
+			if notBot := !tgm.Message.From.IsBot; !notBot {
 				tb.g.Log.Infof("ignore telegramm message from bot (%v)", tgm.Message)
 				break
 			}
@@ -206,6 +190,10 @@ func (tb *tgbotapiot) TgChannelParser(m *tgbotapi.Message) {
 
 		}()
 		parts := strings.FieldsFunc(m.Text, func(r rune) bool { return r == '_' })
+		if len(parts) < 2 {
+			responseMessage = fmt.Sprintf("error bot(%v) invalid message format (%s)", m.AuthorSignature, m.Text)
+			return
+		}
 		clid, err := strconv.ParseInt(parts[0], 10, 64)
 
 		if err != nil {
@@ -227,78 +215,78 @@ func balance(b int64) string {
 	// return fmt.Sprintf("баланс: %.2f ", float64(b)/100)
 	return "баланс: " + amoutToString(b)
 }
+
 func amoutToString(i int64) string {
 	return fmt.Sprintf("%.2f ", float64(i)/100)
 }
 
 func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
-	cl, err := tb.getClient(m.Message.From.ID)
-	if err != nil {
+	// FIXME затычка. потом переделать телеговский модуль.
+	c, err := tb.g.ClientGet(m.Message.From.ID, vender_api.OwnerType_telegramUser)
+	if c.Id == 0 && err != nil {
 		return tb.registerNewUser(m)
 	}
-
-	if m.Message.From.ID == tb.admin {
-		text := m.Message.Text
-		if strings.HasPrefix(text, "/approve_") {
-			token := strings.TrimPrefix(text, "/approve_")
-			tb.approveSession(token)
-			return nil
-		}
-		if strings.HasPrefix(text, "/deny_") {
-			token := strings.TrimPrefix(text, "/deny_")
-			tb.denySession(token)
-			return nil
-		}
+	if err != nil {
+		tb.g.Log.Errorf("TG client:%d message:(%s) error(%v)", m.Message.From.ID, m.Message.Text, err)
+		return nil
 	}
+	cl := tgUser{Client: c}
+
+	// if m.Message.From.ID == tb.admin {
+	// 	text := m.Message.Text
+	// 	if strings.HasPrefix(text, "/approve_") {
+	// 		token := strings.TrimPrefix(text, "/approve_")
+	// 		tb.approveSession(token)
+	// 		return nil
+	// 	}
+	// 	if strings.HasPrefix(text, "/deny_") {
+	// 		token := strings.TrimPrefix(text, "/deny_")
+	// 		tb.denySession(token)
+	// 		return nil
+	// 	}
+	// }
 
 	//parse command
 	switch parseCommand(m.Message.Text) {
-	case tgCommandSetPassword:
-		parts := strings.SplitN(m.Message.Text, " ", 2)
-		if len(parts) != 2 || parts[1] == "" {
-			tb.tgSend(cl.id, "укажите пароль: /setpassword ваш_пароль")
-			return nil
-		}
-		password := parts[1]
-		if err := tb.setWebPassword(cl.id, password); err != nil {
-			tb.tgSend(cl.id, "ошибка сохранения пароля")
-			return nil
-		}
-		tb.tgSend(cl.id, fmt.Sprintf("пароль установлен.\nдля входа на сайт используйте логин: %d", cl.id))
-		return nil
+	// case tgCommandSetPassword:
+	// 	parts := strings.SplitN(m.Message.Text, " ", 2)
+	// 	if len(parts) != 2 || parts[1] == "" {
+	// 		tb.tgSend(cl.Id, "укажите пароль: /setpassword ваш_пароль")
+	// 		return nil
+	// 	}
+	// 	password := parts[1]
+	// 	if err := tb.setWebPassword(cl.Id, password); err != nil {
+	// 		tb.tgSend(cl.Id, "ошибка сохранения пароля")
+	// 		return nil
+	// 	}
+	// 	tb.tgSend(cl.Id, fmt.Sprintf("пароль установлен.\nдля входа на сайт используйте логин: %d", cl.Id))
+	// 	return nil
 	case tgCommandWeb:
-		token, err := tb.g.CreateWebAuthToken(cl.id, int(vender_api.OwnerType_telegramUser))
+		token, err := tb.g.CreateWebAuthToken(cl.Id, int(vender_api.OwnerType_telegramUser))
 		if err != nil {
-			tb.tgSend(cl.id, "ошибка генерации ссылки")
+			tb.tgSend(cl.Id, "ошибка генерации ссылки")
 			return nil
 		}
 		url := fmt.Sprintf("%s/auth/callback?token=%s", tb.g.Config.Web.BaseURL, token)
-		tb.tgSend(cl.id, "Ваша ссылка для входа:\n"+url+"\n\nСсылка действительна 5 минут.")
+		tb.tgSend(cl.Id, "Ваша ссылка для входа:\n"+url+"\n\nСсылка действительна 5 минут.")
 		return nil
 	case tgCommandInvalid:
 		return nil
 	case tgCommandBalance:
 		msg := balance(cl.Balance)
 		if cl.Credit != 0 {
-			msg = msg + fmt.Sprintf("кредит: %d \nдоступно: %.2f", cl.Credit, float64(cl.Balance+int64(cl.Credit)*100)/100)
+			available := cl.Balance + int64(cl.Credit)
+			msg = msg + fmt.Sprintf("кредит: %s\nдоступно: %s", amoutToString(int64(cl.Credit)), amoutToString(available))
 		}
-		tb.tgSend(cl.id, msg)
+		tb.tgSend(cl.Id, msg)
 	case tgCommandCook:
-		if tb.chatId[cl.id].tOut {
-			delete(tb.chatId, cl.id)
-		}
-		if telegramUser := tb.chatId[cl.id]; telegramUser.id != 0 {
-			msg := fmt.Sprintf("не могу сделать два заказа одновременно. :(\nсейчас робот: %d готовит код: %s", telegramUser.rcook.vmid, telegramUser.rcook.code)
-			tb.tgSend(cl.id, msg)
-			return nil
-		}
 		tb.commandCook(*m.Message, cl)
 	case tgCommandHelp:
-		return tb.replayCommandHelp(cl.id)
+		return tb.replayCommandHelp(cl.Id)
 	case tgCommandOther:
 		if m.Message.From.ID != tb.admin {
 			msg := fmt.Sprintf("команда (%s) \nнепонятно что делать.", m.Message.Text)
-			tb.tgSend(cl.id, msg)
+			tb.tgSend(cl.Id, msg)
 			break
 		}
 		// обрабатываем команды админа
@@ -330,20 +318,21 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 				tb.forvardMsg[1] = `-` + tb.forvardMsg[1]
 				return nil
 			}
-			client, err := tb.getClient(m.Message.ForwardFrom.ID)
+			client, err := tb.g.ClientGet(m.Message.ForwardFrom.ID, vender_api.OwnerType_telegramUser)
 			if err != nil {
 				TgSendError(fmt.Sprintf("error get client for put bablo (%v)", err))
+				return nil
 			}
 			switch {
 			case tb.forvardMsg[2] == "bablo":
-				client.rcook.code = "bablo"
+				// client.rcook.code = "bablo"
 				bablo, _ := strconv.Atoi(tb.forvardMsg[3])
-				tb.addCredit(client.id, bablo)
+				tb.addCredit(client.Id, bablo)
 			case tb.forvardMsg[2] == "credit":
 				credit, _ := strconv.Atoi(tb.forvardMsg[3])
-				tb.setCredit(client.id, credit)
-				tb.tgSend(client.id, fmt.Sprintf("появилась возможность делать отрицательный баланс на : %d", credit))
-				tb.tgSend(tb.admin, fmt.Sprintf("установлен кредит на: %d для: %d", credit, client.id))
+				tb.setCredit(client.Id, credit)
+				tb.tgSend(client.Id, fmt.Sprintf("появилась возможность делать отрицательный баланс на : %d", credit))
+				tb.tgSend(tb.admin, fmt.Sprintf("установлен кредит на: %d для: %d", credit, client.Id))
 			default:
 				tb.tgSend(tb.admin, fmt.Sprintf("не пон: %v", tb.forvardMsg))
 			}
@@ -353,41 +342,40 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 	return nil
 }
 
-func (tb *tgbotapiot) setWebPassword(userId int64, password string) error {
-	hash := tb.g.Sha256sum(password)
-	_, err := tb.g.DB.Exec(`
-        INSERT INTO users (userid, user_type, login, hash) 
-        VALUES (?0, ?1, ?2, ?3)
-        ON CONFLICT (login) DO UPDATE SET hash = ?3`,
-		userId, int32(vender_api.OwnerType_telegramUser), fmt.Sprintf("%d", userId), hash)
-	return err
-}
+// func (tb *tgbotapiot) setWebPassword(userId int64, password string) error {
+// 	hash := tb.g.Sha256sum(password)
+// 	_, err := tb.g.DB.Exec(`
+//         INSERT INTO users (userid, user_type, login, hash)
+//         VALUES (?0, ?1, ?2, ?3)
+//         ON CONFLICT (login) DO UPDATE SET hash = ?3`,
+// 		userId, int32(vender_api.OwnerType_telegramUser), fmt.Sprintf("%d", userId), hash)
+// 	return err
+// }
 
-func (tb *tgbotapiot) approveSession(token string) {
-	_, err := tb.g.DB.Exec(
-		"UPDATE user_sessions SET approved = true WHERE token = ?", token)
-	if err != nil {
-		tb.tgSend(tb.admin, "ошибка подтверждения сессии")
-		return
-	}
-	tb.tgSend(tb.admin, "сессия подтверждена")
-}
+// func (tb *tgbotapiot) approveSession(token string) {
+// 	_, err := tb.g.DB.Exec(
+// 		"UPDATE user_sessions SET approved = true WHERE token = ?", token)
+// 	if err != nil {
+// 		tb.tgSend(tb.admin, "ошибка подтверждения сессии")
+// 		return
+// 	}
+// 	tb.tgSend(tb.admin, "сессия подтверждена")
+// }
 
-func (tb *tgbotapiot) denySession(token string) {
-	_, err := tb.g.DB.Exec(
-		"DELETE FROM user_sessions WHERE token = ?", token)
-	if err != nil {
-		tb.tgSend(tb.admin, "ошибка удаления сессии")
-		return
-	}
-	tb.tgSend(tb.admin, "сессия отклонена")
-}
+// func (tb *tgbotapiot) denySession(token string) {
+// 	_, err := tb.g.DB.Exec(
+// 		"DELETE FROM user_sessions WHERE token = ?", token)
+// 	if err != nil {
+// 		tb.tgSend(tb.admin, "ошибка удаления сессии")
+// 		return
+// 	}
+// 	tb.tgSend(tb.admin, "сессия отклонена")
+// }
 
 func (tb *tgbotapiot) addCredit(clientId int64, bablo int) {
 	msgToUser := fmt.Sprintf("пополнение баланса на: %d\n", bablo)
 	tb.tgSend(tb.admin, fmt.Sprintf("баланс: %d пополнен на: %d", clientId, bablo))
 	tb.rcookWriteDb(clientId, -bablo*100, msgToUser)
-	fmt.Printf("i=%d, type: %T\n", bablo, bablo)
 }
 
 func clearForwardMessage() {
@@ -412,8 +400,8 @@ func parseCommand(cmd string) tgCommand {
 		return tgCommandHelp
 	case cmd == "/web":
 		return tgCommandWeb
-	case strings.HasPrefix(cmd, "/setpassword "):
-		return tgCommandSetPassword
+	// case strings.HasPrefix(cmd, "/setpassword "):
+	// 	return tgCommandSetPassword
 	case parts[2] != "":
 		return tgCommandCook
 	case parts[4] != "":
@@ -434,22 +422,21 @@ func (tb *tgbotapiot) sendExec(id string, command string) {
 
 func (tb *tgbotapiot) commandCook(m tgbotapi.Message, client tgUser) {
 	// cook commands
-	if (int32(client.Balance) + int32(client.Credit*100)) <= 0 {
-		tb.tgSend(client.id, "недостаточно средств")
+	if (int32(client.Balance) + int32(client.Credit)) <= 0 {
+		tb.tgSend(client.Id, "недостаточно средств")
 		return
 	}
 	var ok bool
 	if client.rcook, ok = parseCookCommand(m.Text); !ok {
-		tb.tgSend(client.id, "команда приготовления написана с ошибкой.\n почитайте /help и сделайте понятную для меня команду.")
+		tb.tgSend(client.Id, "команда приготовления написана с ошибкой.\n почитайте /help и сделайте понятную для меня команду.")
 		return
 	}
 	tb.logTgDb(m)
-	if !tb.checkRobo(client.rcook.vmid, client.id) {
+	if !tb.checkRobo(client.rcook.vmid, client.Id) {
 		return
 	}
-	tb.chatId[client.id] = client
-	tb.sendCookCmdN(client.id)
-	go tb.RunCookTimer(client.id)
+	// tb.chatId[client.Id] = client
+	tb.sendCookCmdN(client)
 }
 
 func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
@@ -486,7 +473,7 @@ func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
 }
 
 func (tb *tgbotapiot) logTgDbChange(m tgbotapi.Message) {
-	const q = `UPDATE tgchat set (changedate, changetext) = (?0,?1) WHERE messageid=?2;`
+	const q = `UPDATE tg_chat set (changedate, changetext) = (?0,?1) WHERE messageid=?2;`
 	tb.g.Alive.Add(1)
 	_, err := tb.g.DB.Exec(q,
 		m.EditDate,
@@ -500,9 +487,9 @@ func (tb *tgbotapiot) logTgDbChange(m tgbotapi.Message) {
 }
 
 func (tb *tgbotapiot) setCredit(id int64, credit int) {
-	const q = `UPDATE tg_user SET credit = ?1 WHERE userid = ?0;`
+	const q = `UPDATE users SET credit = ?2 WHERE userid = ?0 and user_type = ?1;`
 	tb.g.Alive.Add(1)
-	_, err := tb.g.DB.Exec(q, id, credit)
+	_, err := tb.g.DB.Exec(q, id, vender_api.OwnerType_telegramUser, credit)
 	tb.g.Alive.Done()
 	if err != nil {
 		tb.g.Log.Errorf("db query=%s err=%v", q, err)
@@ -519,30 +506,43 @@ func (tb *tgbotapiot) logTgDb(m tgbotapi.Message) {
 	tb.g.Alive.Done()
 }
 
-func (tb *tgbotapiot) sendCookCmdN(chatId int64) {
-	cl := tb.chatId[chatId]
+// func (tb *tgbotapiot) logUserOrder(userId int64, userType int32, action string, balanceInfo int64) {
+// 	const q = `INSERT INTO user_orders (userid, user_type, action, balance_info) VALUES (?0, ?1, ?2, ?3)`
+// 	tb.g.Alive.Add(1)
+// 	_, err := tb.g.DB.Exec(q, userId, userType, "TG "+action, float64(balanceInfo)/100)
+// 	tb.g.Alive.Done()
+// 	if err != nil {
+// 		tb.g.Log.Errorf("logUserOrder userId=%d userType=%d err=%v", userId, userType, err)
+// 	}
+// }
+
+func (tb *tgbotapiot) sendCookCmdN(tgUser tgUser) {
+	moneyAvalible := tgUser.Balance + int64(tgUser.Credit)
+	if moneyAvalible < 0 {
+		moneyAvalible = 0
+	}
 	trm := vender_api.ToRoboMessage{
 		ServerTime: time.Now().Unix(),
 		Cmd:        vender_api.MessageType_makeOrder,
 		MakeOrder: &vender_api.Order{
-			MenuCode:      cl.rcook.code,
-			Amount:        uint32(cl.MoneyAvalible),
+			MenuCode:      tgUser.rcook.code,
+			Amount:        uint32(moneyAvalible),
 			OrderStatus:   vender_api.OrderStatus_doTransferred,
 			PaymentMethod: vender_api.PaymentMethod_Balance,
-			OwnerInt:      chatId,
+			OwnerInt:      tgUser.Id,
 			OwnerType:     vender_api.OwnerType_telegramUser,
 		},
 	}
-	if cl.rcook.cream != 0 {
-		trm.MakeOrder.Cream = []byte{cl.rcook.cream}
+	if tgUser.rcook.cream != 0 {
+		trm.MakeOrder.Cream = []byte{tgUser.rcook.cream}
 	}
-	if cl.rcook.sugar != 0 {
-		trm.MakeOrder.Sugar = []byte{cl.rcook.sugar}
+	if tgUser.rcook.sugar != 0 {
+		trm.MakeOrder.Sugar = []byte{tgUser.rcook.sugar}
 	}
-	tb.g.Log.Infof("telegram client (%v) send remote cook code:%s", cl, cl.rcook.code)
-	tb.g.Tele.SendToRobo(cl.rcook.vmid, &trm)
+	tb.g.Log.Infof("telegram client (%v) send remote cook code:%s", tgUser.Id, tgUser.rcook.code)
+	tb.g.Tele.SendToRobo(tgUser.rcook.vmid, &trm)
 }
-func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order) {
+func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order, vmid int32) {
 	var msg string
 	client := ro.OwnerInt
 	switch ro.OrderStatus {
@@ -553,53 +553,51 @@ func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order) {
 	case vender_api.OrderStatus_overdraft:
 		msg = "недостаточно средств. пополните баланс и попробуйте снова."
 	case vender_api.OrderStatus_executionStart:
-		msg = fmt.Sprintf("начинаю готовить. \nкод: %s автомат: %d", tb.chatId[client].rcook.code, tb.chatId[client].rcook.vmid)
+		msg = fmt.Sprintf("начинаю готовить. \nкод: %s автомат: %d", ro.MenuCode, vmid)
+		cl, err := tb.g.ClientGet(client, vender_api.OwnerType_telegramUser)
+		if err != nil {
+			tb.g.Log.Errorf("cookResponseN getClient userId=%d err=%v", client, err)
+		}
+		tb.g.LogUserOrder("TG",client, int32(vender_api.OwnerType_telegramUser), msg, cl.Balance)
 		tb.tgSend(int64(client), msg)
 		return
 	case vender_api.OrderStatus_orderError:
 		msg = "ошибка приготовления."
 	case vender_api.OrderStatus_complete:
 		finMsg := fmt.Sprintf("автомат : %d приготовил код: %s цена: %s\n",
-			tb.chatId[client].rcook.vmid,
+			vmid,
 			ro.MenuCode,
 			amoutToString(int64(ro.Amount)))
-		tb.rcookWriteDb(tb.chatId[client].id, int(ro.Amount), finMsg)
-		if dis := tb.chatId[client].Diskont; dis != 0 {
+		if c := tb.rcookWriteDb(ro.OwnerInt, int(ro.Amount), finMsg); c.Diskont != 0 {
 			go func() {
-				bonus := (int(ro.Amount) * dis) / 100
+				bonus := (int(ro.Amount) * c.Diskont) / 100
 				time.Sleep(10 * time.Second)
-				cl, _ := tb.getClient(client)
-				cl.rcook.code = "bonus"
+				// cl, _ := tb.g.ClientGet(client, vender_api.OwnerType_telegramUser)
+				// // cl.rcook.code = "bonus"
 				bunusMgs := fmt.Sprintf("начислен бонус: %s\n", amoutToString(int64(bonus)))
-				tb.rcookWriteDb(cl.id, -bonus, bunusMgs)
+				tb.rcookWriteDb(c.Id, -bonus, bunusMgs)
 			}()
 		}
+
+		tb.g.Log.Infof("cooking finished telegram client:%d type:%s code:%s", ro.OwnerInt, ro.OwnerType.String(), ro.MenuCode)
 	default:
 		msg = "что то пошло не так. без паники. хозяину уже в сообщили."
-		TgSendError(fmt.Sprintf("cook responce status unknow. vmid=%d code error invalid order=%s", tb.chatId[client].rcook.vmid, ro.String()))
+		TgSendError(fmt.Sprintf("cook responce status unknow. vmid=%d code error invalid order=%s", vmid, ro.String()))
 	}
 	tb.tgSend(client, msg)
-	delete(tb.chatId, client)
 }
 
-func (tb *tgbotapiot) rcookWriteDb(userId int64, price int, addMsg ...string) {
-	tb.g.Log.Infof("cooking finished telegram client:%d code:%s", userId, tb.chatId[userId].rcook.code)
-	cl, _ := tb.getClient(userId)
-	cl.Balance -= int64(price)
-	const q = `UPDATE tg_user set balance = ?1 WHERE userid = ?0;`
-	tb.g.Alive.Add(1)
-	// _, err := tb.g.DB.Exec(q, user.rcook.vmid, user.rcook.code, pg.Array([2]uint8{user.rcook.cream, user.rcook.sugar}), price, payMethod, user.id, int64(price))
-	_, err := tb.g.DB.Exec(q, userId, cl.Balance)
-	tb.g.Alive.Done()
-	if err != nil {
-		tb.g.Log.Errorf("db query=%s chatid=%v err=%v", q, userId, err)
-	}
+func (tb *tgbotapiot) rcookWriteDb(userId int64, price int, addMsg ...string) state.Client {
+	tb.g.ClientUpdateBalance(userId, vender_api.OwnerType_telegramUser, int64(price))
+	cl, _ := tb.g.ClientGet(userId, vender_api.OwnerType_telegramUser)
 	var msg string
 	if len(addMsg) != 0 {
 		msg = addMsg[0]
 	}
+	tb.g.LogUserOrder("TG",userId, int32(vender_api.OwnerType_telegramUser), msg, cl.Balance)
 	msg = msg + balance(cl.Balance)
 	tb.tgSend(userId, msg)
+	return cl
 }
 
 func TgSendError(s string) {
@@ -623,30 +621,10 @@ func (tb *tgbotapiot) tgSend(chatid int64, s string) {
 	tb.logTgDb(m)
 }
 
-func (tb *tgbotapiot) getClient(c int64) (tgUser, error) {
-	tb.g.Alive.Add(1)
-	db := tb.g.DB.Conn()
-	var cl tgUser
-	_, err := db.QueryOne(&cl, `SELECT Ban, Balance, Credit, Diskont FROM tg_user WHERE userid = ?;`, c)
-	_ = db.Close()
-	tb.g.Alive.Done()
-	if err == pg.ErrNoRows {
-		return cl, errors.Annotate(err, "client not found in db")
-	} else if err != nil {
-		return cl, errors.Annotate(err, "telegram client db read error ")
-	}
-	if cl.Ban {
-		tb.g.Log.Infof("message from banned user id:%d", c)
-		return cl, errors.New("user banned")
-	}
-	cl.id = c
-	cl.MoneyAvalible = cl.Balance + int64(cl.Credit*100)
-	return cl, nil
-}
-
-func (tb *tgbotapiot) addUserToDB(c *tgbotapi.Contact, dt int) error {
-	const q = `INSERT INTO tg_user ( userId, firstName, lastName, phoneNumber, registerDate ) values (?0, ?1, ?2, ?3, ?4);`
-	_, err := tb.g.DB.Exec(q, c.UserID, c.FirstName, c.LastName, c.PhoneNumber, dt)
+func (tb *tgbotapiot) addUserToDB(c *tgbotapi.Contact) error {
+	memo := fmt.Sprintf("firs name:%s last name:%s", c.FirstName, c.LastName)
+	_, err := tb.g.DB.Exec(`INSERT INTO users ( userid, user_type, phone, memo ) values (?0, ?1, ?2, ?3);`,
+		c.UserID, vender_api.OwnerType_telegramUser, c.PhoneNumber, memo)
 	return err
 }
 
@@ -658,7 +636,7 @@ func (tb *tgbotapiot) registerNewUser(m tgbotapi.Update) error {
 	if m.Message.Text == "/start" {
 		msg = tgbotapi.NewMessage(m.Message.Chat.ID, regMess)
 		btn := tgbotapi.KeyboardButton{
-			Text:           "запрос номера телефона",
+			Text:           "разрешить боту увидеть номер телефона",
 			RequestContact: true,
 		}
 		msg.ReplyMarkup = tgbotapi.NewReplyKeyboard([]tgbotapi.KeyboardButton{btn})
@@ -669,7 +647,7 @@ func (tb *tgbotapiot) registerNewUser(m tgbotapi.Update) error {
 	if m.Message.Contact == nil || m.Message.Contact.UserID != m.Message.From.ID {
 		return nil
 	}
-	if err = tb.addUserToDB(m.Message.Contact, m.Message.Date); err != nil {
+	if err = tb.addUserToDB(m.Message.Contact); err != nil {
 		return err
 	}
 	complitMessage := "теперь можно заказывать. \n/help - получить справку."
@@ -677,15 +655,6 @@ func (tb *tgbotapiot) registerNewUser(m tgbotapi.Update) error {
 	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 	_, _ = tb.bot.Send(msg)
 	return nil
-}
-
-func (tb *tgbotapiot) RunCookTimer(cl int64) {
-	time.Sleep(200 * time.Second)
-	c := tb.chatId[cl]
-	if c.id == cl {
-		c.tOut = true
-		tb.chatId[cl] = c
-	}
 }
 
 func (tb *tgbotapiot) replayCommandHelp(cl int64) error {

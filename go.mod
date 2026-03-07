@@ -3,27 +3,21 @@ module github.com/AlexTransit/venderctl
 go 1.26
 
 require (
+	github.com/AlexTransit/ru-nalog-go v0.220727.0
 	github.com/AlexTransit/vender v0.260220.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/eclipse/paho.mqtt.golang v1.5.1
+	github.com/gin-gonic/gin v1.10.0
 	github.com/go-pg/pg/v9 v9.2.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/golang/protobuf v1.5.2
+	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/hcl v1.0.0
 	github.com/juju/errors v1.0.0
+	github.com/nikita-vanyasin/tinkoff v1.2.2
 	github.com/stretchr/testify v1.9.0
 	github.com/temoto/alive/v2 v2.0.0
-	golang.org/x/crypto v0.48.0 // indirect
-	gopkg.in/hlandau/easymetric.v1 v1.0.0 // indirect
-	gopkg.in/hlandau/measurable.v1 v1.0.1 // indirect
 	gopkg.in/hlandau/passlib.v1 v1.0.11
-)
-
-require (
-	github.com/AlexTransit/ru-nalog-go v0.220727.0
-	github.com/gin-gonic/gin v1.10.0
-	github.com/gorilla/websocket v1.5.3
-	github.com/nikita-vanyasin/tinkoff v1.2.2
 )
 
 require (
@@ -59,12 +53,15 @@ require (
 	github.com/vmihailenco/msgpack/v4 v4.3.12 // indirect
 	github.com/vmihailenco/tagparser v0.1.2 // indirect
 	golang.org/x/arch v0.8.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
+	gopkg.in/hlandau/easymetric.v1 v1.0.0 // indirect
+	gopkg.in/hlandau/measurable.v1 v1.0.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	mellium.im/sasl v0.3.2 // indirect
