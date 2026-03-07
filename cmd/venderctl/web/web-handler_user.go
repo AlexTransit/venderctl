@@ -14,38 +14,57 @@ func (h *WebHandler) SetFavorite(c *gin.Context) {
 	userId := c.MustGet("user_id").(int64)
 	userType := c.MustGet("user_type").(int)
 	var req struct {
-		VMID int `json:"vmid"`
+		VMID int      `json:"vmid"`
+		Lat  *float64 `json:"lat"`
+		Lon  *float64 `json:"lon"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	var table string
-	switch vender_api.OwnerType(userType) {
-	case vender_api.OwnerType_webUser:
-		table = "web_user"
-	case vender_api.OwnerType_telegramUser:
-		table = "tg_user"
+
+	vmid := req.VMID
+	if vmid == 0 {
+		if req.Lat == nil || req.Lon == nil {
+			c.JSON(http.StatusOK, gin.H{"status": "need_machine_select"})
+			return
+		}
+
+		var nearestVMID int
+		_, err := h.App.DB.QueryOne(&nearestVMID,
+			`SELECT vmid
+			 FROM robot
+			 WHERE lat IS NOT NULL AND lon IS NOT NULL
+			 ORDER BY ((lat - ?0) * (lat - ?0) + (lon - ?1) * (lon - ?1)) ASC
+			 LIMIT 1`,
+			*req.Lat, *req.Lon)
+		if err != nil || nearestVMID <= 0 {
+			h.App.Log.Errorf("auto favorite machine detect error userId=%d err=%v", userId, err)
+			c.JSON(http.StatusOK, gin.H{"status": "need_machine_select"})
+			return
+		}
+		vmid = nearestVMID
 	}
 
 	_, err := h.App.DB.Exec(
-		fmt.Sprintf("UPDATE %s SET defaultrobot = ?0 WHERE userid = ?1", table),
-		req.VMID, userId,
+		"UPDATE users SET defaultrobot = ?0 WHERE userid = ?1 AND user_type = ?2",
+		vmid, userId, userType,
 	)
 
 	if err != nil {
 		h.App.Log.Errorf("change default robot error:%v", err)
-		c.JSON(http.StatusOK, gin.H{"status": "Falce"})
+		c.JSON(http.StatusOK, gin.H{"status": "false"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "vmid": vmid})
 }
 
 func (h *WebHandler) GetBalance(c *gin.Context) {
 	userId := c.MustGet("user_id").(int64)
 	userType := c.MustGet("user_type").(int)
 
-	cl, err := h.App.ClientGet(userId, int32(userType))
+	cl, err := h.App.ClientGet(userId, vender_api.OwnerType(userType))
 
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
@@ -55,10 +74,10 @@ func (h *WebHandler) GetBalance(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"user_id":   userId,
 		"user_name": cl.Name,
-		"balance":   float64(cl.Balance) / 100, //баланс в копейках
+		"balance":   float64(cl.Balance) / 100, // баланс в рублях
 		"vm_id":     cl.Defaultrobot,
 		"discount":  cl.Diskont, // например, 10 (значит 10%)
-		"credit":    cl.Credit,  // кредит в рублях
+		"credit":    float64(cl.Credit) / 100, // кредит в рублях
 	})
 }
 

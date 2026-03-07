@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"sync"
 
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
@@ -25,6 +26,18 @@ var Cmd = cli.Cmd{
 type WebHandler struct {
 	App         *state.Global
 	OrderEvents *EventBus
+	orderTypes  *orderTypeStore
+}
+
+type orderTypeKey struct {
+	userId int64
+	vmid   int32
+	drink  string
+}
+
+type orderTypeStore struct {
+	mu sync.RWMutex
+	m  map[orderTypeKey]int32
 }
 
 func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
@@ -99,12 +112,12 @@ func (h *WebHandler) ListenMQTT(ctx context.Context) {
 				order := rm.Order
 
 				// Фильтруем — только для web клиентов
-				if order.OwnerType != vender_api.OwnerType_webUser && order.OwnerType != vender_api.OwnerType_telegramUser {
+				if order.OwnerType >= 0 {
 					break
 				}
 
 				userId := int64(order.OwnerInt)
-
+				userType := -order.OwnerType
 				h.App.Log.Infof("order response from robot (%v)", rm)
 
 				// Формируем ответ для фронта
@@ -121,22 +134,28 @@ func (h *WebHandler) ListenMQTT(ctx context.Context) {
 					event["message"] = "начинаю готовить"
 				case vender_api.OrderStatus_complete:
 					event["message"] = "готово"
-					h.App.ClientUpdateBalance(int64(order.Amount), userId, int32(order.OwnerType))
+					h.App.ClientUpdateBalance(userId, userType, int64(order.Amount))
 
-					cl, _ := h.App.ClientGet(userId, int32(order.OwnerType))
+					cl, _ := h.App.ClientGet(userId, userType)
 					action := fmt.Sprintf("приготовил №%d код:%s цена:%.2f баланс:%.2f",
 						p.VmId, order.MenuCode,
 						float64(order.Amount)/100,
 						float64(cl.Balance)/100)
-					h.logOrder(userId, int32(order.OwnerType), action)
-					if cl.Diskont != 0 {
-
+					h.App.LogUserOrder("Web", userId, int32(userType), action, cl.Balance)
+					if cl.Diskont > 0 {
+						bonus := int64(order.Amount) * int64(cl.Diskont) / 100
+						if bonus > 0 {
+							h.App.ClientUpdateBalance(userId, userType, -bonus)
+							clAfterBonus, err := h.App.ClientGet(userId, userType)
+							if err != nil {
+								h.App.Log.Errorf("web bonus ClientGet userId=%d err=%v", userId, err)
+							} else {
+								bonusMsg := fmt.Sprintf("начислен бонус: %.2f", float64(bonus)/100)
+								h.App.LogUserOrder("Web", userId, int32(userType), bonusMsg, clAfterBonus.Balance)
+								event["cashback"] = float64(bonus) / 100
+							}
+						}
 					}
-
-					// if cashback := h.creditCashbackToDb(userId, order.Amount); cashback > 0 {
-					// 	event["cashback"] = float64(cashback) / 100
-					// }
-					// h.App.Log.Infof("publish complete to userId=%d channels=%d", userId, h.OrderEvents.channelCount(userId))
 				case vender_api.OrderStatus_executionInaccessible:
 					event["message"] = "код недоступен"
 				case vender_api.OrderStatus_overdraft:
@@ -146,7 +165,7 @@ func (h *WebHandler) ListenMQTT(ctx context.Context) {
 				}
 
 				// Отправляем событие подписанному клиенту
-				h.OrderEvents.Publish(userId, int32(order.OwnerType), event)
+				h.OrderEvents.Publish(userId, int32(userType), event)
 			}
 
 		case <-stopch:

@@ -34,34 +34,6 @@ func (h *WebHandler) GetPopular(c *gin.Context) {
 	c.JSON(200, drinks)
 }
 
-func (h *WebHandler) MakeOrder(c *gin.Context) {
-	userId := c.MustGet("user_id").(int64)
-	var req struct {
-		VMID  int    `json:"vmid"`
-		Drink string `json:"drink"`
-		Cream int    `json:"cream"`
-		Sugar int    `json:"sugar"`
-	}
-	c.ShouldBindJSON(&req)
-
-	// ВАЛИДАЦИЯ (как ты просил)
-	if req.Cream < 0 || req.Cream > 6 || req.Sugar < 0 || req.Sugar > 8 {
-		c.JSON(400, gin.H{"error": "Неверные параметры добавок"})
-		return
-	}
-
-	// 1. Списываем баланс (нужен SQL запрос цены по vmid и drink)
-	// 2. Формируем строку команды
-	cmd := fmt.Sprintf("/%d_%sc%ds%d", req.VMID, req.Drink, req.Cream, req.Sugar)
-
-	h.App.Log.Infof("ПОЛЬЗОВАТЕЛЬ %d ЗАКАЗАЛ: %s", userId, cmd)
-
-	// 3. Отправляем в MQTT (топик vmc/ID/cmd)
-	// h.App.Mqtt.Publish(...)
-
-	c.JSON(200, gin.H{"status": "ok"})
-}
-
 func encodeTuning(v int) []byte {
 	if v == 4 {
 		return []byte{0}
@@ -85,14 +57,14 @@ func (h *WebHandler) PreviewOrder(c *gin.Context) {
 		return
 	}
 
-	cl, err := h.App.ClientGet(userId, int32(userType))
+	cl, err := h.App.ClientGet(userId, vender_api.OwnerType(userType))
 	if err != nil {
 		c.JSON(500, gin.H{"error": "db error"})
 		return
 	}
 
 	// Проверка баланса
-	if int32(cl.Balance)+int32(cl.Credit*100) <= 0 {
+	if int32(cl.Balance)+int32(cl.Credit) <= 0 {
 		c.JSON(400, gin.H{"error": "недостаточно средств"})
 		return
 	}
@@ -147,12 +119,12 @@ func (h *WebHandler) StartOrder(c *gin.Context) {
 		c.JSON(400, gin.H{"error": errText})
 		return
 	}
-	cl, err1 := h.App.ClientGet(userId, int32(userType))
+	cl, err1 := h.App.ClientGet(userId, vender_api.OwnerType(userType))
 	if err1 != nil {
 		c.JSON(500, gin.H{"error": "db error"})
 		return
 	}
-	available := cl.Balance + int64(cl.Credit)*100
+	available := cl.Balance + int64(cl.Credit)
 	if available <= 0 {
 		c.JSON(400, gin.H{"error": "недостаточно средств"})
 		return
@@ -171,19 +143,18 @@ func (h *WebHandler) StartOrder(c *gin.Context) {
 			OrderStatus:   vender_api.OrderStatus_doTransferred,
 			PaymentMethod: vender_api.PaymentMethod_Balance,
 			OwnerInt:      userId,
-			// OwnerType:     vender_api.OwnerType_webUser,
-			OwnerType: vender_api.OwnerType(userType),
-			Cream:     encodeTuning(req.Cream),
-			Sugar:     encodeTuning(req.Sugar),
+			OwnerType:     vender_api.OwnerType(-userType),
+			Cream:         encodeTuning(req.Cream),
+			Sugar:         encodeTuning(req.Sugar),
 		},
 	}
 
 	// 4. Отправляем команду автомату и ждём ответ через MQTT
 	h.App.Tele.SendToRobo(vmid, &trm)
 
-	action := fmt.Sprintf("заказ автомат №%d код:%s сливки:%d сахар:%d",
+	action := fmt.Sprintf("заказ: робот №%d код:%s сливки:%d сахар:%d",
 		req.VMID, req.DrinkCode, req.Cream, req.Sugar)
-	h.logOrder(userId, int32(userType), action)
+	h.App.LogUserOrder("Web", userId, int32(userType), action, cl.Balance)
 
 	c.JSON(200, gin.H{
 		"status":    "sent",
@@ -229,14 +200,6 @@ func (h *WebHandler) OrderWS(c *gin.Context) {
 				return
 			}
 		}
-	}
-}
-func (h *WebHandler) logOrder(userId int64, userType int32, action string) {
-	_, err := h.App.DB.Exec(
-		`INSERT INTO user_orders (userid, user_type, action) VALUES (?0, ?1, ?2)`,
-		userId, userType, action)
-	if err != nil {
-		h.App.Log.Errorf("logOrder userId=%d err=%v", userId, err)
 	}
 }
 
