@@ -42,15 +42,6 @@
             padding-top: 50px;
         }
 
-        .login-input {
-            width: 90%;
-            padding: 12px;
-            margin: 8px 0;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            font-size: 16px;
-        }
-
         .btn-blue {
             background: #0088cc;
             color: white;
@@ -184,12 +175,8 @@
     <div class="container">
         <!-- БЛОК ВХОДА -->
         <div id="auth-section">
-            <h1>Автопоилка</h1>
-
-            <p style="color: #888;">вход по паролю:</p>
-            <input type="text" id="id-input" class="login-input" placeholder="Логин">
-            <input type="password" id="pass-input" class="login-input" placeholder="Пароль">
-            <button class="btn-blue" onclick="login()">Войти</button>
+            <h1>Управление автопоилкой</h1>
+            <p style="color: #888;">Вход доступен только по ссылке-приглашению.</p>
         </div>
 
         <!-- ЛИЧНЫЙ КАБИНЕТ -->
@@ -313,29 +300,6 @@
                 });
         }
 
-        // === АВТОРИЗАЦИЯ ===
-        function login() {
-            const login = document.getElementById('id-input').value;
-            const pass = document.getElementById('pass-input').value;
-            if (!login || !pass) return;
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '/auth/callback';
-            form.style.display = 'none';
-
-            const loginInput = document.createElement('input');
-            loginInput.name = 'login';
-            loginInput.value = login;
-            form.appendChild(loginInput);
-
-            const passInput = document.createElement('input');
-            passInput.name = 'pass';
-            passInput.value = pass;
-            form.appendChild(passInput);
-
-            document.body.appendChild(form);
-            form.submit();
-        }
         function logout() { window.location.href = '/auth/logout'; }
 
         function toggleMenu() {
@@ -346,8 +310,12 @@
         }
 
         function openMachineList() {
-            const newId = prompt("Введите номер автомата (VMID):");
-            if (newId) saveFavorite(newId);
+            const value = prompt("Введите номер автомата (VMID).\n0 — авто по геолокации.");
+            if (value === null) return;
+            const vmid = parseInt(value, 10);
+            if (Number.isNaN(vmid) || vmid < 0) return alert("Некорректный номер автомата");
+            if (vmid === 0) return setAutoFavoriteByLocation();
+            saveFavorite(vmid);
         }
 
         // === ПОПУЛЯРНЫЕ НАПИТКИ ===
@@ -380,12 +348,54 @@
             document.getElementById('val-s').innerText = sugar;
         }
 
-        function saveFavorite(vmid) {
+        function askMachineManualAndSave() {
+            const manual = prompt("С каким автоматом работаем? Введите VMID:");
+            if (manual === null) return;
+            const vmid = parseInt(manual, 10);
+            if (Number.isNaN(vmid) || vmid <= 0) return alert("Некорректный VMID");
+            saveFavorite(vmid);
+        }
+
+        function setAutoFavoriteByLocation() {
+            if (!navigator.geolocation) {
+                askMachineManualAndSave();
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    saveFavorite(0, pos.coords.latitude, pos.coords.longitude);
+                },
+                () => {
+                    askMachineManualAndSave();
+                },
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+            );
+        }
+
+        function saveFavorite(vmid, lat = null, lon = null) {
+            const payload = { vmid: parseInt(vmid, 10) };
+            if (lat !== null && lon !== null) {
+                payload.lat = lat;
+                payload.lon = lon;
+            }
             fetch('/api/favorite', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ vmid: parseInt(vmid) })
-            }).then(res => res.ok && location.reload());
+                body: JSON.stringify(payload)
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        location.reload();
+                        return;
+                    }
+                    if (data.status === 'need_machine_select') {
+                        askMachineManualAndSave();
+                        return;
+                    }
+                    alert("Не удалось сохранить автомат");
+                })
+                .catch(() => alert("Ошибка сохранения автомата"));
         }
 
         // === ЗАКАЗ ===
@@ -605,7 +615,7 @@
                     discElem.innerHTML = `🏷️скидка <b>${data.discount}%</b>`;
                 }
                 if (data.credit > 0) {
-                    credElem.innerHTML = `💳кредит <b>${data.credit.toFixed(0)}₽</b>`;
+                    credElem.innerHTML = `💳кредит <b>${data.credit.toFixed(2)}₽</b>`;
                 }
                 if (data.discount > 0 && data.credit > 0) {
                     sepElem.style.display = 'inline';
