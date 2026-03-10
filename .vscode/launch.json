@@ -41,9 +41,9 @@
             "type": "pickString",
             "description": "Что запускаем?",
             "options": [
-                "version", "sponge", "tax", "telegram", "control", "web"
+                "telegram", "web", "control", "version", "sponge", "tax"
             ],
-            "default": "web"
+            // "default": "web"
         }
     ]
 }

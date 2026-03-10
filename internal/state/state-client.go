@@ -65,7 +65,7 @@ func (g *Global) CreateWebAuthToken(userId int64, userType int) (string, error) 
 	rand.Read(b)
 	token := hex.EncodeToString(b)
 	_, err := g.DB.Exec(
-		`INSERT INTO web_auth_tokens (token, userid, user_type) VALUES (?0, ?1, ?2)`,
+		`INSERT INTO web_auth_tokens (token, userid, user_type, used) VALUES (?0, ?1, ?2, false)`,
 		token, userId, userType)
 	return token, err
 }

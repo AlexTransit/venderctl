@@ -4,8 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -40,8 +38,8 @@ const (
 	tgCommandHelp
 	tgCommandBabloToUser
 	tgCommandOther
+	tgCommandWebInvite
 	tgCommandWeb
-	tgCommandSetPassword
 )
 
 type tgbotapiot struct {
@@ -50,6 +48,48 @@ type tgbotapiot struct {
 	bot          *tgbotapi.BotAPI
 	g            *state.Global
 	admin        int64
+}
+
+type telegramBotLogger struct {
+	g *state.Global
+}
+
+func (l telegramBotLogger) Println(v ...interface{}) {
+	msg := strings.TrimSpace(fmt.Sprintln(v...))
+	l.log(msg)
+}
+
+func (l telegramBotLogger) Printf(format string, v ...interface{}) {
+	msg := strings.TrimSpace(fmt.Sprintf(format, v...))
+	l.log(msg)
+}
+
+func (l telegramBotLogger) log(msg string) {
+	lmsg := strings.ToLower(msg)
+	if isTelegramTransientNetError(lmsg) || strings.Contains(lmsg, "failed to get updates") {
+		l.g.Log.Debugf("telegram api: %s", msg)
+		return
+	}
+	l.g.Log.Errorf("telegram api: %s", msg)
+}
+
+func isTelegramTransientNetError(msg string) bool {
+	transientErrors := []string{
+		"connection reset by peer",
+		"context deadline exceeded",
+		"i/o timeout",
+		"timeout awaiting response headers",
+		"unexpected eof",
+		"use of closed network connection",
+		"tls handshake timeout",
+		"server sent goaway",
+	}
+	for _, em := range transientErrors {
+		if strings.Contains(msg, em) {
+			return true
+		}
+	}
+	return false
 }
 
 type tgUser struct {
@@ -87,11 +127,24 @@ func telegramInit(ctx context.Context) error {
 	if err = tb.g.Tele.Init(ctx, tb.g.Log, tb.g.Config.Tele); err != nil {
 		return errors.Annotate(err, "MQTT.Init")
 	}
-
-	if tb.bot, err = tgbotapi.NewBotAPI(tb.g.Config.Telegram.TelegrammBotApi); err != nil {
-		tb.g.Log.Fatalf("Bot connect fail :%s ", err)
-		os.Exit(1)
+	if err = tgbotapi.SetLogger(telegramBotLogger{g: tb.g}); err != nil {
+		return errors.Annotate(err, "SetTelegramLogger")
 	}
+
+	// if tb.bot, err = tgbotapi.NewBotAPI(tb.g.Config.Telegram.TelegrammBotApi); err != nil {
+	// 	tb.g.Log.Fatalf("Bot connect fail :%s ", err)
+	// 	os.Exit(1)
+	// }
+
+	for {
+		tb.bot, err = tgbotapi.NewBotAPI(tb.g.Config.Telegram.TelegrammBotApi)
+		if err == nil {
+			break // Успешное подключение, выходим из цикла
+		}
+		tb.g.Log.Errorf("Bot connect fail: %s. Retrying in 3 seconds...", err)
+		time.Sleep(3 * time.Second) // Ждем перед следующей попыткой
+	}
+
 	tb.setBotMenu()
 	tb.bot.Debug = tb.g.Config.Telegram.DebugMessages
 	tb.admin = tb.g.Config.Telegram.TelegramAdmin
@@ -106,8 +159,8 @@ func (tb *tgbotapiot) setBotMenu() {
 	configs := []tgbotapi.BotCommand{
 		{Command: "balance", Description: "Посмотреть текущий баланс"},
 		{Command: "help", Description: "Помощь"},
-		{Command: "setpassword", Description: "установить пароль для входа через браузер"},
 		{Command: "web", Description: "перейти в браузер"},
+		{Command: "invite", Description: "получить одноразовую ссылку приглашение"},
 	}
 
 	// Создаем конфиг установки команд
@@ -115,7 +168,7 @@ func (tb *tgbotapiot) setBotMenu() {
 
 	// Отправляем запрос
 	if _, err := tb.bot.Request(setCommandsConfig); err != nil {
-		log.Printf("Ошибка при установке меню: %v", err)
+		tb.g.Log.Errorf("Ошибка при установке меню: %v", err)
 	}
 }
 
@@ -147,6 +200,28 @@ func (tb *tgbotapiot) telegramLoop() error {
 				tb.tgSend(tb.admin, errm)
 			}
 		case tgm := <-tgch:
+			// if tgm.CallbackQuery != nil && tgm.CallbackQuery.Data == "invite_url" {
+
+			// 	token, err := tb.g.CreateWebAuthToken(tgm.CallbackQuery.From.ID, int(vender_api.OwnerType_telegramUser))
+			// 	if err != nil {
+			// 		tb.tgSend(tgm.CallbackQuery.From.ID, "ошибка генерации ссылки")
+			// 		return nil
+			// 	}
+			// 	url := tb.g.Config.WebAuthCallbackURL(token)
+
+			// 	tb.tgSend(tgm.CallbackQuery.From.ID, "Ваша одноразовая ссылка:\n"+url)
+			// 	// callbackConfig := tgbotapi.CallbackConfig{
+			// 	// 	CallbackQueryID: tgm.CallbackQuery.ID,
+			// 	// 	URL:             url,
+			// 	// }
+			// 	// tb.bot.Request(callbackConfig)
+
+			// 	delMsg := tgbotapi.NewDeleteMessage(tgm.CallbackQuery.Message.Chat.ID, tgm.CallbackQuery.Message.MessageID)
+			// 	tb.bot.Request(delMsg)
+			// 	// callbackConfig := tgbotapi.CallbackQuery .NewCallbackWithURL(update.CallbackQuery.ID, "https://google.com")
+			// 	// bot.Request(callbackConfig)
+
+			// }
 			if tgm.Message == nil && tgm.EditedMessage != nil {
 				tb.g.Log.Infof("telegramm message change (%v)", tgm.EditedMessage)
 				tb.logTgDbChange(*tgm.EditedMessage)
@@ -248,27 +323,25 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 
 	//parse command
 	switch parseCommand(m.Message.Text) {
-	// case tgCommandSetPassword:
-	// 	parts := strings.SplitN(m.Message.Text, " ", 2)
-	// 	if len(parts) != 2 || parts[1] == "" {
-	// 		tb.tgSend(cl.Id, "укажите пароль: /setpassword ваш_пароль")
-	// 		return nil
-	// 	}
-	// 	password := parts[1]
-	// 	if err := tb.setWebPassword(cl.Id, password); err != nil {
-	// 		tb.tgSend(cl.Id, "ошибка сохранения пароля")
-	// 		return nil
-	// 	}
-	// 	tb.tgSend(cl.Id, fmt.Sprintf("пароль установлен.\nдля входа на сайт используйте логин: %d", cl.Id))
-	// 	return nil
 	case tgCommandWeb:
+		link := tb.g.Config.Web.BaseURL + tb.g.Config.Web.Path
+		tb.tgSend(cl.Id, fmt.Sprintf("ссылка на сайт: %s", link))
+	// 	return nil
+	case tgCommandWebInvite:
 		token, err := tb.g.CreateWebAuthToken(cl.Id, int(vender_api.OwnerType_telegramUser))
 		if err != nil {
 			tb.tgSend(cl.Id, "ошибка генерации ссылки")
 			return nil
 		}
-		url := fmt.Sprintf("%s/auth/callback?token=%s", tb.g.Config.Web.BaseURL, token)
-		tb.tgSend(cl.Id, "Ваша ссылка для входа:\n"+url+"\n\nСсылка действительна 5 минут.")
+		url := tb.g.Config.WebAuthCallbackURL(token)
+
+		sm := tb.tgSend(cl.Id, "Ваша одноразовая ссылка приглашение:\n"+url+"\n\nСсылка действительна 5 минут.")
+
+		go func() {
+			time.Sleep(5 * time.Minute)
+			delMsg := tgbotapi.NewDeleteMessage(sm.Chat.ID, sm.MessageID)
+			tb.bot.Request(delMsg)
+		}()
 		return nil
 	case tgCommandInvalid:
 		return nil
@@ -398,6 +471,8 @@ func parseCommand(cmd string) tgCommand {
 		return tgCommandBalance
 	case cmd == "/help":
 		return tgCommandHelp
+	case cmd == "/invite":
+		return tgCommandWebInvite
 	case cmd == "/web":
 		return tgCommandWeb
 	// case strings.HasPrefix(cmd, "/setpassword "):
@@ -558,7 +633,7 @@ func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order, vmid int32) {
 		if err != nil {
 			tb.g.Log.Errorf("cookResponseN getClient userId=%d err=%v", client, err)
 		}
-		tb.g.LogUserOrder("TG",client, int32(vender_api.OwnerType_telegramUser), msg, cl.Balance)
+		tb.g.LogUserOrder("TG", client, int32(vender_api.OwnerType_telegramUser), msg, cl.Balance)
 		tb.tgSend(int64(client), msg)
 		return
 	case vender_api.OrderStatus_orderError:
@@ -594,7 +669,7 @@ func (tb *tgbotapiot) rcookWriteDb(userId int64, price int, addMsg ...string) st
 	if len(addMsg) != 0 {
 		msg = addMsg[0]
 	}
-	tb.g.LogUserOrder("TG",userId, int32(vender_api.OwnerType_telegramUser), msg, cl.Balance)
+	tb.g.LogUserOrder("TG", userId, int32(vender_api.OwnerType_telegramUser), msg, cl.Balance)
 	msg = msg + balance(cl.Balance)
 	tb.tgSend(userId, msg)
 	return cl
@@ -607,7 +682,7 @@ func TgSendError(s string) {
 	}
 }
 
-func (tb *tgbotapiot) tgSend(chatid int64, s string) {
+func (tb *tgbotapiot) tgSend(chatid int64, s string) (m tgbotapi.Message) {
 	if s == "" {
 		return
 	}
@@ -619,6 +694,7 @@ func (tb *tgbotapiot) tgSend(chatid int64, s string) {
 	}
 	tb.g.Log.Infof("send telegram message userid: %d text: %s", m.Chat.ID, m.Text)
 	tb.logTgDb(m)
+	return m
 }
 
 func (tb *tgbotapiot) addUserToDB(c *tgbotapi.Contact) error {
