@@ -39,12 +39,13 @@ func (h *WebHandler) CheckAuth() gin.HandlerFunc {
 
 		var session struct {
 			Approved bool  `pg:"approved"`
-			UserType int `pg:"user_type"`
+			Revoked  bool  `pg:"revoked"`
+			UserType int   `pg:"user_type"`
 		}
 
 		_, err = h.App.DB.QueryOne(&session,
-			"SELECT approved, user_type FROM user_sessions WHERE token = ? AND userid = ?", token, uid)
-		if err != nil || !session.Approved {
+			"SELECT approved, revoked, user_type FROM user_sessions WHERE token = ? AND userid = ?", token, uid)
+		if err != nil || !session.Approved || session.Revoked {
 			c.AbortWithStatusJSON(401, gin.H{"error": "Session not approved"})
 			return
 		}

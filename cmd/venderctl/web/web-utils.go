@@ -14,7 +14,7 @@ func (h *WebHandler) setAuthCookie(c *gin.Context, userId int64, token string) {
 	secret := h.App.Config.Web.SecretKey
 	sig := signValue(secret, value+token)
 	cookie := fmt.Sprintf("%s:%s:%s", value, token, sig)
-	c.SetCookie("auth_user_id", cookie, 3600*24*30, "/", "", false, true)
+	c.SetCookie("auth_user_id", cookie, 3600*24*30, h.App.Config.WebCookiePath(), "", false, true)
 }
 
 func signValue(secret, value string) string {

@@ -61,8 +61,14 @@ type Config struct {
 	}
 	Web struct {
 		BaseURL       string `hcl:"web_url"`
+		Path          string `hcl:"web_path"`
 		SecretKey     string `hcl:"secret_key"`
 		DebugPassword string `hcl:"pass"`
+		// generate keys
+		// npx web-push generate-vapid-keys
+		VAPIDPublicKey  string `hcl:"vapid_public_key"`
+		VAPIDPrivateKey string `hcl:"vapid_private_key"`
+		VAPIDSubject    string `hcl:"vapid_subject"` //"mailto:admin@yourdomain.com"
 	}
 	Tele tele_config.Config
 

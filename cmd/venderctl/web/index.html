@@ -4,6 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0088cc">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <title>Vender Web</title>
     <style>
         body {
@@ -163,13 +167,16 @@
     <div id="menu-overlay" onclick="toggleMenu()"></div>
     <div id="side-menu" class="side-menu">
         <div class="menu-header">Настройки</div>
+        <div id="install-app-item" class="menu-item" onclick="installPWA()">📲 Установить приложение</div>
         <a href="tg://resolve?domain=FreeBenderTestBot" class="menu-item"
             style="display: flex; align-items: center; text-decoration: none;">
             <span style="margin-right: 10px;">🤖</span> Перейти в телеграм бот
         </a>
+        <div class="menu-item" onclick="messageAdmin()">✉️ Сообщение администратору</div>
         <div class="menu-item" onclick="openMachineList()">📍 Сменить автомат</div>
         <div class="menu-item" onclick="openOrders()">📋 Заказы</div>
-        <div class="menu-item" style="color: #ff4d4d; margin-top: 20px;" onclick="logout()">🚪 Выход</div>
+        <div id="logout-menu-item" class="menu-item" style="color: #ff4d4d; margin-top: 20px;" onclick="logout()">🚪
+            Выход</div>
     </div>
 
     <div class="container">
@@ -263,6 +270,79 @@
         let currentDefaultVmid = null;
         let pendingOrder = null; // параметры текущего заказа
         let ordersOffset = 0;
+        let deferredInstallPrompt = null;
+        let swRegistrationPromise = null;
+        const basePath = location.pathname === '/' ? '' : location.pathname.replace(/\/+$/, '');
+
+        function withBase(path) {
+            return `${basePath}${path}`;
+        }
+
+        function registerServiceWorker() {
+            if (!('serviceWorker' in navigator)) {
+                return;
+            }
+            swRegistrationPromise = new Promise((resolve) => {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register(withBase('/sw.js'), { scope: withBase('/') })
+                        .then(resolve)
+                        .catch((err) => {
+                            console.log('SW registration failed:', err);
+                            resolve(null);
+                        });
+                });
+            });
+        }
+
+        registerServiceWorker();
+
+        function isStandaloneApp() {
+            if (window.matchMedia('(display-mode: standalone)').matches) return true;
+            if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+            if (window.matchMedia('(display-mode: minimal-ui)').matches) return true;
+            if (window.navigator.standalone === true) return true; // iOS
+            return document.referrer.startsWith('android-app://');
+        }
+
+        function applyStandaloneUI() {
+            const standalone = isStandaloneApp();
+            const installItem = document.getElementById('install-app-item');
+            const logoutItem = document.getElementById('logout-menu-item');
+            if (installItem) installItem.style.display = standalone ? 'none' : 'block';
+            if (!logoutItem) return;
+            logoutItem.style.display = standalone ? 'none' : 'block';
+        }
+
+        const dmStandalone = window.matchMedia('(display-mode: standalone)');
+        const dmFullscreen = window.matchMedia('(display-mode: fullscreen)');
+        const dmMinimalUI = window.matchMedia('(display-mode: minimal-ui)');
+        dmStandalone.addEventListener('change', applyStandaloneUI);
+        dmFullscreen.addEventListener('change', applyStandaloneUI);
+        dmMinimalUI.addEventListener('change', applyStandaloneUI);
+        window.addEventListener('pageshow', applyStandaloneUI);
+        applyStandaloneUI();
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredInstallPrompt = null;
+        });
+
+        async function installPWA() {
+            toggleMenu();
+            if (!deferredInstallPrompt) {
+                alert('Установка сейчас недоступна.\nОткройте страницу в Chrome (не внутри Telegram), по HTTPS, обновите страницу и попробуйте снова.');
+                return;
+            }
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+            const item = document.getElementById('install-app-item');
+            if (item) item.style.display = 'none';
+        }
 
         function openOrders() {
             toggleMenu();
@@ -279,7 +359,7 @@
         }
 
         function loadMoreOrders() {
-            fetch(`/api/orders?offset=${ordersOffset}`)
+            fetch(withBase(`/api/orders?offset=${ordersOffset}`))
                 .then(res => res.json())
                 .then(orders => {
                     const list = document.getElementById('orders-list');
@@ -292,7 +372,8 @@
                         const date = new Date(o.date).toLocaleString('ru-RU');
                         const div = document.createElement('div');
                         div.style = 'padding:10px; border-bottom:1px solid #eee; font-size:14px;';
-                        div.innerHTML = `<span style="color:#888; font-size:12px;">${date}</span><br>${o.action}`;
+                        const balanceInfo = Number.isFinite(o.balance_info) ? o.balance_info.toFixed(2) : String(o.balance_info ?? '');
+                        div.innerHTML = `<span style="color:#888; font-size:12px;">${date}</span><br>${o.action} <span style="color:#666;">| баланс: ${balanceInfo}</span>`;
                         list.appendChild(div);
                     });
                     ordersOffset += orders.length;
@@ -300,7 +381,36 @@
                 });
         }
 
-        function logout() { window.location.href = '/auth/logout'; }
+        async function logout() {
+            await unsubscribeWebPush();
+            window.location.href = withBase('/auth/logout');
+        }
+
+        function messageAdmin() {
+            toggleMenu();
+            const text = prompt("Введите сообщение администратору:");
+            if (text === null) return;
+            const message = text.trim();
+            if (!message) {
+                alert("Пустое сообщение");
+                return;
+            }
+
+            fetch(withBase('/api/admin/message'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) {
+                        alert(data.error || "Не удалось отправить сообщение");
+                        return;
+                    }
+                    alert("Сообщение отправлено администратору");
+                })
+                .catch(() => alert("Ошибка связи при отправке"));
+        }
 
         function toggleMenu() {
             const menu = document.getElementById('side-menu');
@@ -321,7 +431,7 @@
         // === ПОПУЛЯРНЫЕ НАПИТКИ ===
 
         function loadPopular() {
-            fetch('api/drinks/popular')
+            fetch(withBase('/api/drinks/popular'))
                 .then(res => res.json())
                 .then(drinks => {
                     const container = document.getElementById('popular-drinks');
@@ -378,7 +488,7 @@
                 payload.lat = lat;
                 payload.lon = lon;
             }
-            fetch('/api/favorite', {
+            fetch(withBase('/api/favorite'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -409,7 +519,7 @@
             if (!drink) return alert("Введите код напитка");
             if (!currentDefaultVmid) return alert("Выберите автомат в меню ☰");
 
-            fetch('/api/order/check', {
+            fetch(withBase('/api/order/check'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -451,6 +561,7 @@
         function startBrewing() {
             let orderFinished = false;
             if (!pendingOrder) return;
+            requestNotificationPermission();
 
             // Блокируем кнопку чтобы не нажали дважды
             const btn = document.getElementById('btn-brew');
@@ -464,7 +575,7 @@
 
             // 1. Сначала открываем WebSocket
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(proto + '//' + location.host + '/api/order/ws');
+            const ws = new WebSocket(proto + '//' + location.host + withBase('/api/order/ws'));
 
             // Таймаут 30 секунд
             const timeout = setTimeout(() => {
@@ -475,7 +586,7 @@
 
             ws.onopen = () => {
                 // 2. Только после открытия WS отправляем заказ
-                fetch('/api/order/start', {
+                fetch(withBase('/api/order/start'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(pendingOrder)
@@ -512,6 +623,8 @@
                     case 'complete':
                         orderFinished = true;
                         ws.close();
+                        playDoneSound();
+                        notifyOrderReady(event);
                         if (event.cashback) {
                             showStatus('✅ Готово! Приятного аппетита. Кэшбек: ' + event.cashback.toFixed(2) + ' ₽');
                         } else {
@@ -583,8 +696,131 @@
             document.getElementById('status-msg').innerText = msg;
         }
 
+        function playDoneSound() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const now = ctx.currentTime;
+                const freqs = [880, 1175, 1568];
+                freqs.forEach((f, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = f;
+                    gain.gain.setValueAtTime(0.0001, now + i * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.12, now + i * 0.12 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.18);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + i * 0.12);
+                    osc.stop(now + i * 0.12 + 0.2);
+                });
+            } catch (_) { }
+        }
+
+        async function requestNotificationPermission() {
+            if (!('Notification' in window)) return;
+            if (Notification.permission === 'default') {
+                try {
+                    await Notification.requestPermission();
+                } catch (_) { }
+            }
+            if (Notification.permission === 'granted') {
+                await ensureWebPushSubscription();
+            }
+        }
+
+        async function notifyOrderReady(event) {
+            if (!('Notification' in window)) return;
+            if (Notification.permission !== 'granted') return;
+            if (!document.hidden && document.hasFocus()) return;
+
+            const body = event && event.cashback
+                ? `Напиток готов. Кэшбек: ${event.cashback.toFixed(2)} ₽`
+                : 'Ваш напиток готов. Приятного аппетита.';
+            const targetURL = location.origin + withBase('/');
+            const iconURL = location.origin + withBase('/icon-192.png');
+
+            try {
+                if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                    const reg = await navigator.serviceWorker.ready;
+                    await reg.showNotification('Vender Web', {
+                        body: body,
+                        tag: 'order-ready',
+                        renotify: true,
+                        icon: iconURL,
+                        badge: iconURL,
+                        data: { url: targetURL }
+                    });
+                    return;
+                }
+            } catch (_) { }
+
+            try {
+                new Notification('Vender Web', { body: body, icon: iconURL });
+            } catch (_) { }
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        async function ensureWebPushSubscription() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            if (Notification.permission !== 'granted') return;
+
+            const reg = swRegistrationPromise ? await swRegistrationPromise : await navigator.serviceWorker.ready;
+            if (!reg) return;
+
+            const keyResp = await fetch(withBase('/api/push/public-key'));
+            if (!keyResp.ok) return;
+            const keyData = await keyResp.json();
+            if (!keyData.publicKey) return;
+
+            let subscription = await reg.pushManager.getSubscription();
+            if (!subscription) {
+                subscription = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+                });
+            }
+
+            await fetch(withBase('/api/push/subscribe'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(subscription)
+            });
+        }
+
+        async function unsubscribeWebPush() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            const reg = swRegistrationPromise ? await swRegistrationPromise : await navigator.serviceWorker.ready;
+            if (!reg) return;
+            const subscription = await reg.pushManager.getSubscription();
+            if (!subscription) return;
+
+            try {
+                await fetch(withBase('/api/push/unsubscribe'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ endpoint: subscription.endpoint })
+                });
+            } catch (_) { }
+            try {
+                await subscription.unsubscribe();
+            } catch (_) { }
+        }
+
         // === ЗАГРУЗКА ПРОФИЛЯ ===
-        fetch('/api/balance')
+        fetch(withBase('/api/balance'))
             .then(res => res.ok ? res.json() : Promise.reject())
             .then(data => {
                 document.getElementById('auth-section').style.display = 'none';
@@ -624,6 +860,9 @@
                 currentDefaultVmid = data.vm_id;
                 document.getElementById('current-machine-label').innerText = data.vm_id ? `Автомат №${data.vm_id}` : "Выберите автомат";
 
+                if (Notification.permission === 'granted') {
+                    ensureWebPushSubscription().catch(() => { });
+                }
                 loadPopular();
             })
             .catch(() => console.log("Нужен логин"));

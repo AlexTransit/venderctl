@@ -32,11 +32,7 @@ func (h *WebHandler) SetFavorite(c *gin.Context) {
 
 		var nearestVMID int
 		_, err := h.App.DB.QueryOne(&nearestVMID,
-			`SELECT vmid
-			 FROM robot
-			 WHERE lat IS NOT NULL AND lon IS NOT NULL
-			 ORDER BY ((lat - ?0) * (lat - ?0) + (lon - ?1) * (lon - ?1)) ASC
-			 LIMIT 1`,
+			`SELECT vmid FROM public.robot WHERE sqrt(pow((geolocation->'lat')::float - ?0, 2) + pow((geolocation->'lon')::float - ?1, 2)) < 1.06 LIMIT 1;`,
 			*req.Lat, *req.Lon)
 		if err != nil || nearestVMID <= 0 {
 			h.App.Log.Errorf("auto favorite machine detect error userId=%d err=%v", userId, err)
@@ -76,7 +72,7 @@ func (h *WebHandler) GetBalance(c *gin.Context) {
 		"user_name": cl.Name,
 		"balance":   float64(cl.Balance) / 100, // баланс в рублях
 		"vm_id":     cl.Defaultrobot,
-		"discount":  cl.Diskont, // например, 10 (значит 10%)
+		"discount":  cl.Diskont,               // например, 10 (значит 10%)
 		"credit":    float64(cl.Credit) / 100, // кредит в рублях
 	})
 }
@@ -91,13 +87,14 @@ func (h *WebHandler) GetOrders(c *gin.Context) {
 	}
 
 	type OrderRecord struct {
-		Date   time.Time `pg:"date" json:"date"`
-		Action string    `pg:"action" json:"action"`
+		Date        time.Time `pg:"date" json:"date"`
+		Action      string    `pg:"action" json:"action"`
+		BalanceInfo float64   `pg:"balance_info" json:"balance_info"`
 	}
 
 	var orders []OrderRecord
 	_, err := h.App.DB.Query(&orders,
-		`SELECT date, action FROM user_orders 
+		`SELECT date, action, balance_info FROM user_orders 
          WHERE userid = ?0 AND user_type = ?1 
          ORDER BY date DESC LIMIT 10 OFFSET ?2`,
 		userId, userType, offset)

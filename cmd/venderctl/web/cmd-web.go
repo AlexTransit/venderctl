@@ -2,10 +2,10 @@ package web
 
 import (
 	"context"
+	_ "embed"
 	"flag"
 	"fmt"
 	"net/http"
-	"sync"
 
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
@@ -17,6 +17,21 @@ import (
 
 const CmdName = "web"
 
+//go:embed index.html
+var indexHTML []byte
+
+//go:embed manifest.webmanifest
+var manifestJSON []byte
+
+//go:embed sw.js
+var serviceWorkerJS []byte
+
+//go:embed icon-192.png
+var icon192 []byte
+
+//go:embed icon-512.png
+var icon512 []byte
+
 var Cmd = cli.Cmd{
 	Name:   CmdName,
 	Desc:   "web. control vmc via web browser",
@@ -26,18 +41,7 @@ var Cmd = cli.Cmd{
 type WebHandler struct {
 	App         *state.Global
 	OrderEvents *EventBus
-	orderTypes  *orderTypeStore
-}
-
-type orderTypeKey struct {
-	userId int64
-	vmid   int32
-	drink  string
-}
-
-type orderTypeStore struct {
-	mu sync.RWMutex
-	m  map[orderTypeKey]int32
+	authStore   webAuthStore
 }
 
 func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
@@ -56,6 +60,9 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 
 	h := &WebHandler{App: g}
 	h.OrderEvents = NewEventBus()
+	if err := h.EnsurePushSchema(); err != nil {
+		return errors.Annotate(err, "web_push_schema")
+	}
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
@@ -63,24 +70,53 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 		c.JSON(500, gin.H{"error": "internal server error"})
 	}))
 
+	web := r.Group(g.Config.WebRoutePrefix())
+
 	// маршруты
-	r.GET("/auth/callback", h.HandleAuth)
-	r.POST("/auth/callback", h.HandleAuth)
-	r.GET("/auth/logout", h.Logout)
+	web.GET("/auth/callback", h.HandleAuth)
+	web.POST("/auth/callback", h.HandleAuth)
+	web.GET("/auth/logout", h.Logout)
 
-	r.GET("/api/balance", h.CheckAuth(), h.GetBalance)
-	r.POST("/api/favorite", h.CheckAuth(), h.SetFavorite)
+	web.GET("/api/balance", h.CheckAuth(), h.GetBalance)
+	web.POST("/api/favorite", h.CheckAuth(), h.SetFavorite)
+	web.POST("/api/admin/message", h.CheckAuth(), h.SendAdminMessage)
+	web.POST("/api/admin/notification-click", h.AdminNotificationClick)
+	web.GET("/api/push/public-key", h.CheckAuth(), h.PushPublicKey)
+	web.POST("/api/push/subscribe", h.CheckAuth(), h.PushSubscribe)
+	web.POST("/api/push/unsubscribe", h.CheckAuth(), h.PushUnsubscribe)
 
-	r.GET("/api/machines", h.GetMachines)
-	r.GET("/api/drinks/popular", h.CheckAuth(), h.GetPopular)
+	// web.GET("/api/machines", h.GetMachines)
+	web.GET("/api/drinks/popular", h.CheckAuth(), h.GetPopular)
 
-	r.POST("/api/order/check", h.CheckAuth(), h.PreviewOrder)
-	r.POST("/api/order/start", h.CheckAuth(), h.StartOrder)
-	r.GET("/api/order/ws", h.CheckAuth(), h.OrderWS)
+	web.POST("/api/order/check", h.CheckAuth(), h.PreviewOrder)
+	web.POST("/api/order/start", h.CheckAuth(), h.StartOrder)
+	web.GET("/api/order/ws", h.CheckAuth(), h.OrderWS)
 
-	r.GET("/api/orders", h.CheckAuth(), h.GetOrders)
+	web.GET("/api/orders", h.CheckAuth(), h.GetOrders)
 
-	r.StaticFile("/", "./web/index.html")
+	serveIndex := func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
+	}
+	serveManifest := func(c *gin.Context) {
+		c.Data(http.StatusOK, "application/manifest+json; charset=utf-8", manifestJSON)
+	}
+	serveSW := func(c *gin.Context) {
+		c.Header("Service-Worker-Allowed", h.App.Config.WebRootPath())
+		c.Data(http.StatusOK, "application/javascript; charset=utf-8", serviceWorkerJS)
+	}
+	serveIcon192 := func(c *gin.Context) {
+		c.Data(http.StatusOK, "image/png", icon192)
+	}
+	serveIcon512 := func(c *gin.Context) {
+		c.Data(http.StatusOK, "image/png", icon512)
+	}
+	web.GET("/", serveIndex)
+	web.GET("/index.html", serveIndex)
+	web.GET("/manifest.webmanifest", serveManifest)
+	web.GET("/sw.js", serveSW)
+	web.GET("/icon-192.png", serveIcon192)
+	web.GET("/icon-512.png", serveIcon512)
+
 	r.SetTrustedProxies([]string{"127.0.0.1"})
 	r.NoRoute(func(c *gin.Context) {
 		g.Log.Errorf("problematic action. ip=%s host=%s path=%s", c.ClientIP(), c.Request.Host, c.Request.RequestURI)
@@ -137,10 +173,9 @@ func (h *WebHandler) ListenMQTT(ctx context.Context) {
 					h.App.ClientUpdateBalance(userId, userType, int64(order.Amount))
 
 					cl, _ := h.App.ClientGet(userId, userType)
-					action := fmt.Sprintf("приготовил №%d код:%s цена:%.2f баланс:%.2f",
+					action := fmt.Sprintf("приготовил №%d код:%s цена:%.2f",
 						p.VmId, order.MenuCode,
-						float64(order.Amount)/100,
-						float64(cl.Balance)/100)
+						float64(order.Amount)/100)
 					h.App.LogUserOrder("Web", userId, int32(userType), action, cl.Balance)
 					if cl.Diskont > 0 {
 						bonus := int64(order.Amount) * int64(cl.Diskont) / 100
@@ -156,6 +191,11 @@ func (h *WebHandler) ListenMQTT(ctx context.Context) {
 							}
 						}
 					}
+					pushBody := "Ваш напиток готов. Приятного аппетита."
+					if cashback, ok := event["cashback"].(float64); ok && cashback > 0 {
+						pushBody = fmt.Sprintf("Напиток готов. Кэшбек: %.2f ₽", cashback)
+					}
+					h.sendWebPushToUser(userId, int32(userType), "Vender Web", pushBody)
 				case vender_api.OrderStatus_executionInaccessible:
 					event["message"] = "код недоступен"
 				case vender_api.OrderStatus_overdraft:

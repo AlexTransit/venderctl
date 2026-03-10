@@ -19,12 +19,13 @@ func (h *WebHandler) GetPopular(c *gin.Context) {
 	}
 
 	userId := c.MustGet("user_id").(int64)
+	userType := c.MustGet("user_type").(int)
 
 	var drinks []PopularDrink
 
-	query := `SELECT menu_code as drink, (CASE WHEN options[1] = 0 THEN 4 ELSE options[1] - 1 END) as cream, (CASE WHEN options[2] = 0 THEN 4 ELSE options[2] - 1 END) as sugar FROM trans WHERE executer = ?0 GROUP BY 1,2,3 ORDER BY COUNT(*) DESC LIMIT 5`
+	query := `SELECT menu_code as drink, (CASE WHEN options[1] = 0 THEN 4 ELSE options[1] - 1 END) as cream, (CASE WHEN options[2] = 0 THEN 4 ELSE options[2] - 1 END) as sugar FROM trans WHERE executer = ?0 AND executer_type = ?1 GROUP BY 1,2,3 ORDER BY COUNT(*) DESC LIMIT 5`
 
-	_, err := h.App.DB.Query(&drinks, query, userId)
+	_, err := h.App.DB.Query(&drinks, query, userId, userType)
 
 	if err != nil || len(drinks) == 0 {
 		drinks = []PopularDrink{
@@ -202,19 +203,3 @@ func (h *WebHandler) OrderWS(c *gin.Context) {
 		}
 	}
 }
-
-// // creditCashbackToDb начисляет кэшбек по скидке клиента. Не начисляет если diskont = 0.
-// func (h *WebHandler) creditCashbackToDb(userId int64, price uint32) uint32 {
-// 	const q = `UPDATE tg_user SET balance = balance + ?1 * diskont / 100 WHERE userid = ?0 AND diskont > 0 RETURNING diskont;`
-// 	var diskont int
-// 	h.App.Alive.Add(1)
-// 	_, err := h.App.DB.QueryOne(&diskont, q, userId, price)
-// 	h.App.Alive.Done()
-// 	if err != nil {
-// 		// pg.ErrNoRows — скидки нет, это нормально
-// 		return 0
-// 	}
-// 	cashback := price * uint32(diskont) / 100
-// 	h.App.Log.Infof("кэшбек userId=%d сумма=%d diskont=%d%%", userId, cashback, diskont)
-// 	return cashback
-// }
