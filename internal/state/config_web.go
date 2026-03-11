@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+// u, err := url.Parse(c)
+
 func NormalizeWebPath(raw string) string {
 	p := strings.TrimSpace(raw)
 	if p == "" {

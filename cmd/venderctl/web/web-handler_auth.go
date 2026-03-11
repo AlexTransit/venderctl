@@ -242,6 +242,6 @@ func (h *WebHandler) notifyAdmin(uid int64, token string, device string) {
 		uid, device, token, token,
 	)
 	// FIXME сделать оповещение
-	h.App.Log.Error(msg)
+	h.App.Log.Info(msg)
 	// h.App.TgSendToAdmin(msg)
 }

@@ -1,10 +1,10 @@
 const CACHE_VERSION = 'vender-web-v5';
 const CORE_FILES = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './icon-192.png',
-  './icon-512.png',
+  '/robot/',
+  '/robot/index.html',
+  '/robot/manifest.webmanifest',
+  '/robot/icon-192.png',
+  '/robot/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -124,6 +124,7 @@ self.addEventListener('push', (event) => {
     const windows = await clients.matchAll({ type: 'window', includeUncontrolled: true });
     const hasVisibleClient = windows.some((w) => w.visibilityState === 'visible' || w.focused);
     if (hasVisibleClient) {
+      await Promise.all(windows.map((w) => w.postMessage({ type: 'push', payload: data })));
       return;
     }
 

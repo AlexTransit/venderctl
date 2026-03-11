@@ -115,7 +115,6 @@ func telegramMain(ctx context.Context, flags *flag.FlagSet) error {
 		return errors.Annotate(err, "telegramInit")
 	}
 	return tb.telegramLoop()
-
 }
 
 func telegramInit(ctx context.Context) error {
@@ -152,7 +151,6 @@ func telegramInit(ctx context.Context) error {
 	cli.SdNotify(daemon.SdNotifyReady)
 	tb.g.Log.Infof("telegram init complete")
 	return nil
-
 }
 
 func (tb *tgbotapiot) setBotMenu() {
@@ -262,7 +260,6 @@ func (tb *tgbotapiot) TgChannelParser(m *tgbotapi.Message) {
 		var responseMessage string
 		defer func() {
 			tb.tgSend(tb.admin, responseMessage)
-
 		}()
 		parts := strings.FieldsFunc(m.Text, func(r rune) bool { return r == '_' })
 		if len(parts) < 2 {
@@ -270,7 +267,6 @@ func (tb *tgbotapiot) TgChannelParser(m *tgbotapi.Message) {
 			return
 		}
 		clid, err := strconv.ParseInt(parts[0], 10, 64)
-
 		if err != nil {
 			responseMessage = fmt.Sprintf("error bot(%v) command (%s)", m.AuthorSignature, m.Text)
 			return
@@ -321,7 +317,7 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 	// 	}
 	// }
 
-	//parse command
+	// parse command
 	switch parseCommand(m.Message.Text) {
 	case tgCommandWeb:
 		link := tb.g.Config.Web.BaseURL + tb.g.Config.Web.Path
@@ -335,8 +331,13 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 		}
 		url := tb.g.Config.WebAuthCallbackURL(token)
 
-		sm := tb.tgSend(cl.Id, "Ваша одноразовая ссылка приглашение:\n"+url+"\n\nСсылка действительна 5 минут.")
-
+		// sm := tb.tgSend(cl.Id, "Ваша одноразовая ссылка приглашение:\n"+url+"\n\nСсылка действительна 5 минут.")
+		msg := tgbotapi.NewMessage(cl.Id, "Нажмите кнопку ниже для входа.\nЕсли открылся встроенный браузер — нажмите ••• и выберите «Открыть в браузере»")
+		btn := tgbotapi.NewInlineKeyboardButtonURL("🌐 Открыть веб", url)
+		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(btn),
+		)
+		sm, _ := tb.bot.Send(msg)
 		go func() {
 			time.Sleep(5 * time.Minute)
 			delMsg := tgbotapi.NewDeleteMessage(sm.Chat.ID, sm.MessageID)
@@ -617,6 +618,7 @@ func (tb *tgbotapiot) sendCookCmdN(tgUser tgUser) {
 	tb.g.Log.Infof("telegram client (%v) send remote cook code:%s", tgUser.Id, tgUser.rcook.code)
 	tb.g.Tele.SendToRobo(tgUser.rcook.vmid, &trm)
 }
+
 func (tb *tgbotapiot) cookResponseN(ro *vender_api.Order, vmid int32) {
 	var msg string
 	client := ro.OwnerInt

@@ -32,6 +32,9 @@ var icon192 []byte
 //go:embed icon-512.png
 var icon512 []byte
 
+//go:embed apple-touch-icon.png
+var appleTouchIcon []byte
+
 var Cmd = cli.Cmd{
 	Name:   CmdName,
 	Desc:   "web. control vmc via web browser",
@@ -60,9 +63,6 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 
 	h := &WebHandler{App: g}
 	h.OrderEvents = NewEventBus()
-	if err := h.EnsurePushSchema(); err != nil {
-		return errors.Annotate(err, "web_push_schema")
-	}
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
@@ -80,7 +80,12 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	web.GET("/api/balance", h.CheckAuth(), h.GetBalance)
 	web.POST("/api/favorite", h.CheckAuth(), h.SetFavorite)
 	web.POST("/api/admin/message", h.CheckAuth(), h.SendAdminMessage)
+	web.POST("/api/admin/send", h.CheckAuth(), h.AdminSendMessage)
+	web.POST("/api/admin/reply", h.CheckAuth(), h.AdminReplyMessage)
+	web.POST("/api/user/admin-reply", h.CheckAuth(), h.UserReplyAdminMessage)
+	web.GET("/api/admin/messages", h.CheckAuth(), h.GetAdminMessages)
 	web.POST("/api/admin/notification-click", h.AdminNotificationClick)
+	web.POST("/api/admin/reply/ack", h.CheckAuth(), h.AdminReplyAck)
 	web.GET("/api/push/public-key", h.CheckAuth(), h.PushPublicKey)
 	web.POST("/api/push/subscribe", h.CheckAuth(), h.PushSubscribe)
 	web.POST("/api/push/unsubscribe", h.CheckAuth(), h.PushUnsubscribe)
@@ -110,12 +115,16 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	serveIcon512 := func(c *gin.Context) {
 		c.Data(http.StatusOK, "image/png", icon512)
 	}
+	serveAppleTouchIcon := func(c *gin.Context) {
+		c.Data(http.StatusOK, "image/png", appleTouchIcon)
+	}
 	web.GET("/", serveIndex)
 	web.GET("/index.html", serveIndex)
 	web.GET("/manifest.webmanifest", serveManifest)
 	web.GET("/sw.js", serveSW)
 	web.GET("/icon-192.png", serveIcon192)
 	web.GET("/icon-512.png", serveIcon512)
+	web.GET("/apple-touch-icon.png", serveAppleTouchIcon)
 
 	r.SetTrustedProxies([]string{"127.0.0.1"})
 	r.NoRoute(func(c *gin.Context) {
@@ -135,6 +144,7 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	<-g.Alive.StopChan()
 	return srv.Shutdown(ctx)
 }
+
 func (h *WebHandler) ListenMQTT(ctx context.Context) {
 	mqttch := h.App.Tele.Chan()
 	stopch := h.App.Alive.StopChan()
