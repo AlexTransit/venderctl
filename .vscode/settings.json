@@ -4,30 +4,12 @@
     "editor.defaultFormatter": "golang.go",
     "editor.codeActionsOnSave": {
         "source.organizeImports": "always",},
-    "go.formatTool": "goimports",
-    "go.installDependenciesWhenBuilding": false,
-    "go.lintTool": "golangci-lint",
-    "go.testEnvFile": ".env",
-    "go.testTimeout": "15s",
+    // "go.formatTool": "goimports",
+    // "go.installDependenciesWhenBuilding": false,
+    // "go.lintTool": "golangci-lint",
+    // "go.testEnvFile": ".env",
+    // "go.testTimeout": "15s",
     "[html]": {
         "editor.defaultFormatter": "vscode.html-language-features"
     }
 }
-// {
-//     "go.autocompleteUnimportedPackages": true,
-//     // "go.buildFlags": ["-race"],
-//     "go.formatFlags": [
-//         "-s"
-//     ],
-//     "go.formatTool": "goimports",
-//     "go.installDependenciesWhenBuilding": false,
-//     "go.lintTool": "golangci-lint",
-//     "go.testEnvFile": ".env",
-//     "go.testTimeout": "15s",
-//     "go.useCodeSnippetsOnFunctionSuggest": true,
-//     "go.useCodeSnippetsOnFunctionSuggestWithoutType": true
-//     // ,
-//     //     "github.copilot.enable": {
-//     //         "go": true
-//     //     }
-// }

@@ -2,6 +2,7 @@ package state
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -60,10 +61,9 @@ type Config struct {
 		DebugMessages bool   `hcl:"telegram_debug"`
 	}
 	Web struct {
-		BaseURL       string `hcl:"web_url"`
-		Path          string `hcl:"web_path"`
-		SecretKey     string `hcl:"secret_key"`
-		DebugPassword string `hcl:"pass"`
+		BaseURL   string `hcl:"web_url"`
+		Path      string `hcl:"web_path"`
+		SecretKey string `hcl:"secret_key"`
 		// generate keys
 		// npx web-push generate-vapid-keys
 		VAPIDPublicKey  string `hcl:"vapid_public_key"`
@@ -111,9 +111,8 @@ func (c *Config) read(log *log2.Log, fs FullReader, source ConfigSource, errs *[
 
 	err = hcl.Unmarshal(bs, c)
 	if err != nil {
-		err = errors.Annotatef(err, "config unmarshal source=%s content='%s'", source.Name, string(bs))
-		*errs = append(*errs, err)
-		return
+		log.Errorf("error config unmarshal source=%s error=%v ", source.Name, err)
+		os.Exit(1)
 	}
 
 	var includes []ConfigSource

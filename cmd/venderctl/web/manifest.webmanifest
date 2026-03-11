@@ -1,12 +1,12 @@
 {
   "name": "Vender Web",
   "short_name": "Vender",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/robot/",
+  "scope": "/robot/",
   "display": "standalone",
   "background_color": "#f0f2f5",
   "theme_color": "#0088cc",
-  "description": "Web-клиент для управления автоматами Vender",
+  "description": "Web-клиент для управления автопоилками",
   "icons": [
     {
       "src": "./icon-192.png",
@@ -19,6 +19,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "./apple-touch-icon.png",

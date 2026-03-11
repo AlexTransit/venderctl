@@ -29,20 +29,6 @@ func (h *WebHandler) webPushConfigured() bool {
 	return cfg.VAPIDPublicKey != "" && cfg.VAPIDPrivateKey != "" && cfg.VAPIDSubject != ""
 }
 
-func (h *WebHandler) EnsurePushSchema() error {
-	_, err := h.App.DB.Exec(`CREATE TABLE IF NOT EXISTS web_push_subscriptions (
-		endpoint TEXT PRIMARY KEY,
-		userid BIGINT NOT NULL,
-		user_type INTEGER NOT NULL,
-		p256dh TEXT NOT NULL,
-		auth TEXT NOT NULL,
-		created_at TIMESTAMP(0) WITH TIME ZONE DEFAULT now() NOT NULL,
-		updated_at TIMESTAMP(0) WITH TIME ZONE DEFAULT now() NOT NULL,
-		revoked BOOLEAN DEFAULT false NOT NULL
-	)`)
-	return err
-}
-
 func (h *WebHandler) PushPublicKey(c *gin.Context) {
 	if !h.webPushConfigured() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "web push not configured"})
@@ -146,7 +132,7 @@ func (h *WebHandler) sendWebPushToUser(userID int64, userType int32, title strin
 	h.sendWebPushSubscriptions(userID, subscriptions, title, body, nil)
 }
 
-func (h *WebHandler) sendWebPushToUserAnyType(userID int64, title string, body string) {
+func (h *WebHandler) sendWebPushToUserWithData(userID int64, userType int32, title string, body string, data map[string]any) {
 	if !h.webPushConfigured() {
 		return
 	}
@@ -156,11 +142,11 @@ func (h *WebHandler) sendWebPushToUserAnyType(userID int64, title string, body s
 		&subscriptions,
 		`SELECT endpoint, p256dh, auth
 		   FROM web_push_subscriptions
-		  WHERE userid = ?0 AND revoked = false`,
-		userID,
+		  WHERE userid = ?0 AND user_type = ?1 AND revoked = false`,
+		userID, userType,
 	)
 	if err != nil {
-		h.App.Log.Errorf("push query error user=%d err=%v", userID, err)
+		h.App.Log.Errorf("push query error user=%d type=%d err=%v", userID, userType, err)
 		return
 	}
 
@@ -168,8 +154,33 @@ func (h *WebHandler) sendWebPushToUserAnyType(userID int64, title string, body s
 		return
 	}
 
-	h.sendWebPushSubscriptions(userID, subscriptions, title, body, nil)
+	h.sendWebPushSubscriptions(userID, subscriptions, title, body, data)
 }
+
+// func (h *WebHandler) sendWebPushToUserAnyType(userID int64, title string, body string) {
+// 	if !h.webPushConfigured() {
+// 		return
+// 	}
+
+// 	var subscriptions []pushSubscriptionRecord
+// 	_, err := h.App.DB.Query(
+// 		&subscriptions,
+// 		`SELECT endpoint, p256dh, auth
+// 		   FROM web_push_subscriptions
+// 		  WHERE userid = ?0 AND revoked = false`,
+// 		userID,
+// 	)
+// 	if err != nil {
+// 		h.App.Log.Errorf("push query error user=%d err=%v", userID, err)
+// 		return
+// 	}
+
+// 	if len(subscriptions) == 0 {
+// 		return
+// 	}
+
+// 	h.sendWebPushSubscriptions(userID, subscriptions, title, body, nil)
+// }
 
 func (h *WebHandler) sendWebPushToUserAnyTypeWithData(userID int64, title string, body string, data map[string]any) {
 	if !h.webPushConfigured() {

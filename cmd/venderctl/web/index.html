@@ -156,7 +156,10 @@
 </head>
 
 <body>
-
+    <div id="splash"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:#fff; display:flex; align-items:center; justify-content:center; z-index:9999;">
+        <img src="icon-512.png" style="width:100vw; height:100vh; object-fit:contain;">
+    </div>
     <!-- ВЕРХНЯЯ ПАНЕЛЬ (ПОЯВИТСЯ ПОСЛЕ ВХОДА) -->
     <div id="nav-bar" class="header" style="display: none;">
         <span id="current-machine-label" style="font-weight: bold;">№ --</span>
@@ -167,14 +170,21 @@
     <div id="menu-overlay" onclick="toggleMenu()"></div>
     <div id="side-menu" class="side-menu">
         <div class="menu-header">Настройки</div>
-        <div id="install-app-item" class="menu-item" onclick="installPWA()">📲 Установить приложение</div>
+        <div id="install-app-item" class="menu-item" onclick="installPWA()" style="display:none;">📲 Установить
+            приложение</div>
         <a href="tg://resolve?domain=FreeBenderTestBot" class="menu-item"
             style="display: flex; align-items: center; text-decoration: none;">
             <span style="margin-right: 10px;">🤖</span> Перейти в телеграм бот
         </a>
         <div class="menu-item" onclick="messageAdmin()">✉️ Сообщение администратору</div>
+        <div id="admin-send-item" class="menu-item" onclick="sendMessageToUser()" style="display:none;">Написать
+            пользователю</div>
+        <div id="admin-messages-item" class="menu-item" onclick="openAdminMessages()" style="display:none;">Сообщения от
+            пользователей</div>
         <div class="menu-item" onclick="openMachineList()">📍 Сменить автомат</div>
         <div class="menu-item" onclick="openOrders()">📋 Заказы</div>
+        <div id="ios-install-item" class="menu-item" onclick="showIOSInstallHelp()" style="display:none;">Как установить
+            на iPhone</div>
         <div id="logout-menu-item" class="menu-item" style="color: #ff4d4d; margin-top: 20px;" onclick="logout()">🚪
             Выход</div>
     </div>
@@ -264,12 +274,76 @@
             <button onclick="closeOrders()"
                 style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Закрыть</button>
         </div>
+        <!-- СООБЩЕНИЯ АДМИНА -->
+        <div id="admin-messages-card" class="card" style="display:none; margin-top: 20px;">
+            <h4 style="margin-top:0;">Сообщения пользователей</h4>
+            <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:10px;">
+                <input type="checkbox" id="admin-hide-answered" onchange="toggleHideAnswered()" checked>
+                скрыть с ответами
+            </label>
+            <div id="admin-messages-list"></div>
+            <button id="admin-messages-more" onclick="loadMoreAdminMessages()"
+                style="display:none; width:100%; margin-top:10px; padding:10px; border:1px solid #0088cc; background:#fff; color:#0088cc; border-radius:10px; cursor:pointer;">
+                Загрузить ещё
+            </button>
+            <br>
+            <button onclick="closeAdminMessages()"
+                style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Закрыть</button>
+        </div>
+    </div>
+    <div id="admin-reply-modal"
+        style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000;">
+        <div
+            style="background: #fff; border-radius: 12px; padding: 20px; margin: 80px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.15);">
+            <div style="font-weight: bold; margin-bottom: 10px;">Сообщение администратору</div>
+            <div id="admin-reply-text" style="white-space: pre-wrap; margin-bottom: 12px;"></div>
+            <div style="font-weight: bold; margin-bottom: 6px;">Ответ</div>
+            <div id="admin-reply-reply" style="white-space: pre-wrap; margin-bottom: 16px;"></div>
+            <button id="admin-reply-ack" class="btn-blue" style="width: 100%;">Прочитал</button>
+        </div>
+    </div>
+    <div id="admin-message-modal"
+        style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000;">
+        <div
+            style="background: #fff; border-radius: 12px; padding: 20px; margin: 80px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.15);">
+            <div style="font-weight: bold; margin-bottom: 10px;">Сообщение администратора</div>
+            <div id="admin-message-text" style="white-space: pre-wrap; margin-bottom: 12px;"></div>
+            <textarea id="admin-message-reply" rows="3" placeholder="Ваш ответ"
+                style="width:100%; border:1px solid #ddd; border-radius:8px; padding:8px; margin-bottom:12px; font-size:14px;"></textarea>
+            <button id="admin-message-send" class="btn-blue" style="width: 100%;">Отправить ответ</button>
+        </div>
+    </div>
+    <div id="ios-install-modal"
+        style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000;">
+        <div
+            style="background: #fff; border-radius: 12px; padding: 20px; margin: 80px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.15);">
+            <div style="font-weight: bold; margin-bottom: 10px;">Установка на iPhone</div>
+            <div style="white-space: pre-wrap; margin-bottom: 16px;">
+                1. Откройте сайт в Safari.
+                2. Нажмите "Поделиться".
+                3. Выберите "На экран Домой".
+                4. Подтвердите добавление.
+            </div>
+            <button id="ios-install-close" class="btn-blue" style="width: 100%;">Понятно</button>
+        </div>
     </div>
 
     <script>
+        setTimeout(() => {
+            const splash = document.getElementById('splash');
+            splash.style.transition = 'opacity 0.5s';
+            splash.style.opacity = '0';
+            setTimeout(() => splash.remove(), 500);
+        }, 2500);
         let currentDefaultVmid = null;
         let pendingOrder = null; // параметры текущего заказа
         let ordersOffset = 0;
+        let adminMessagesOffset = 0;
+        let isAdminUser = false;
+        let currentAdminReplyId = 0;
+        let currentAdminMessageId = 0;
+        let canInstallPWA = false;
+        let hideAnswered = true;
         let deferredInstallPrompt = null;
         let swRegistrationPromise = null;
         const basePath = location.pathname === '/' ? '' : location.pathname.replace(/\/+$/, '');
@@ -296,6 +370,18 @@
 
         registerServiceWorker();
 
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                const data = event.data && event.data.payload ? event.data.payload : {};
+                if (data.kind === 'admin_reply' && data.message_id && data.reply) {
+                    showAdminReplyModal(data.message_id, data.message || '', data.reply);
+                }
+                if (data.kind === 'admin_message' && data.message_id && data.message) {
+                    showAdminMessageModal(data.message_id, data.message);
+                }
+            });
+        }
+
         function isStandaloneApp() {
             if (window.matchMedia('(display-mode: standalone)').matches) return true;
             if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
@@ -308,7 +394,7 @@
             const standalone = isStandaloneApp();
             const installItem = document.getElementById('install-app-item');
             const logoutItem = document.getElementById('logout-menu-item');
-            if (installItem) installItem.style.display = standalone ? 'none' : 'block';
+            if (installItem) installItem.style.display = (!standalone && canInstallPWA) ? 'block' : 'none';
             if (!logoutItem) return;
             logoutItem.style.display = standalone ? 'none' : 'block';
         }
@@ -325,10 +411,14 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredInstallPrompt = e;
+            canInstallPWA = true;
+            applyStandaloneUI();
         });
 
         window.addEventListener('appinstalled', () => {
             deferredInstallPrompt = null;
+            canInstallPWA = false;
+            applyStandaloneUI();
         });
 
         async function installPWA() {
@@ -344,12 +434,26 @@
             if (item) item.style.display = 'none';
         }
 
+        function isIOSDevice() {
+            const ua = navigator.userAgent || '';
+            const isIOS = /iPad|iPhone|iPod/.test(ua);
+            const isIPadOS = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            return isIOS || isIPadOS;
+        }
+
+        function showIOSInstallHelp() {
+            toggleMenu();
+            const modal = document.getElementById('ios-install-modal');
+            modal.style.display = 'block';
+        }
+
         function openOrders() {
             toggleMenu();
             ordersOffset = 0;
             document.getElementById('orders-list').innerHTML = '';
             document.getElementById('orders-card').style.display = 'block';
             document.getElementById('order-card').style.display = 'none';
+            document.getElementById('admin-messages-card').style.display = 'none';
             loadMoreOrders();
         }
 
@@ -381,6 +485,85 @@
                 });
         }
 
+        function openAdminMessages() {
+            toggleMenu();
+            if (!isAdminUser) {
+                alert("Доступ только для администратора");
+                return;
+            }
+            adminMessagesOffset = 0;
+            hideAnswered = document.getElementById('admin-hide-answered').checked;
+            document.getElementById('admin-messages-list').innerHTML = '';
+            document.getElementById('admin-messages-card').style.display = 'block';
+            document.getElementById('order-card').style.display = 'none';
+            document.getElementById('orders-card').style.display = 'none';
+            loadMoreAdminMessages();
+        }
+
+        function closeAdminMessages() {
+            document.getElementById('admin-messages-card').style.display = 'none';
+            document.getElementById('order-card').style.display = 'block';
+        }
+
+        function toggleHideAnswered() {
+            adminMessagesOffset = 0;
+            hideAnswered = document.getElementById('admin-hide-answered').checked;
+            document.getElementById('admin-messages-list').innerHTML = '';
+            loadMoreAdminMessages();
+        }
+
+        function loadMoreAdminMessages() {
+            const hideParam = hideAnswered ? '&hide_answered=1' : '';
+            fetch(withBase(`/api/admin/messages?offset=${adminMessagesOffset}${hideParam}`))
+                .then(res => res.json())
+                .then(messages => {
+                    const list = document.getElementById('admin-messages-list');
+                    if (messages.length === 0 && adminMessagesOffset === 0) {
+                        list.innerHTML = '<p style="color:#888; text-align:center;">Сообщений пока нет</p>';
+                        document.getElementById('admin-messages-more').style.display = 'none';
+                        return;
+                    }
+                    messages.forEach(m => {
+                        const date = new Date(m.created_at).toLocaleString('ru-RU');
+                        const div = document.createElement('div');
+                        div.style = 'padding:10px; border-bottom:1px solid #eee; font-size:14px;';
+                        const direction = m.from_admin ? 'админ → пользователь' : 'пользователь → админ';
+                        const replyText = m.reply ? `<br><span style="color:#666;">Ответ: ${m.reply}</span>` : '';
+                        const replyBtn = (!m.from_admin && !m.reply) ? `<br><button onclick="replyAdminMessage(${m.id})" style="margin-top:6px; padding:6px 10px; border:1px solid #0088cc; background:#fff; color:#0088cc; border-radius:8px; cursor:pointer;">Ответить</button>` : '';
+                        div.innerHTML = `<span style="color:#888; font-size:12px;">${date} • ${direction}</span><br><b>${m.user_id} (type ${m.user_type})</b><br>${m.message}${replyText}${replyBtn}`;
+                        list.appendChild(div);
+                    });
+                    adminMessagesOffset += messages.length;
+                    document.getElementById('admin-messages-more').style.display = messages.length === 10 ? 'block' : 'none';
+                });
+        }
+
+        function replyAdminMessage(messageId) {
+            const text = prompt("Ответ пользователю:");
+            if (text === null) return;
+            const reply = text.trim();
+            if (!reply) {
+                alert("Пустой ответ");
+                return;
+            }
+            fetch(withBase('/api/admin/reply'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message_id: messageId, reply })
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) {
+                        alert(data.error || "Не удалось отправить ответ");
+                        return;
+                    }
+                    adminMessagesOffset = 0;
+                    document.getElementById('admin-messages-list').innerHTML = '';
+                    loadMoreAdminMessages();
+                })
+                .catch(() => alert("Ошибка связи при отправке"));
+        }
+
         async function logout() {
             await unsubscribeWebPush();
             window.location.href = withBase('/auth/logout');
@@ -407,10 +590,124 @@
                         alert(data.error || "Не удалось отправить сообщение");
                         return;
                     }
-                    alert("Сообщение отправлено администратору");
                 })
                 .catch(() => alert("Ошибка связи при отправке"));
         }
+
+        function sendMessageToUser() {
+            toggleMenu();
+            const userIdRaw = prompt("ID пользователя:");
+            if (userIdRaw === null) return;
+            const userId = parseInt(userIdRaw, 10);
+            if (!Number.isFinite(userId) || userId <= 0) {
+                alert("Некорректный ID");
+                return;
+            }
+            const userTypeRaw = prompt("Тип пользователя (например 1):");
+            if (userTypeRaw === null) return;
+            const userType = parseInt(userTypeRaw, 10);
+            if (!Number.isFinite(userType)) {
+                alert("Некорректный тип");
+                return;
+            }
+            const text = prompt("Сообщение пользователю:");
+            if (text === null) return;
+            const message = text.trim();
+            if (!message) {
+                alert("Пустое сообщение");
+                return;
+            }
+
+            fetch(withBase('/api/admin/send'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, user_type: userType, message })
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) {
+                        alert(data.error || "Не удалось отправить сообщение");
+                        return;
+                    }
+                    alert("Сообщение отправлено");
+                })
+                .catch(() => alert("Ошибка связи при отправке"));
+        }
+
+        function showAdminReplyModal(messageId, messageText, replyText) {
+            currentAdminReplyId = messageId;
+            const modal = document.getElementById('admin-reply-modal');
+            const text = document.getElementById('admin-reply-text');
+            text.textContent = messageText || '';
+            const reply = document.getElementById('admin-reply-reply');
+            reply.textContent = replyText || '';
+            modal.style.display = 'block';
+        }
+
+        function showAdminMessageModal(messageId, messageText) {
+            currentAdminMessageId = messageId;
+            const modal = document.getElementById('admin-message-modal');
+            const text = document.getElementById('admin-message-text');
+            const reply = document.getElementById('admin-message-reply');
+            text.textContent = messageText || '';
+            reply.value = '';
+            modal.style.display = 'block';
+        }
+
+        function hideAdminReplyModal() {
+            const modal = document.getElementById('admin-reply-modal');
+            modal.style.display = 'none';
+        }
+
+        document.getElementById('admin-reply-ack').addEventListener('click', () => {
+            if (!currentAdminReplyId) {
+                hideAdminReplyModal();
+                return;
+            }
+            fetch(withBase('/api/admin/reply/ack'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message_id: currentAdminReplyId })
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) {
+                        alert(data.error || "Не удалось подтвердить");
+                        return;
+                    }
+                    currentAdminReplyId = 0;
+                    hideAdminReplyModal();
+                })
+                .catch(() => alert("Ошибка связи"));
+        });
+
+        document.getElementById('admin-message-send').addEventListener('click', () => {
+            const reply = document.getElementById('admin-message-reply').value.trim();
+            if (!currentAdminMessageId || !reply) {
+                alert("Введите ответ");
+                return;
+            }
+            fetch(withBase('/api/user/admin-reply'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message_id: currentAdminMessageId, reply })
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) {
+                        alert(data.error || "Не удалось отправить ответ");
+                        return;
+                    }
+                    currentAdminMessageId = 0;
+                    document.getElementById('admin-message-modal').style.display = 'none';
+                })
+                .catch(() => alert("Ошибка связи"));
+        });
+
+        document.getElementById('ios-install-close').addEventListener('click', () => {
+            const modal = document.getElementById('ios-install-modal');
+            modal.style.display = 'none';
+        });
 
         function toggleMenu() {
             const menu = document.getElementById('side-menu');
@@ -858,8 +1155,28 @@
                 }
 
                 currentDefaultVmid = data.vm_id;
+                isAdminUser = Boolean(data.is_admin);
+                const adminItem = document.getElementById('admin-messages-item');
+                if (adminItem) adminItem.style.display = isAdminUser ? 'block' : 'none';
+                const adminSendItem = document.getElementById('admin-send-item');
+                if (adminSendItem) adminSendItem.style.display = isAdminUser ? 'block' : 'none';
+                const iosItem = document.getElementById('ios-install-item');
+                if (iosItem) iosItem.style.display = (!isStandaloneApp() && isIOSDevice()) ? 'block' : 'none';
                 document.getElementById('current-machine-label').innerText = data.vm_id ? `Автомат №${data.vm_id}` : "Выберите автомат";
 
+                if (data.admin_reply && data.admin_reply.id) {
+                    showAdminReplyModal(
+                        data.admin_reply.id,
+                        data.admin_reply.message || '',
+                        data.admin_reply.reply || ''
+                    );
+                }
+                if (data.admin_message && data.admin_message.id) {
+                    showAdminMessageModal(
+                        data.admin_message.id,
+                        data.admin_message.message || ''
+                    );
+                }
                 if (Notification.permission === 'granted') {
                     ensureWebPushSubscription().catch(() => { });
                 }

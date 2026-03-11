@@ -67,6 +67,18 @@ func (h *WebHandler) GetBalance(c *gin.Context) {
 		return
 	}
 
+	var adminReply struct {
+		ID      int64  `pg:"id"`
+		Message string `pg:"message"`
+		Reply   string `pg:"reply"`
+	}
+	_, _ = h.App.DB.QueryOne(&adminReply,
+		`SELECT id, message, reply FROM web_admin_messages
+		  WHERE userid = ?0 AND user_type = ?1 AND from_admin = false AND reply IS NOT NULL AND replied_at IS NOT NULL AND read_at IS NULL
+		  ORDER BY replied_at DESC LIMIT 1`,
+		userId, userType,
+	)
+
 	c.JSON(http.StatusOK, gin.H{
 		"user_id":   userId,
 		"user_name": cl.Name,
@@ -74,6 +86,36 @@ func (h *WebHandler) GetBalance(c *gin.Context) {
 		"vm_id":     cl.Defaultrobot,
 		"discount":  cl.Diskont,               // например, 10 (значит 10%)
 		"credit":    float64(cl.Credit) / 100, // кредит в рублях
+		"is_admin":  userId == h.App.Config.Telegram.TelegramAdmin,
+		"admin_reply": func() gin.H {
+			if adminReply.ID == 0 || adminReply.Reply == "" {
+				return gin.H{}
+			}
+			return gin.H{
+				"id":      adminReply.ID,
+				"message": adminReply.Message,
+				"reply":   adminReply.Reply,
+			}
+		}(),
+		"admin_message": func() gin.H {
+			var adminMsg struct {
+				ID      int64  `pg:"id"`
+				Message string `pg:"message"`
+			}
+			_, _ = h.App.DB.QueryOne(&adminMsg,
+				`SELECT id, message FROM web_admin_messages
+				  WHERE userid = ?0 AND user_type = ?1 AND from_admin = true AND reply IS NULL AND read_at IS NULL
+				  ORDER BY created_at DESC LIMIT 1`,
+				userId, userType,
+			)
+			if adminMsg.ID == 0 || adminMsg.Message == "" {
+				return gin.H{}
+			}
+			return gin.H{
+				"id":      adminMsg.ID,
+				"message": adminMsg.Message,
+			}
+		}(),
 	})
 }
 
