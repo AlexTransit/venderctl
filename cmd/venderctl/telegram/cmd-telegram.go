@@ -258,6 +258,10 @@ func (tb *tgbotapiot) telegramLoop() error {
 				tb.g.Log.Infof("ignore telegramm message from bot (%v)", tgm.Message)
 				break
 			}
+			if tgm.Message.Text == "" && tgm.Message.Contact == nil {
+				tb.g.Log.Debugf("ignore telegramm message without text from (%d)", tgm.Message.From.ID)
+				break
+			}
 			if int(time.Now().Unix())-tgm.Message.Date > 60 {
 				tb.tgSend(tgm.Message.From.ID, "была проблема со связью.\nкоманда поступила c опозданием.\nесли актуально повторите еще раз.")
 				break
@@ -479,9 +483,9 @@ func parseCommand(cmd string) tgCommand {
 	// cmdR := regexp.MustCompile(`^((/-?\d+_m?[-.0-9]+(.+?)?)|(/balance)|(/help)|(.+)|)$`)
 	cmdR := regexp.MustCompile(`^((/-?\d+_m?[-.0-9]+(.+?)?)|(.+))$`)
 	parts := cmdR.FindStringSubmatch(cmd)
-	// if len(parts) == 0 {
-	// 	return tgCommandInvalid
-	// }
+	if len(parts) == 0 {
+		return tgCommandInvalid
+	}
 
 	switch {
 	case cmd == "/balance":
