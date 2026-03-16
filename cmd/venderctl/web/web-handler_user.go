@@ -46,7 +46,6 @@ func (h *WebHandler) SetFavorite(c *gin.Context) {
 		"UPDATE users SET defaultrobot = ?0 WHERE userid = ?1 AND user_type = ?2",
 		vmid, userId, userType,
 	)
-
 	if err != nil {
 		h.App.Log.Errorf("change default robot error:%v", err)
 		c.JSON(http.StatusOK, gin.H{"status": "false"})
@@ -61,7 +60,6 @@ func (h *WebHandler) GetBalance(c *gin.Context) {
 	userType := c.MustGet("user_type").(int)
 
 	cl, err := h.App.ClientGet(userId, vender_api.OwnerType(userType))
-
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return

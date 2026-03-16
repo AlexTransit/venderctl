@@ -13,6 +13,7 @@
             "args": [
                 "-config",
                 "/etc/venderctl/dev.hcl",
+                // "/etc/venderctl/prod.hcl",
                 "${input:command}"
             ]
         },    

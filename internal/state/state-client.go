@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/go-pg/pg/v9"
@@ -14,11 +15,11 @@ type Client struct {
 	Name         string
 	Id           int64
 	Balance      int64                // client balanse. possible minus <= credit
-	Credit       uint32               //client credit
+	Credit       uint32               // client credit
 	ClientType   vender_api.OwnerType `pg:"clienttype"`
-	Diskont      int                  //persent discont
+	Diskont      int                  // persent discont
 	Defaultrobot int
-	Ban          bool //banned client
+	Ban          bool // banned client
 }
 
 func (g *Global) ClientGet(clientId int64, clientType vender_api.OwnerType) (cl Client, err error) {
@@ -48,12 +49,22 @@ func (g *Global) clientPopularRobot(clientId int64, clientType vender_api.OwnerT
 	}
 	return 0
 }
+
 func (g *Global) ClientUpdateBalance(clientId int64, clientType vender_api.OwnerType, change int64) {
 	_, err := g.DB.Exec(`UPDATE users SET balance = balance - ?2 WHERE userid = ?0 AND user_type = ?1;`, clientId, clientType, float64(change)/100)
 	if err != nil {
 		g.Log.Errorf("writeOrderToDb: %s userId=%d userType=%+v price=%v err=%v", vender_api.OwnerType(clientType).String(), clientId, clientType, change, err)
 	}
 	g.Log.Infof("update balance %s userId=%d price=%v", vender_api.OwnerType(clientType).String(), clientId, change)
+}
+
+func (g *Global) ClientSetCredit(clientId int64, clientType vender_api.OwnerType, credit int) {
+	const q = `UPDATE users SET credit = ?2 WHERE userid = ?0 and user_type = ?1;`
+	_, err := g.DB.Exec(q, clientId, vender_api.OwnerType_telegramUser, credit)
+	if err != nil {
+		g.Log.Errorf("db query=%s err=%v", q, err)
+	}
+	g.Log.Infof("set credit %s userId=%d price=%v", vender_api.OwnerType(clientType).String(), clientId, credit)
 }
 
 func (g *Global) ClientChangeDefaultRobot(clientId int64, vmid int) error {
@@ -113,5 +124,21 @@ func (g *Global) LogUserOrder(prefix string, userId int64, userType int32, actio
 	g.Alive.Done()
 	if err != nil {
 		g.Log.Errorf("logUserOrder userId=%d userType=%d err=%v", userId, userType, err)
+	}
+}
+
+func (g *Global) AdminReplayAutoAction(mesage *string, userId int64, userType vender_api.OwnerType) {
+	re := regexp.MustCompile(`^(credit|bablo)?(-?\d+[.]?\d*)?$`)
+	matches := re.FindStringSubmatch(*mesage)
+	var amount float64
+	if len(matches) == 3 {
+		fmt.Sscan(matches[2], &amount)
+		if matches[1] == "credit" {
+			*mesage = fmt.Sprintf("появилась возможность делать отрицательный баланс на: %s ₽", matches[2])
+			g.ClientSetCredit(userId, userType, int(amount))
+		} else {
+			*mesage = fmt.Sprintf("пополнение баланса на: %s ₽", matches[2])
+			g.ClientUpdateBalance(userId, userType, -int64(amount*100))
+		}
 	}
 }

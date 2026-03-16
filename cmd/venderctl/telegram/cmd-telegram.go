@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -117,6 +119,23 @@ func telegramMain(ctx context.Context, flags *flag.FlagSet) error {
 	return tb.telegramLoop()
 }
 
+// newBotHTTPClient returns an *http.Client that routes traffic through the
+// proxy URL specified in config (Telegram.Proxy). Supported schemes:
+// http, https, socks5. If Proxy is empty, a default client is returned.
+func newBotHTTPClient(proxyAddr string) (*http.Client, error) {
+	if proxyAddr == "" {
+		return &http.Client{}, nil
+	}
+	proxyURL, err := url.Parse(proxyAddr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid proxy URL %q: %w", proxyAddr, err)
+	}
+	transport := &http.Transport{
+		Proxy: http.ProxyURL(proxyURL),
+	}
+	return &http.Client{Transport: transport}, nil
+}
+
 func telegramInit(ctx context.Context) error {
 	var err error
 	tb.g = state.GetGlobal(ctx)
@@ -130,13 +149,16 @@ func telegramInit(ctx context.Context) error {
 		return errors.Annotate(err, "SetTelegramLogger")
 	}
 
-	// if tb.bot, err = tgbotapi.NewBotAPI(tb.g.Config.Telegram.TelegrammBotApi); err != nil {
-	// 	tb.g.Log.Fatalf("Bot connect fail :%s ", err)
-	// 	os.Exit(1)
-	// }
+	httpClient, err := newBotHTTPClient(tb.g.Config.Telegram.Proxy)
+	if err != nil {
+		return errors.Annotate(err, "newBotHTTPClient")
+	}
+	if tb.g.Config.Telegram.Proxy != "" {
+		tb.g.Log.Infof("telegram: using proxy %s", tb.g.Config.Telegram.Proxy)
+	}
 
 	for {
-		tb.bot, err = tgbotapi.NewBotAPI(tb.g.Config.Telegram.TelegrammBotApi)
+		tb.bot, err = tgbotapi.NewBotAPIWithClient(tb.g.Config.Telegram.TelegrammBotApi, tgbotapi.APIEndpoint, httpClient)
 		if err == nil {
 			break // Успешное подключение, выходим из цикла
 		}
@@ -320,7 +342,7 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 	// parse command
 	switch parseCommand(m.Message.Text) {
 	case tgCommandWeb:
-		link := tb.g.Config.Web.BaseURL + tb.g.Config.Web.Path
+		link := tb.g.Config.Web.BaseURL
 		tb.tgSend(cl.Id, fmt.Sprintf("ссылка на сайт: %s", link))
 	// 	return nil
 	case tgCommandWebInvite:
@@ -329,15 +351,8 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 			tb.tgSend(cl.Id, "ошибка генерации ссылки")
 			return nil
 		}
-		url := tb.g.Config.WebAuthCallbackURL(token)
-
-		// sm := tb.tgSend(cl.Id, "Ваша одноразовая ссылка приглашение:\n"+url+"\n\nСсылка действительна 5 минут.")
-		msg := tgbotapi.NewMessage(cl.Id, "Нажмите кнопку ниже для входа.\nЕсли открылся встроенный браузер — нажмите ••• и выберите «Открыть в браузере»")
-		btn := tgbotapi.NewInlineKeyboardButtonURL("🌐 Открыть веб", url)
-		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(btn),
-		)
-		sm, _ := tb.bot.Send(msg)
+		url := fmt.Sprintf("%s/open?token=%s", tb.g.Config.Web.BaseURL, token)
+		sm := tb.tgSend(cl.Id, "Ваша одноразовая ссылка приглашение:\n"+url+"\n\nСсылка действительна 5 минут.")
 		go func() {
 			time.Sleep(5 * time.Minute)
 			delMsg := tgbotapi.NewDeleteMessage(sm.Chat.ID, sm.MessageID)
@@ -404,7 +419,8 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 				tb.addCredit(client.Id, bablo)
 			case tb.forvardMsg[2] == "credit":
 				credit, _ := strconv.Atoi(tb.forvardMsg[3])
-				tb.setCredit(client.Id, credit)
+				// tb.setCredit(client.Id, credit)
+				tb.g.ClientSetCredit(client.Id, vender_api.OwnerType_telegramUser, credit)
 				tb.tgSend(client.Id, fmt.Sprintf("появилась возможность делать отрицательный баланс на : %d", credit))
 				tb.tgSend(tb.admin, fmt.Sprintf("установлен кредит на: %d для: %d", credit, client.Id))
 			default:
@@ -562,15 +578,15 @@ func (tb *tgbotapiot) logTgDbChange(m tgbotapi.Message) {
 	}
 }
 
-func (tb *tgbotapiot) setCredit(id int64, credit int) {
-	const q = `UPDATE users SET credit = ?2 WHERE userid = ?0 and user_type = ?1;`
-	tb.g.Alive.Add(1)
-	_, err := tb.g.DB.Exec(q, id, vender_api.OwnerType_telegramUser, credit)
-	tb.g.Alive.Done()
-	if err != nil {
-		tb.g.Log.Errorf("db query=%s err=%v", q, err)
-	}
-}
+// func (tb *tgbotapiot) setCredit(id int64, credit int) {
+// 	const q = `UPDATE users SET credit = ?2 WHERE userid = ?0 and user_type = ?1;`
+// 	tb.g.Alive.Add(1)
+// 	_, err := tb.g.DB.Exec(q, id, vender_api.OwnerType_telegramUser, credit)
+// 	tb.g.Alive.Done()
+// 	if err != nil {
+// 		tb.g.Log.Errorf("db query=%s err=%v", q, err)
+// 	}
+// }
 
 func (tb *tgbotapiot) logTgDb(m tgbotapi.Message) {
 	const q = `insert into tg_chat (messageid, fromid, toid, date, text) values (?0, ?1, ?2, ?3, ?4);`
@@ -700,9 +716,8 @@ func (tb *tgbotapiot) tgSend(chatid int64, s string) (m tgbotapi.Message) {
 }
 
 func (tb *tgbotapiot) addUserToDB(c *tgbotapi.Contact) error {
-	memo := fmt.Sprintf("firs name:%s last name:%s", c.FirstName, c.LastName)
-	_, err := tb.g.DB.Exec(`INSERT INTO users ( userid, user_type, phone, memo ) values (?0, ?1, ?2, ?3);`,
-		c.UserID, vender_api.OwnerType_telegramUser, c.PhoneNumber, memo)
+	_, err := tb.g.DB.Exec(`INSERT INTO users ( userid, user_type, phone, name ) values (?0, ?1, ?2, ?3);`,
+		c.UserID, vender_api.OwnerType_telegramUser, c.PhoneNumber, c.FirstName+" "+c.LastName)
 	return err
 }
 
@@ -712,12 +727,23 @@ func (tb *tgbotapiot) registerNewUser(m tgbotapi.Update) error {
 	var err error
 
 	if m.Message.Text == "/start" {
+		// msg = tgbotapi.NewMessage(m.Message.Chat.ID, regMess)
+		// btn := tgbotapi.KeyboardButton{
+		// 	Text:           "разрешить боту увидеть номер телефона",
+		// 	RequestContact: true,
+		// }
+		// msg.ReplyMarkup = tgbotapi.NewReplyKeyboard([]tgbotapi.KeyboardButton{btn})
+		// _, err = tb.bot.Send(msg)
 		msg = tgbotapi.NewMessage(m.Message.Chat.ID, regMess)
+		msg.ParseMode = "HTML"
 		btn := tgbotapi.KeyboardButton{
 			Text:           "разрешить боту увидеть номер телефона",
 			RequestContact: true,
 		}
-		msg.ReplyMarkup = tgbotapi.NewReplyKeyboard([]tgbotapi.KeyboardButton{btn})
+		keyboard := tgbotapi.NewReplyKeyboard([]tgbotapi.KeyboardButton{btn})
+		keyboard.OneTimeKeyboard = true // кнопка исчезнет после нажатия
+		// keyboard.ResizeKeyboard = true  // кнопка не будет огромной
+		msg.ReplyMarkup = keyboard
 		_, err = tb.bot.Send(msg)
 		return err
 	}

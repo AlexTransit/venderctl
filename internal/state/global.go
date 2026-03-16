@@ -34,6 +34,10 @@ func (g *Global) GetRoboState(vmid int32) vender_api.State {
 	if !ok || rs == nil || rs.Connect == false {
 		return vender_api.State_Invalid
 	}
+	if rs.Connect && rs.State == vender_api.State_Invalid {
+		// if robot is connected but state is undefined, read it from database.
+		return g.ReadRoboStateFromDB(vmid)
+	}
 	return rs.State
 }
 
@@ -51,7 +55,9 @@ func (g *Global) SetRoboState(vmid int32, st vender_api.State) {
 
 func (g *Global) InitDB(cmdName string) error {
 	pingTimeout := helpers.IntMillisecondDefault(g.Config.DB.PingTimeoutMs, 5*time.Second)
-
+	if g.Config.DB.URL == "" {
+		g.Log.Fatal("db.url in config empty")
+	}
 	dbOpt, err := pg.ParseURL(g.Config.DB.URL)
 	if err != nil {
 		cleanUrl, _ := url.Parse(g.Config.DB.URL)
@@ -73,9 +79,8 @@ func (g *Global) InitDB(cmdName string) error {
 	return errors.Annotate(err, "db ping")
 }
 
-// сохраняет ошибку в базу с маркировкой не просмотрено.
-// saves the error to the base marked not viewed.
-// level - указать какая функция вызвала эту функцию.
+// saves the error to the database marked as not viewed.
+// level - specify which function called this function.
 func (g *Global) VMCErrorWriteDb(vmid int32, message string, level ...int) {
 	skip := 1
 	if level != nil {
