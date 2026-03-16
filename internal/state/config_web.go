@@ -1,12 +1,10 @@
 package state
 
 import (
-	"fmt"
+	"net/url"
 	"path"
 	"strings"
 )
-
-// u, err := url.Parse(c)
 
 func NormalizeWebPath(raw string) string {
 	p := strings.TrimSpace(raw)
@@ -23,8 +21,19 @@ func NormalizeWebPath(raw string) string {
 	return p
 }
 
+// parseWebURL разбирает web_url на origin и path.
+func (c *Config) parseWebURL() (origin, routePrefix string) {
+	u, err := url.Parse(strings.TrimRight(c.Web.BaseURL, "/"))
+	if err != nil || u.Host == "" {
+		return c.Web.BaseURL, "/"
+	}
+	origin = u.Scheme + "://" + u.Host
+	routePrefix = NormalizeWebPath(u.Path)
+	return
+}
+
 func (c *Config) WebRoutePrefix() string {
-	p := NormalizeWebPath(c.Web.Path)
+	_, p := c.parseWebURL()
 	if p == "/" {
 		return ""
 	}
@@ -46,10 +55,11 @@ func (c *Config) WebRootPath() string {
 }
 
 func (c *Config) WebCookiePath() string {
-	return NormalizeWebPath(c.Web.Path)
+	_, p := c.parseWebURL()
+	return NormalizeWebPath(p)
 }
 
 func (c *Config) WebAuthCallbackURL(token string) string {
-	base := strings.TrimRight(c.Web.BaseURL, "/")
-	return fmt.Sprintf("%s%s?token=%s", base, c.WebPathWithPrefix("/auth/callback"), token)
+	origin, _ := c.parseWebURL()
+	return origin + c.WebPathWithPrefix("/auth/callback") + "?token=" + token
 }

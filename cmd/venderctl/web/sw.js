@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'vender-web-v5';
+const CACHE_VERSION = 'vender-web-v6';
 const CORE_FILES = [
   '/robot/',
   '/robot/index.html',
@@ -37,6 +37,8 @@ self.addEventListener('fetch', (event) => {
   const isIndexLike = reqURL.pathname.endsWith('/') || reqURL.pathname.endsWith('/index.html');
   const isSameOrigin = reqURL.origin === self.location.origin;
   const isAPIRequest = isSameOrigin && reqURL.pathname.includes('/api/');
+  // app.js и app.css всегда берём свежими — они содержат логику приложения
+  const isAppAsset = isSameOrigin && (reqURL.pathname.endsWith('/app.js') || reqURL.pathname.endsWith('/app.css'));
 
   // API should always be fresh; do not serve from cache.
   if (isAPIRequest) {
@@ -44,8 +46,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For HTML shell always try network first to avoid stale UI in installed app.
-  if (isNavigation || isIndexLike) {
+  // For HTML shell and app assets always try network first to avoid stale UI in installed app.
+  if (isNavigation || isIndexLike || isAppAsset) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
@@ -79,11 +81,20 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
   const targetURL = data.url || './';
   const clickAPI = data.click_api;
+  const senderId = data.sender_id || 0;
+  const senderType = data.sender_type || 0;
+
+  const urlWithParams = senderId > 0
+    ? (targetURL + (targetURL.includes('?') ? '&' : '?') +
+       'open_user=' + senderId + '&open_user_type=' + senderType)
+    : targetURL;
+
   event.waitUntil(
     Promise.all([
       clickAPI ? fetch(clickAPI, {
@@ -91,20 +102,27 @@ self.addEventListener('notificationclick', (event) => {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          user_id: data.sender_id || 0,
-          user_type: data.sender_type || 0,
+          user_id: senderId,
+          user_type: senderType,
           message: data.message || '',
         }),
       }).catch(() => null) : Promise.resolve(),
+
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        // Если есть открытое окно — посылаем postMessage и фокусируем
         for (const client of clientList) {
           if ('focus' in client) {
-            client.navigate(targetURL);
+            client.postMessage({
+              type: 'notification_click',
+              sender_id: senderId,
+              sender_type: senderType,
+            });
             return client.focus();
           }
         }
+        // Окна нет — открываем новое с параметрами в URL
         if (clients.openWindow) {
-          return clients.openWindow(targetURL);
+          return clients.openWindow(urlWithParams);
         }
       }),
     ])

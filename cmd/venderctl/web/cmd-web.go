@@ -35,6 +35,12 @@ var icon512 []byte
 //go:embed apple-touch-icon.png
 var appleTouchIcon []byte
 
+//go:embed app.js
+var appJS []byte
+
+//go:embed app.css
+var appCSS []byte
+
 var Cmd = cli.Cmd{
 	Name:   CmdName,
 	Desc:   "web. control vmc via web browser",
@@ -54,9 +60,7 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
 	g.Config.Tele.SetMode("web")
 
-	if err = g.InitDB(CmdName); err != nil {
-		return errors.Annotate(err, "db_init")
-	}
+	g.InitDB(CmdName)
 	if err = g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {
 		return errors.Annotate(err, "MQTT.Init")
 	}
@@ -73,19 +77,28 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	web := r.Group(g.Config.WebRoutePrefix())
 
 	// маршруты
+	web.GET("/app.js", func(c *gin.Context) {
+		c.Data(http.StatusOK, "application/javascript; charset=utf-8", appJS)
+	})
+	web.GET("/app.css", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/css; charset=utf-8", appCSS)
+	})
+
 	web.GET("/auth/callback", h.HandleAuth)
 	web.POST("/auth/callback", h.HandleAuth)
 	web.GET("/auth/logout", h.Logout)
 
-	web.GET("/api/balance", h.CheckAuth(), h.GetBalance)
-	web.POST("/api/favorite", h.CheckAuth(), h.SetFavorite)
-	web.POST("/api/admin/message", h.CheckAuth(), h.SendAdminMessage)
+	web.GET("/api/admin/messages", h.CheckAuth(), h.GetAdminMessages)
 	web.POST("/api/admin/send", h.CheckAuth(), h.AdminSendMessage)
 	web.POST("/api/admin/reply", h.CheckAuth(), h.AdminReplyMessage)
-	web.POST("/api/user/admin-reply", h.CheckAuth(), h.UserReplyAdminMessage)
-	web.GET("/api/admin/messages", h.CheckAuth(), h.GetAdminMessages)
 	web.POST("/api/admin/notification-click", h.AdminNotificationClick)
 	web.POST("/api/admin/reply/ack", h.CheckAuth(), h.AdminReplyAck)
+	web.POST("/api/admin/message", h.CheckAuth(), h.SendAdminMessage)
+	web.GET("/api/admin/users", h.CheckAuth(), h.AdminGetUsers)
+
+	web.GET("/api/balance", h.CheckAuth(), h.GetBalance)
+	web.POST("/api/favorite", h.CheckAuth(), h.SetFavorite)
+	web.POST("/api/user/admin-reply", h.CheckAuth(), h.UserReplyAdminMessage)
 	web.GET("/api/push/public-key", h.CheckAuth(), h.PushPublicKey)
 	web.POST("/api/push/subscribe", h.CheckAuth(), h.PushSubscribe)
 	web.POST("/api/push/unsubscribe", h.CheckAuth(), h.PushUnsubscribe)
@@ -98,6 +111,8 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	web.GET("/api/order/ws", h.CheckAuth(), h.OrderWS)
 
 	web.GET("/api/orders", h.CheckAuth(), h.GetOrders)
+
+	web.GET("/open", h.OpenInvite)
 
 	serveIndex := func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)

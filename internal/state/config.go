@@ -55,15 +55,14 @@ type Config struct {
 	}
 	Telegram struct {
 		TelegrammBotApi string `hcl:"telegram_bot_api"`
-		// TelegrammBotToken string `hcl:"telegram_bot_token"`
-		AdminBot      string `hcl:"admin_bot_name"`
-		TelegramAdmin int64  `hcl:"telegram_admin"`
-		DebugMessages bool   `hcl:"telegram_debug"`
+		AdminBot        string `hcl:"admin_bot_name"`
+		Proxy           string `hcl:"proxy"`
+		TelegramAdmin   int64  `hcl:"telegram_admin"`
+		DebugMessages   bool   `hcl:"telegram_debug"`
 	}
 	Web struct {
 		BaseURL   string `hcl:"web_url"`
-		Path      string `hcl:"web_path"`
-		SecretKey string `hcl:"secret_key"`
+		SecretKey string `hcl:"secret_key"` // openssl rand -hex 32
 		// generate keys
 		// npx web-push generate-vapid-keys
 		VAPIDPublicKey  string `hcl:"vapid_public_key"`

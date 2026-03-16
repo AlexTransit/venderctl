@@ -8,151 +8,8 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="stylesheet" href="app.css">
     <title>Vender Web</title>
-    <style>
-        body {
-            font-family: -apple-system, sans-serif;
-            background: #f0f2f5;
-            margin: 0;
-            padding: 0;
-        }
-
-        .header {
-            background: #0088cc;
-            color: white;
-            padding: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        .container {
-            padding: 15px;
-        }
-
-        .card {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            text-align: center;
-        }
-
-        /* Авторизация */
-        #auth-section {
-            display: block;
-            text-align: center;
-            padding-top: 50px;
-        }
-
-        .btn-blue {
-            background: #0088cc;
-            color: white;
-            border: none;
-            padding: 12px;
-            width: 90%;
-            border-radius: 10px;
-            font-weight: bold;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        /* Кабинет */
-        #user-info {
-            display: none;
-        }
-
-        .balance-label {
-            color: #888;
-            font-size: 14px;
-            margin-top: 10px;
-        }
-
-        .balance-val {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #2ecc71;
-            margin-bottom: 20px;
-        }
-
-        /* Кнопка смены (меню) */
-        .btn-menu {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid white;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
-        /* Список напитков */
-        .drinks-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        /* Боковое меню */
-        .side-menu {
-            position: fixed;
-            top: 0;
-            right: -280px;
-            width: 280px;
-            height: 100%;
-            background: white;
-            z-index: 1001;
-            transition: 0.3s;
-            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        .side-menu.active {
-            right: 0;
-        }
-
-        /* Затемнение фона */
-        #menu-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-        }
-
-        /* Элементы меню */
-        .menu-item {
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-            font-size: 18px;
-        }
-
-        .menu-item:active {
-            background: #f0f0f0;
-        }
-
-        .menu-header {
-            font-weight: bold;
-            margin-bottom: 20px;
-            color: #0088cc;
-            font-size: 20px;
-        }
-
-        /* Статус заказа */
-        #status-msg {
-            margin-top: 15px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #0088cc;
-            min-height: 28px;
-        }
-    </style>
 </head>
 
 <body>
@@ -160,7 +17,8 @@
         style="position:fixed; top:0; left:0; width:100%; height:100%; background:#fff; display:flex; align-items:center; justify-content:center; z-index:9999;">
         <img src="icon-512.png" style="width:100vw; height:100vh; object-fit:contain;">
     </div>
-    <!-- ВЕРХНЯЯ ПАНЕЛЬ (ПОЯВИТСЯ ПОСЛЕ ВХОДА) -->
+
+    <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
     <div id="nav-bar" class="header" style="display: none;">
         <span id="current-machine-label" style="font-weight: bold;">№ --</span>
         <button onclick="toggleMenu()" style="background:none; border:none; color:white; font-size:24px;">☰</button>
@@ -173,8 +31,8 @@
         <div id="install-app-item" class="menu-item" onclick="installPWA()" style="display:none;">📲 Установить
             приложение</div>
         <a href="tg://resolve?domain=FreeBenderTestBot" class="menu-item"
-            style="display: flex; align-items: center; text-decoration: none;">
-            <span style="margin-right: 10px;">🤖</span> Перейти в телеграм бот
+            style="display:flex; align-items:center; text-decoration:none;">
+            <span style="margin-right:10px;">🤖</span> Перейти в телеграм бот
         </a>
         <div class="menu-item" onclick="messageAdmin()">✉️ Сообщение администратору</div>
         <div id="admin-send-item" class="menu-item" onclick="sendMessageToUser()" style="display:none;">Написать
@@ -183,87 +41,81 @@
             пользователей</div>
         <div class="menu-item" onclick="openMachineList()">📍 Сменить автомат</div>
         <div class="menu-item" onclick="openOrders()">📋 Заказы</div>
+        <div id="push-toggle-item" class="menu-item" onclick="togglePushNotifications()" style="display:none;">🔔
+            Включить уведомления</div>
         <div id="ios-install-item" class="menu-item" onclick="showIOSInstallHelp()" style="display:none;">Как установить
             на iPhone</div>
-        <div id="logout-menu-item" class="menu-item" style="color: #ff4d4d; margin-top: 20px;" onclick="logout()">🚪
-            Выход</div>
+        <div id="logout-menu-item" class="menu-item" style="color:#ff4d4d; margin-top:20px;" onclick="logout()">🚪 Выход
+        </div>
     </div>
 
     <div class="container">
         <!-- БЛОК ВХОДА -->
         <div id="auth-section">
             <h1>Управление автопоилкой</h1>
-            <p style="color: #888;">Вход доступен только по ссылке-приглашению.</p>
+            <p style="color:#888;">Вход доступен только по ссылке-приглашению.</p>
         </div>
 
         <!-- ЛИЧНЫЙ КАБИНЕТ -->
         <div id="user-info" class="card">
-            <div id="welcome-user" style="font-size: 18px;">Приветствую!</div>
+            <div id="welcome-user" style="font-size:18px;">Приветствую!</div>
             <div class="balance-label">Ваш баланс:</div>
             <div class="balance-val"><span id="balance">0.00</span> ₽</div>
             <div id="credit-status"
-                style="display:none; color: #e74c3c; font-size: 12px; margin-top: -15px; margin-bottom: 10px; font-weight: bold;">
+                style="display:none; color:#e74c3c; font-size:12px; margin-top:-15px; margin-bottom:10px; font-weight:bold;">
                 ☕ отгружаю в кредит
             </div>
-            <div id="user-perks" style="font-size: 11px; color: #999; margin-top: -12px; margin-bottom: 15px;">
+            <div id="user-perks" style="font-size:11px; color:#999; margin-top:-12px; margin-bottom:15px;">
                 <span id="discount-info"></span>
-                <span id="perks-separator" style="display:none; margin: 0 4px; opacity: 0.5;">|</span>
+                <span id="perks-separator" style="display:none; margin:0 4px; opacity:0.5;">|</span>
                 <span id="credit-info"></span>
             </div>
-            <hr style="border: 0; border-top: 1px solid #eee;">
+            <hr style="border:0; border-top:1px solid #eee;">
 
             <!-- ШАГ 1: ФОРМА ЗАКАЗА -->
-            <div id="order-card" class="card" style="margin-top: 20px; text-align: left;">
-                <h4 style="text-align: center; margin-top: 0;">☕ Заказать напиток</h4>
-
-                <div id="popular-drinks" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px;">
+            <div id="order-card" class="card" style="margin-top:20px; text-align:left;">
+                <h4 style="text-align:center; margin-top:0;">☕ Заказать напиток</h4>
+                <div id="popular-drinks" style="display:flex; justify-content:center; gap:8px; margin-bottom:20px;">
                 </div>
-
-                <div style="text-align: center; margin-bottom: 15px;">
+                <div style="text-align:center; margin-bottom:15px;">
                     <input type="text" id="drink-id" placeholder="Код"
-                        style="width: 80px; font-size: 24px; text-align: center; border: 2px solid #0088cc;">
+                        style="width:80px; font-size:24px; text-align:center; border:2px solid #0088cc;">
                 </div>
-
-                <div class="adj-row" style="margin-bottom: 10px;">
+                <div class="adj-row" style="margin-bottom:10px;">
                     <label>🥛 Сливки: <b id="val-c">4</b></label>
                     <input type="range" id="cream" min="0" max="6" value="4"
-                        oninput="document.getElementById('val-c').innerText=this.value" style="width: 100%;">
+                        oninput="document.getElementById('val-c').innerText=this.value" style="width:100%;">
                 </div>
-
-                <div class="adj-row" style="margin-bottom: 20px;">
+                <div class="adj-row" style="margin-bottom:20px;">
                     <label>🍬 Сахар: <b id="val-s">4</b></label>
                     <input type="range" id="sugar" min="0" max="8" value="4"
-                        oninput="document.getElementById('val-s').innerText=this.value" style="width: 100%;">
+                        oninput="document.getElementById('val-s').innerText=this.value" style="width:100%;">
                 </div>
-
                 <button onclick="makeOrder()" class="btn-blue"
-                    style="width: 100%; height: 50px; font-size: 18px;">ЗАКАЗАТЬ</button>
+                    style="width:100%; height:50px; font-size:18px;">ЗАКАЗАТЬ</button>
             </div>
         </div>
 
         <!-- ШАГ 2: ПОДТВЕРЖДЕНИЕ -->
         <div id="confirm-card" class="card"
-            style="display:none; margin-top: 20px; border: 2px solid #2ecc71; background: #fafffa;">
-            <!-- <h3 style="color: #27ae60; margin-top: 0;">✅ Автомат готов!</h3> -->
-            <div style="font-size: 18px; line-height: 1.6;">
+            style="display:none; margin-top:20px; border:2px solid #2ecc71; background:#fafffa;">
+            <div style="font-size:18px; line-height:1.6;">
                 Автомат: <b id="conf-vmid">--</b><br>
                 Напиток: <b id="conf-name">--</b> (код <span id="conf-code">--</span>)<br>
-                <!-- Стоимость: <b id="conf-price">--</b> ₽ -->
             </div>
             <br>
             <button onclick="startBrewing()" id="btn-brew" class="btn-blue"
-                style="background: #27ae60; height: 60px; font-size: 20px;">ПРИГОТОВИТЬ</button>
+                style="background:#27ae60; height:60px; font-size:20px;">ПРИГОТОВИТЬ</button>
             <button id="btn-ok" onclick="cancelOrder()" class="btn-blue"
-                style="display:none; background:#888; height: 60px; font-size: 20px;">Ok</button>
+                style="display:none; background:#888; height:60px; font-size:20px;">Ok</button>
             <br>
             <button id="btn-cancel" onclick="cancelOrder()"
                 style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Отмена</button>
-
-            <!-- Статус от робота -->
             <div id="status-msg"></div>
         </div>
+
         <!-- ИСТОРИЯ ЗАКАЗОВ -->
-        <div id="orders-card" class="card" style="display:none; margin-top: 20px;">
+        <div id="orders-card" class="card" style="display:none; margin-top:20px;">
             <h4 style="margin-top:0;">📋 История заказов</h4>
             <div id="orders-list"></div>
             <button id="orders-more" onclick="loadMoreOrders()"
@@ -274,12 +126,13 @@
             <button onclick="closeOrders()"
                 style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Закрыть</button>
         </div>
-        <!-- СООБЩЕНИЯ АДМИНА -->
-        <div id="admin-messages-card" class="card" style="display:none; margin-top: 20px;">
+
+        <!-- СООБЩЕНИЯ ПОЛЬЗОВАТЕЛЕЙ (АДМИН) -->
+        <div id="admin-messages-card" class="card" style="display:none; margin-top:20px;">
             <h4 style="margin-top:0;">Сообщения пользователей</h4>
             <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:10px;">
-                <input type="checkbox" id="admin-hide-answered" onchange="toggleHideAnswered()" checked>
-                скрыть с ответами
+                <input type="checkbox" id="admin-hide-answered" onchange="toggleHideAnswered()">
+                показать с ответами
             </label>
             <div id="admin-messages-list"></div>
             <button id="admin-messages-more" onclick="loadMoreAdminMessages()"
@@ -291,900 +144,105 @@
                 style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Закрыть</button>
         </div>
     </div>
+
+    <!-- МОДАЛЬНЫЕ ОКНА -->
     <div id="admin-reply-modal"
-        style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000;">
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
         <div
-            style="background: #fff; border-radius: 12px; padding: 20px; margin: 80px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.15);">
-            <div style="font-weight: bold; margin-bottom: 10px;">Сообщение администратору</div>
-            <div id="admin-reply-text" style="white-space: pre-wrap; margin-bottom: 12px;"></div>
-            <div style="font-weight: bold; margin-bottom: 6px;">Ответ</div>
-            <div id="admin-reply-reply" style="white-space: pre-wrap; margin-bottom: 16px;"></div>
-            <button id="admin-reply-ack" class="btn-blue" style="width: 100%;">Прочитал</button>
+            style="background:#fff; border-radius:12px; padding:20px; margin:80px 20px; box-shadow:0 2px 10px rgba(0,0,0,0.15);">
+            <div style="font-weight:bold; margin-bottom:10px;">Сообщение администратору</div>
+            <div id="admin-reply-text" style="white-space:pre-wrap; margin-bottom:12px;"></div>
+            <div style="font-weight:bold; margin-bottom:6px;">Ответ</div>
+            <div id="admin-reply-reply" style="white-space:pre-wrap; margin-bottom:16px;"></div>
+            <button id="admin-reply-ack" class="btn-blue" style="width:100%;">Прочитал</button>
         </div>
     </div>
+
     <div id="admin-message-modal"
-        style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000;">
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
         <div
-            style="background: #fff; border-radius: 12px; padding: 20px; margin: 80px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.15);">
-            <div style="font-weight: bold; margin-bottom: 10px;">Сообщение администратора</div>
-            <div id="admin-message-text" style="white-space: pre-wrap; margin-bottom: 12px;"></div>
+            style="background:#fff; border-radius:12px; padding:20px; margin:80px 20px; box-shadow:0 2px 10px rgba(0,0,0,0.15);">
+            <div style="font-weight:bold; margin-bottom:10px;">Сообщение администратора</div>
+            <div id="admin-message-text" style="white-space:pre-wrap; margin-bottom:12px;"></div>
             <textarea id="admin-message-reply" rows="3" placeholder="Ваш ответ"
                 style="width:100%; border:1px solid #ddd; border-radius:8px; padding:8px; margin-bottom:12px; font-size:14px;"></textarea>
-            <button id="admin-message-send" class="btn-blue" style="width: 100%;">Отправить ответ</button>
+            <button id="admin-message-send" class="btn-blue" style="width:100%;">Отправить ответ</button>
         </div>
     </div>
+
     <div id="ios-install-modal"
-        style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000;">
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
         <div
-            style="background: #fff; border-radius: 12px; padding: 20px; margin: 80px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.15);">
-            <div style="font-weight: bold; margin-bottom: 10px;">Установка на iPhone</div>
-            <div style="white-space: pre-wrap; margin-bottom: 16px;">
+            style="background:#fff; border-radius:12px; padding:20px; margin:80px 20px; box-shadow:0 2px 10px rgba(0,0,0,0.15);">
+            <div style="font-weight:bold; margin-bottom:10px;">Установка на iPhone</div>
+            <div style="white-space:pre-wrap; margin-bottom:16px;">
                 1. Откройте сайт в Safari.
                 2. Нажмите "Поделиться".
                 3. Выберите "На экран Домой".
                 4. Подтвердите добавление.
             </div>
-            <button id="ios-install-close" class="btn-blue" style="width: 100%;">Понятно</button>
+            <button id="ios-install-close" class="btn-blue" style="width:100%;">Понятно</button>
         </div>
     </div>
 
-    <script>
-        setTimeout(() => {
-            const splash = document.getElementById('splash');
-            splash.style.transition = 'opacity 0.5s';
-            splash.style.opacity = '0';
-            setTimeout(() => splash.remove(), 500);
-        }, 2500);
-        let currentDefaultVmid = null;
-        let pendingOrder = null; // параметры текущего заказа
-        let ordersOffset = 0;
-        let adminMessagesOffset = 0;
-        let isAdminUser = false;
-        let currentAdminReplyId = 0;
-        let currentAdminMessageId = 0;
-        let canInstallPWA = false;
-        let hideAnswered = true;
-        let deferredInstallPrompt = null;
-        let swRegistrationPromise = null;
-        const basePath = location.pathname === '/' ? '' : location.pathname.replace(/\/+$/, '');
-
-        function withBase(path) {
-            return `${basePath}${path}`;
-        }
-
-        function registerServiceWorker() {
-            if (!('serviceWorker' in navigator)) {
-                return;
-            }
-            swRegistrationPromise = new Promise((resolve) => {
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register(withBase('/sw.js'), { scope: withBase('/') })
-                        .then(resolve)
-                        .catch((err) => {
-                            console.log('SW registration failed:', err);
-                            resolve(null);
-                        });
-                });
-            });
-        }
-
-        registerServiceWorker();
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.addEventListener('message', (event) => {
-                const data = event.data && event.data.payload ? event.data.payload : {};
-                if (data.kind === 'admin_reply' && data.message_id && data.reply) {
-                    showAdminReplyModal(data.message_id, data.message || '', data.reply);
-                }
-                if (data.kind === 'admin_message' && data.message_id && data.message) {
-                    showAdminMessageModal(data.message_id, data.message);
-                }
-            });
-        }
-
-        function isStandaloneApp() {
-            if (window.matchMedia('(display-mode: standalone)').matches) return true;
-            if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
-            if (window.matchMedia('(display-mode: minimal-ui)').matches) return true;
-            if (window.navigator.standalone === true) return true; // iOS
-            return document.referrer.startsWith('android-app://');
-        }
-
-        function applyStandaloneUI() {
-            const standalone = isStandaloneApp();
-            const installItem = document.getElementById('install-app-item');
-            const logoutItem = document.getElementById('logout-menu-item');
-            if (installItem) installItem.style.display = (!standalone && canInstallPWA) ? 'block' : 'none';
-            if (!logoutItem) return;
-            logoutItem.style.display = standalone ? 'none' : 'block';
-        }
-
-        const dmStandalone = window.matchMedia('(display-mode: standalone)');
-        const dmFullscreen = window.matchMedia('(display-mode: fullscreen)');
-        const dmMinimalUI = window.matchMedia('(display-mode: minimal-ui)');
-        dmStandalone.addEventListener('change', applyStandaloneUI);
-        dmFullscreen.addEventListener('change', applyStandaloneUI);
-        dmMinimalUI.addEventListener('change', applyStandaloneUI);
-        window.addEventListener('pageshow', applyStandaloneUI);
-        applyStandaloneUI();
-
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredInstallPrompt = e;
-            canInstallPWA = true;
-            applyStandaloneUI();
-        });
-
-        window.addEventListener('appinstalled', () => {
-            deferredInstallPrompt = null;
-            canInstallPWA = false;
-            applyStandaloneUI();
-        });
-
-        async function installPWA() {
-            toggleMenu();
-            if (!deferredInstallPrompt) {
-                alert('Установка сейчас недоступна.\nОткройте страницу в Chrome (не внутри Telegram), по HTTPS, обновите страницу и попробуйте снова.');
-                return;
-            }
-            deferredInstallPrompt.prompt();
-            await deferredInstallPrompt.userChoice;
-            deferredInstallPrompt = null;
-            const item = document.getElementById('install-app-item');
-            if (item) item.style.display = 'none';
-        }
-
-        function isIOSDevice() {
-            const ua = navigator.userAgent || '';
-            const isIOS = /iPad|iPhone|iPod/.test(ua);
-            const isIPadOS = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-            return isIOS || isIPadOS;
-        }
-
-        function showIOSInstallHelp() {
-            toggleMenu();
-            const modal = document.getElementById('ios-install-modal');
-            modal.style.display = 'block';
-        }
-
-        function openOrders() {
-            toggleMenu();
-            ordersOffset = 0;
-            document.getElementById('orders-list').innerHTML = '';
-            document.getElementById('orders-card').style.display = 'block';
-            document.getElementById('order-card').style.display = 'none';
-            document.getElementById('admin-messages-card').style.display = 'none';
-            loadMoreOrders();
-        }
-
-        function closeOrders() {
-            document.getElementById('orders-card').style.display = 'none';
-            document.getElementById('order-card').style.display = 'block';
-        }
-
-        function loadMoreOrders() {
-            fetch(withBase(`/api/orders?offset=${ordersOffset}`))
-                .then(res => res.json())
-                .then(orders => {
-                    const list = document.getElementById('orders-list');
-                    if (orders.length === 0 && ordersOffset === 0) {
-                        list.innerHTML = '<p style="color:#888; text-align:center;">Заказов пока нет</p>';
-                        document.getElementById('orders-more').style.display = 'none';
-                        return;
-                    }
-                    orders.forEach(o => {
-                        const date = new Date(o.date).toLocaleString('ru-RU');
-                        const div = document.createElement('div');
-                        div.style = 'padding:10px; border-bottom:1px solid #eee; font-size:14px;';
-                        const balanceInfo = Number.isFinite(o.balance_info) ? o.balance_info.toFixed(2) : String(o.balance_info ?? '');
-                        div.innerHTML = `<span style="color:#888; font-size:12px;">${date}</span><br>${o.action} <span style="color:#666;">| баланс: ${balanceInfo}</span>`;
-                        list.appendChild(div);
-                    });
-                    ordersOffset += orders.length;
-                    document.getElementById('orders-more').style.display = orders.length === 10 ? 'block' : 'none';
-                });
-        }
-
-        function openAdminMessages() {
-            toggleMenu();
-            if (!isAdminUser) {
-                alert("Доступ только для администратора");
-                return;
-            }
-            adminMessagesOffset = 0;
-            hideAnswered = document.getElementById('admin-hide-answered').checked;
-            document.getElementById('admin-messages-list').innerHTML = '';
-            document.getElementById('admin-messages-card').style.display = 'block';
-            document.getElementById('order-card').style.display = 'none';
-            document.getElementById('orders-card').style.display = 'none';
-            loadMoreAdminMessages();
-        }
-
-        function closeAdminMessages() {
-            document.getElementById('admin-messages-card').style.display = 'none';
-            document.getElementById('order-card').style.display = 'block';
-        }
-
-        function toggleHideAnswered() {
-            adminMessagesOffset = 0;
-            hideAnswered = document.getElementById('admin-hide-answered').checked;
-            document.getElementById('admin-messages-list').innerHTML = '';
-            loadMoreAdminMessages();
-        }
-
-        function loadMoreAdminMessages() {
-            const hideParam = hideAnswered ? '&hide_answered=1' : '';
-            fetch(withBase(`/api/admin/messages?offset=${adminMessagesOffset}${hideParam}`))
-                .then(res => res.json())
-                .then(messages => {
-                    const list = document.getElementById('admin-messages-list');
-                    if (messages.length === 0 && adminMessagesOffset === 0) {
-                        list.innerHTML = '<p style="color:#888; text-align:center;">Сообщений пока нет</p>';
-                        document.getElementById('admin-messages-more').style.display = 'none';
-                        return;
-                    }
-                    messages.forEach(m => {
-                        const date = new Date(m.created_at).toLocaleString('ru-RU');
-                        const div = document.createElement('div');
-                        div.style = 'padding:10px; border-bottom:1px solid #eee; font-size:14px;';
-                        const direction = m.from_admin ? 'админ → пользователь' : 'пользователь → админ';
-                        const replyText = m.reply ? `<br><span style="color:#666;">Ответ: ${m.reply}</span>` : '';
-                        const replyBtn = (!m.from_admin && !m.reply) ? `<br><button onclick="replyAdminMessage(${m.id})" style="margin-top:6px; padding:6px 10px; border:1px solid #0088cc; background:#fff; color:#0088cc; border-radius:8px; cursor:pointer;">Ответить</button>` : '';
-                        div.innerHTML = `<span style="color:#888; font-size:12px;">${date} • ${direction}</span><br><b>${m.user_id} (type ${m.user_type})</b><br>${m.message}${replyText}${replyBtn}`;
-                        list.appendChild(div);
-                    });
-                    adminMessagesOffset += messages.length;
-                    document.getElementById('admin-messages-more').style.display = messages.length === 10 ? 'block' : 'none';
-                });
-        }
-
-        function replyAdminMessage(messageId) {
-            const text = prompt("Ответ пользователю:");
-            if (text === null) return;
-            const reply = text.trim();
-            if (!reply) {
-                alert("Пустой ответ");
-                return;
-            }
-            fetch(withBase('/api/admin/reply'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message_id: messageId, reply })
-            })
-                .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                .then(({ ok, data }) => {
-                    if (!ok) {
-                        alert(data.error || "Не удалось отправить ответ");
-                        return;
-                    }
-                    adminMessagesOffset = 0;
-                    document.getElementById('admin-messages-list').innerHTML = '';
-                    loadMoreAdminMessages();
-                })
-                .catch(() => alert("Ошибка связи при отправке"));
-        }
-
-        async function logout() {
-            await unsubscribeWebPush();
-            window.location.href = withBase('/auth/logout');
-        }
-
-        function messageAdmin() {
-            toggleMenu();
-            const text = prompt("Введите сообщение администратору:");
-            if (text === null) return;
-            const message = text.trim();
-            if (!message) {
-                alert("Пустое сообщение");
-                return;
-            }
-
-            fetch(withBase('/api/admin/message'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message })
-            })
-                .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                .then(({ ok, data }) => {
-                    if (!ok) {
-                        alert(data.error || "Не удалось отправить сообщение");
-                        return;
-                    }
-                })
-                .catch(() => alert("Ошибка связи при отправке"));
-        }
-
-        function sendMessageToUser() {
-            toggleMenu();
-            const userIdRaw = prompt("ID пользователя:");
-            if (userIdRaw === null) return;
-            const userId = parseInt(userIdRaw, 10);
-            if (!Number.isFinite(userId) || userId <= 0) {
-                alert("Некорректный ID");
-                return;
-            }
-            const userTypeRaw = prompt("Тип пользователя (например 1):");
-            if (userTypeRaw === null) return;
-            const userType = parseInt(userTypeRaw, 10);
-            if (!Number.isFinite(userType)) {
-                alert("Некорректный тип");
-                return;
-            }
-            const text = prompt("Сообщение пользователю:");
-            if (text === null) return;
-            const message = text.trim();
-            if (!message) {
-                alert("Пустое сообщение");
-                return;
-            }
-
-            fetch(withBase('/api/admin/send'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, user_type: userType, message })
-            })
-                .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                .then(({ ok, data }) => {
-                    if (!ok) {
-                        alert(data.error || "Не удалось отправить сообщение");
-                        return;
-                    }
-                    alert("Сообщение отправлено");
-                })
-                .catch(() => alert("Ошибка связи при отправке"));
-        }
-
-        function showAdminReplyModal(messageId, messageText, replyText) {
-            currentAdminReplyId = messageId;
-            const modal = document.getElementById('admin-reply-modal');
-            const text = document.getElementById('admin-reply-text');
-            text.textContent = messageText || '';
-            const reply = document.getElementById('admin-reply-reply');
-            reply.textContent = replyText || '';
-            modal.style.display = 'block';
-        }
-
-        function showAdminMessageModal(messageId, messageText) {
-            currentAdminMessageId = messageId;
-            const modal = document.getElementById('admin-message-modal');
-            const text = document.getElementById('admin-message-text');
-            const reply = document.getElementById('admin-message-reply');
-            text.textContent = messageText || '';
-            reply.value = '';
-            modal.style.display = 'block';
-        }
-
-        function hideAdminReplyModal() {
-            const modal = document.getElementById('admin-reply-modal');
-            modal.style.display = 'none';
-        }
-
-        document.getElementById('admin-reply-ack').addEventListener('click', () => {
-            if (!currentAdminReplyId) {
-                hideAdminReplyModal();
-                return;
-            }
-            fetch(withBase('/api/admin/reply/ack'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message_id: currentAdminReplyId })
-            })
-                .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                .then(({ ok, data }) => {
-                    if (!ok) {
-                        alert(data.error || "Не удалось подтвердить");
-                        return;
-                    }
-                    currentAdminReplyId = 0;
-                    hideAdminReplyModal();
-                })
-                .catch(() => alert("Ошибка связи"));
-        });
-
-        document.getElementById('admin-message-send').addEventListener('click', () => {
-            const reply = document.getElementById('admin-message-reply').value.trim();
-            if (!currentAdminMessageId || !reply) {
-                alert("Введите ответ");
-                return;
-            }
-            fetch(withBase('/api/user/admin-reply'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message_id: currentAdminMessageId, reply })
-            })
-                .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                .then(({ ok, data }) => {
-                    if (!ok) {
-                        alert(data.error || "Не удалось отправить ответ");
-                        return;
-                    }
-                    currentAdminMessageId = 0;
-                    document.getElementById('admin-message-modal').style.display = 'none';
-                })
-                .catch(() => alert("Ошибка связи"));
-        });
-
-        document.getElementById('ios-install-close').addEventListener('click', () => {
-            const modal = document.getElementById('ios-install-modal');
-            modal.style.display = 'none';
-        });
-
-        function toggleMenu() {
-            const menu = document.getElementById('side-menu');
-            const overlay = document.getElementById('menu-overlay');
-            menu.classList.toggle('active');
-            overlay.style.display = menu.classList.contains('active') ? 'block' : 'none';
-        }
-
-        function openMachineList() {
-            const value = prompt("Введите номер автомата (VMID).\n0 — авто по геолокации.");
-            if (value === null) return;
-            const vmid = parseInt(value, 10);
-            if (Number.isNaN(vmid) || vmid < 0) return alert("Некорректный номер автомата");
-            if (vmid === 0) return setAutoFavoriteByLocation();
-            saveFavorite(vmid);
-        }
-
-        // === ПОПУЛЯРНЫЕ НАПИТКИ ===
-
-        function loadPopular() {
-            fetch(withBase('/api/drinks/popular'))
-                .then(res => res.json())
-                .then(drinks => {
-                    const container = document.getElementById('popular-drinks');
-                    container.innerHTML = drinks.map(d => {
-                        const creamTxt = d.cream !== 4 ? `🥛${d.cream}` : '';
-                        const sugarTxt = d.sugar !== 4 ? `🍬${d.sugar}` : '';
-                        const extras = (creamTxt || sugarTxt) ? `<br><small>${creamTxt} ${sugarTxt}</small>` : '';
-                        return `
-                            <button onclick="setPreset('${d.drink}', ${d.cream}, ${d.sugar})" 
-                                    style="padding: 10px 15px; border-radius: 10px; border: 1px solid #0088cc; background: #fff; font-size: 14px; min-width: 60px;">
-                                <b style="font-size: 28px;">${d.drink}</b>
-                                ${extras}
-                            </button>
-                        `;
-                    }).join('');
-                });
-        }
-
-        function setPreset(drink, cream, sugar) {
-            document.getElementById('drink-id').value = drink;
-            document.getElementById('cream').value = cream;
-            document.getElementById('sugar').value = sugar;
-            document.getElementById('val-c').innerText = cream;
-            document.getElementById('val-s').innerText = sugar;
-        }
-
-        function askMachineManualAndSave() {
-            const manual = prompt("С каким автоматом работаем? Введите VMID:");
-            if (manual === null) return;
-            const vmid = parseInt(manual, 10);
-            if (Number.isNaN(vmid) || vmid <= 0) return alert("Некорректный VMID");
-            saveFavorite(vmid);
-        }
-
-        function setAutoFavoriteByLocation() {
-            if (!navigator.geolocation) {
-                askMachineManualAndSave();
-                return;
-            }
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    saveFavorite(0, pos.coords.latitude, pos.coords.longitude);
-                },
-                () => {
-                    askMachineManualAndSave();
-                },
-                { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-            );
-        }
-
-        function saveFavorite(vmid, lat = null, lon = null) {
-            const payload = { vmid: parseInt(vmid, 10) };
-            if (lat !== null && lon !== null) {
-                payload.lat = lat;
-                payload.lon = lon;
-            }
-            fetch(withBase('/api/favorite'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'ok') {
-                        location.reload();
-                        return;
-                    }
-                    if (data.status === 'need_machine_select') {
-                        askMachineManualAndSave();
-                        return;
-                    }
-                    alert("Не удалось сохранить автомат");
-                })
-                .catch(() => alert("Ошибка сохранения автомата"));
-        }
-
-        // === ЗАКАЗ ===
-
-        // ШАГ 1: нажали ЗАКАЗАТЬ — проверяем автомат, показываем подтверждение
-        function makeOrder() {
-            const drink = document.getElementById('drink-id').value;
-            const cream = parseInt(document.getElementById('cream').value);
-            const sugar = parseInt(document.getElementById('sugar').value);
-
-            if (!drink) return alert("Введите код напитка");
-            if (!currentDefaultVmid) return alert("Выберите автомат в меню ☰");
-
-            fetch(withBase('/api/order/check'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    vmid: parseInt(currentDefaultVmid),
-                    drink: String(drink),
-                    cream: cream,
-                    sugar: sugar
-                })
-            })
-                .then(res => res.json().catch(() => { throw new Error('HTTP ' + res.status) }))
-                .then(data => {
-                    if (data.error) {
-                        alert("Ошибка: " + data.error);
-                        return;
-                    }
-
-                    // Сохраняем параметры для финального шага
-                    pendingOrder = {
-                        vmid: parseInt(currentDefaultVmid),
-                        drink_code: String(drink),
-                        cream: cream,
-                        sugar: sugar
-                    };
-
-                    // Заполняем карточку подтверждения
-                    document.getElementById('conf-vmid').innerText = currentDefaultVmid;
-                    document.getElementById('conf-name').innerText = data.drink_name || '—';
-                    document.getElementById('conf-code').innerText = drink;
-                    document.getElementById('status-msg').innerText = '';
-
-                    // Переключаем экраны
-                    document.getElementById('order-card').style.display = 'none';
-                    document.getElementById('confirm-card').style.display = 'block';
-                })
-                .catch(err => alert("Ошибка: " + (err.message || "связи с сервером")));
-        }
-
-        // ШАГ 2: нажали ПРИГОТОВИТЬ — открываем WS, отправляем команду роботу
-        function startBrewing() {
-            let orderFinished = false;
-            if (!pendingOrder) return;
-            requestNotificationPermission();
-
-            // Блокируем кнопку чтобы не нажали дважды
-            const btn = document.getElementById('btn-brew');
-            btn.disabled = true;
-            btn.innerText = 'Отправляю...';
-
-            // Прячем кнопку Отмена
-            document.getElementById('btn-cancel').style.display = 'none';
-
-            showStatus('⏳ Подключаюсь к автомату...');
-
-            // 1. Сначала открываем WebSocket
-            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(proto + '//' + location.host + withBase('/api/order/ws'));
-
-            // Таймаут 30 секунд
-            const timeout = setTimeout(() => {
-                ws.close();
-                alert('Проблема со связью.');
-                cancelOrder();
-            }, 60000);
-
-            ws.onopen = () => {
-                // 2. Только после открытия WS отправляем заказ
-                fetch(withBase('/api/order/start'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(pendingOrder)
-                })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.error) {
-                            showStatus('❌ ' + data.error);
-                            ws.close();
-                            btn.disabled = false;
-                            btn.innerText = 'ПРИГОТОВИТЬ';
-                            return;
-                        }
-                        showStatus('⏳ Команда отправлена, жду автомат...');
-                    })
-                    .catch(() => {
-                        showStatus('❌ Ошибка связи');
-                        ws.close();
-                        btn.disabled = false;
-                        btn.innerText = 'ПРИГОТОВИТЬ';
-                    });
-            };
-
-            // 3. Получаем статусы от робота
-            ws.onmessage = (e) => {
-                console.log('WS message:', e.data);
-                clearTimeout(timeout); // ответ пришёл — таймаут не нужен
-                const event = JSON.parse(e.data);
-                switch (event.status) {
-                    case 'executionStart':
-                        showStatus('☕ Готовлю... стоимость заказа:' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
-                        btn.style.display = 'none';
-                        break;
-                    case 'complete':
-                        orderFinished = true;
-                        ws.close();
-                        playDoneSound();
-                        notifyOrderReady(event);
-                        if (event.cashback) {
-                            showStatus('✅ Готово! Приятного аппетита. Кэшбек: ' + event.cashback.toFixed(2) + ' ₽');
-                        } else {
-                            showStatus('✅ Готово! Приятного аппетита.');
-                        }
-                        setTimeout(() => location.reload(), 3000);
-                        break;
-                    case 'executionInaccessible':
-                        orderFinished = true;
-                        showStatus('❌ Код недоступен или мало ингредиентов.');
-                        ws.close();
-                        showOkButton();
-                        break;
-                    case 'overdraft':
-                        orderFinished = true;
-                        showStatus('💸 Недостаточно средств.');
-                        ws.close();
-                        showOkButton();
-                        break;
-                    case 'robotIsBusy':
-                        orderFinished = true;
-                        showStatus('🔄 Автомат занят, попробуйте позже.');
-                        ws.close();
-                        showOkButton();
-                        break;
-                    default:
-                        orderFinished = true;
-                        ws.close();
-                        alert(event.message || event.status);
-                        cancelOrder();
-                        break;
-                }
-            };
-            ws.onerror = () => {
-                clearTimeout(timeout);
-                orderFinished = true;
-                showStatus('❌ Ошибка соединения');
-                showOkButton();
-            };
-            ws.onclose = () => {
-                clearTimeout(timeout);
-                setTimeout(() => {
-                    if (!orderFinished) {
-                        showStatus('⚠️ Связь прервана. Проверьте подключение к интернету.');
-                        showOkButton();
-                    }
-                }, 3000);
-            };
-        }
-
-        function showOkButton() {
-            document.getElementById('btn-brew').style.display = 'none';
-            document.getElementById('btn-ok').style.display = '';
-        }
-
-        function cancelOrder() {
-            document.getElementById('confirm-card').style.display = 'none';
-            document.getElementById('order-card').style.display = 'block';
-            document.getElementById('btn-brew').style.display = '';
-            document.getElementById('btn-brew').disabled = false;
-            document.getElementById('btn-brew').innerText = 'ПРИГОТОВИТЬ';
-            document.getElementById('btn-ok').style.display = 'none';
-            document.getElementById('btn-cancel').style.display = 'inline';
-            document.getElementById('status-msg').innerText = '';
-            pendingOrder = null;
-        }
-
-        function showStatus(msg) {
-            document.getElementById('status-msg').innerText = msg;
-        }
-
-        function playDoneSound() {
-            try {
-                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                if (!AudioCtx) return;
-                const ctx = new AudioCtx();
-                const now = ctx.currentTime;
-                const freqs = [880, 1175, 1568];
-                freqs.forEach((f, i) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.value = f;
-                    gain.gain.setValueAtTime(0.0001, now + i * 0.12);
-                    gain.gain.exponentialRampToValueAtTime(0.12, now + i * 0.12 + 0.02);
-                    gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.18);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(now + i * 0.12);
-                    osc.stop(now + i * 0.12 + 0.2);
-                });
-            } catch (_) { }
-        }
-
-        async function requestNotificationPermission() {
-            if (!('Notification' in window)) return;
-            if (Notification.permission === 'default') {
-                try {
-                    await Notification.requestPermission();
-                } catch (_) { }
-            }
-            if (Notification.permission === 'granted') {
-                await ensureWebPushSubscription();
-            }
-        }
-
-        async function notifyOrderReady(event) {
-            if (!('Notification' in window)) return;
-            if (Notification.permission !== 'granted') return;
-            if (!document.hidden && document.hasFocus()) return;
-
-            const body = event && event.cashback
-                ? `Напиток готов. Кэшбек: ${event.cashback.toFixed(2)} ₽`
-                : 'Ваш напиток готов. Приятного аппетита.';
-            const targetURL = location.origin + withBase('/');
-            const iconURL = location.origin + withBase('/icon-192.png');
-
-            try {
-                if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-                    const reg = await navigator.serviceWorker.ready;
-                    await reg.showNotification('Vender Web', {
-                        body: body,
-                        tag: 'order-ready',
-                        renotify: true,
-                        icon: iconURL,
-                        badge: iconURL,
-                        data: { url: targetURL }
-                    });
-                    return;
-                }
-            } catch (_) { }
-
-            try {
-                new Notification('Vender Web', { body: body, icon: iconURL });
-            } catch (_) { }
-        }
-
-        function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            for (let i = 0; i < rawData.length; ++i) {
-                outputArray[i] = rawData.charCodeAt(i);
-            }
-            return outputArray;
-        }
-
-        async function ensureWebPushSubscription() {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-            if (Notification.permission !== 'granted') return;
-
-            const reg = swRegistrationPromise ? await swRegistrationPromise : await navigator.serviceWorker.ready;
-            if (!reg) return;
-
-            const keyResp = await fetch(withBase('/api/push/public-key'));
-            if (!keyResp.ok) return;
-            const keyData = await keyResp.json();
-            if (!keyData.publicKey) return;
-
-            let subscription = await reg.pushManager.getSubscription();
-            if (!subscription) {
-                subscription = await reg.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
-                });
-            }
-
-            await fetch(withBase('/api/push/subscribe'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(subscription)
-            });
-        }
-
-        async function unsubscribeWebPush() {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-            const reg = swRegistrationPromise ? await swRegistrationPromise : await navigator.serviceWorker.ready;
-            if (!reg) return;
-            const subscription = await reg.pushManager.getSubscription();
-            if (!subscription) return;
-
-            try {
-                await fetch(withBase('/api/push/unsubscribe'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ endpoint: subscription.endpoint })
-                });
-            } catch (_) { }
-            try {
-                await subscription.unsubscribe();
-            } catch (_) { }
-        }
-
-        // === ЗАГРУЗКА ПРОФИЛЯ ===
-        fetch(withBase('/api/balance'))
-            .then(res => res.ok ? res.json() : Promise.reject())
-            .then(data => {
-                document.getElementById('auth-section').style.display = 'none';
-                document.getElementById('user-info').style.display = 'block';
-                document.getElementById('nav-bar').style.display = 'flex';
-
-                const welcomeElem = document.getElementById('welcome-user');
-                const balanceElem = document.getElementById('balance');
-                const creditStatus = document.getElementById('credit-status');
-
-                if (data.balance < 0) {
-                    welcomeElem.innerText = `Приветствую, должничок ${data.user_name || ''}!`;
-                    balanceElem.style.color = "#e74c3c";
-                    creditStatus.style.display = "block";
-                } else {
-                    welcomeElem.innerText = `Приветствую, ${data.user_name || 'мой господин'}!`;
-                    balanceElem.style.color = "#2ecc71";
-                    creditStatus.style.display = "none";
-                }
-
-                balanceElem.innerText = data.balance.toFixed(2);
-
-                const discElem = document.getElementById('discount-info');
-                const credElem = document.getElementById('credit-info');
-                const sepElem = document.getElementById('perks-separator');
-
-                if (data.discount > 0) {
-                    discElem.innerHTML = `🏷️скидка <b>${data.discount}%</b>`;
-                }
-                if (data.credit > 0) {
-                    credElem.innerHTML = `💳кредит <b>${data.credit.toFixed(2)}₽</b>`;
-                }
-                if (data.discount > 0 && data.credit > 0) {
-                    sepElem.style.display = 'inline';
-                }
-
-                currentDefaultVmid = data.vm_id;
-                isAdminUser = Boolean(data.is_admin);
-                const adminItem = document.getElementById('admin-messages-item');
-                if (adminItem) adminItem.style.display = isAdminUser ? 'block' : 'none';
-                const adminSendItem = document.getElementById('admin-send-item');
-                if (adminSendItem) adminSendItem.style.display = isAdminUser ? 'block' : 'none';
-                const iosItem = document.getElementById('ios-install-item');
-                if (iosItem) iosItem.style.display = (!isStandaloneApp() && isIOSDevice()) ? 'block' : 'none';
-                document.getElementById('current-machine-label').innerText = data.vm_id ? `Автомат №${data.vm_id}` : "Выберите автомат";
-
-                if (data.admin_reply && data.admin_reply.id) {
-                    showAdminReplyModal(
-                        data.admin_reply.id,
-                        data.admin_reply.message || '',
-                        data.admin_reply.reply || ''
-                    );
-                }
-                if (data.admin_message && data.admin_message.id) {
-                    showAdminMessageModal(
-                        data.admin_message.id,
-                        data.admin_message.message || ''
-                    );
-                }
-                if (Notification.permission === 'granted') {
-                    ensureWebPushSubscription().catch(() => { });
-                }
-                loadPopular();
-            })
-            .catch(() => console.log("Нужен логин"));
-
-    </script>
+    <div id="send-to-user-modal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
+        <div
+            style="background:#fff; border-radius:12px; margin:40px 15px; display:flex; flex-direction:column; max-height:85vh; overflow:hidden;">
+            <div
+                style="padding:15px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                <b style="font-size:16px;">Написать пользователю</b>
+                <button onclick="document.getElementById('send-to-user-modal').style.display='none'"
+                    style="background:none; border:none; font-size:22px; cursor:pointer; color:#999;">✕</button>
+            </div>
+            <div style="padding:12px 15px; border-bottom:1px solid #eee;">
+                <input id="send-to-user-filter" type="text" placeholder="🔍 Фильтр по имени..."
+                    oninput="renderUserList(this.value)"
+                    style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:15px; box-sizing:border-box;">
+            </div>
+            <div id="send-to-user-list" style="overflow-y:auto; max-height:250px; border-bottom:1px solid #eee;"></div>
+            <div style="padding:12px 15px;">
+                <div id="send-to-user-selected"
+                    style="font-size:13px; color:#0088cc; margin-bottom:8px; min-height:18px;"></div>
+                <textarea id="send-to-user-message" placeholder="Текст сообщения..."
+                    style="width:100%; height:80px; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:15px; box-sizing:border-box; resize:vertical;"></textarea>
+                <button onclick="doSendToUser()" class="btn-blue"
+                    style="width:100%; margin-top:10px; padding:13px; font-size:16px;">
+                    📨 Отправить
+                </button>
+                <div id="send-to-user-result" style="text-align:center; margin-top:8px; font-size:13px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="user-messages-modal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
+        <div
+            style="background:#fff; border-radius:12px; margin:40px 15px; display:flex; flex-direction:column; max-height:85vh; overflow:hidden;">
+            <div
+                style="padding:15px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                <b style="font-size:16px;">Переписка с пользователем</b>
+                <button onclick="document.getElementById('user-messages-modal').style.display='none'"
+                    style="background:none; border:none; font-size:22px; cursor:pointer; color:#999;">✕</button>
+            </div>
+            <div style="padding:10px 15px; border-bottom:1px solid #eee;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:14px;">
+                    <input type="checkbox" id="user-messages-hide-read" checked
+                        onchange="userMessagesHideRead=this.checked; userMessagesOffset=0; document.getElementById('user-messages-list').innerHTML=''; loadUserMessages();">
+                    скрыть прочитанное
+                </label>
+            </div>
+            <div id="user-messages-list" style="overflow-y:auto; flex:1; padding:0 5px;"></div>
+            <div style="text-align:center; padding:10px;">
+                <button id="user-messages-more" onclick="loadUserMessages()"
+                    style="display:none; padding:10px 25px; border:1px solid #0088cc; background:#fff; color:#0088cc; border-radius:20px; cursor:pointer; font-size:14px;">
+                    Загрузить ещё
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
 </body>
 
 </html>

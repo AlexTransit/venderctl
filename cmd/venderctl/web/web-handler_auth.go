@@ -220,7 +220,10 @@ func (h *WebHandler) createSession(c *gin.Context, user *userRecord) (bool, erro
 
 	device := c.GetHeader("User-Agent")
 
+	// подключениче с двуих и более устройств - только с разрешения
 	approved := approvedCount == 0
+	// подлючения юзера с разных устрройст не ограничего
+	// approved, _ := true, approvedCount
 
 	err = store.InsertUserSession(token, user.Id, user.Type, device, approved)
 	if err != nil {
@@ -234,6 +237,66 @@ func (h *WebHandler) createSession(c *gin.Context, user *userRecord) (bool, erro
 
 	h.setAuthCookie(c, user.Id, token)
 	return approved, nil
+}
+
+func (h *WebHandler) OpenInvite(c *gin.Context) {
+	token := c.Query("token")
+	target := h.App.Config.Web.BaseURL + "/auth/callback?token=" + token
+
+	html := `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Открываю...</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="font-family:sans-serif; padding:20px; text-align:center;">
+<img src="` + h.App.Config.Web.BaseURL + `/icon-192.png" style="width:80px; border-radius:15px; margin-bottom:20px;">
+<h2>Добро пожаловать!</h2>
+<div id="copy-block" style="display:none;">
+<p>Для возможности получения уведомлений о готовности напитка
+откройте эту ссылку во внешнем браузере. нажав на три точки в правом верхнем углу. 
+выберите открыть в ... или открыть в сафари.
+
+если открыть ссыку в браузере хром, то появиться возможность сделать типа "приложение"
+память занимать не будет, но можно вывести ярлык на главный экран телефона и тогда входить будет удобнее.
+</p>
+    <input id="link" type="text" value="` + target + `" 
+        style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; font-size:14px; box-sizing:border-box;"
+        onclick="this.select();" readonly>
+    <button onclick="navigator.clipboard.writeText('` + target + `').then(()=>alert('Скопировано!'))"
+        style="margin-top:15px; width:100%; padding:15px; background:#0088cc; color:white; border:none; border-radius:10px; font-size:16px;">
+        📋 Скопировать ссылку
+    </button>
+    <p style="color:#888; font-size:13px;">Откройте Chrome и вставьте в адресную строку</p>
+	<button onclick="window.location.href='` + target + `'"
+    style="margin-top:10px; width:100%; padding:15px; background:#27ae60; color:white; border:none; border-radius:10px; font-size:16px;">
+    🌐 Или можете продолжить в текущем браузере
+	</button>
+</div>
+<script>
+var target = "` + target + `";
+var ua = navigator.userAgent.toLowerCase();
+var isIOS = /iphone|ipad|ipod/.test(ua);
+var chromeScheme = isIOS ? "googlechromes" : "googlechrome";
+var chromeURL = chromeScheme + "://navigate?url=" + encodeURIComponent(target);
+var isTelegramWebView = /telegram/i.test(navigator.userAgent) || typeof window.TelegramWebviewProxy !== 'undefined' || / wv\)/.test(navigator.userAgent);
+var isChrome = /chrome/.test(ua) && !/edg|opr|brave/.test(ua) && !isTelegramWebView;
+
+if (isChrome) {
+    window.location.href = target;
+} else {
+    var chromeScheme = isIOS ? "googlechromes" : "googlechrome";
+    window.location.href = chromeScheme + "://navigate?url=" + encodeURIComponent(target);
+    setTimeout(function() {
+        document.getElementById('copy-block').style.display = 'block';
+        document.querySelector('h2').style.display = 'none';
+    }, 2000);
+}
+
+</script>
+</body>
+</html>`
+	c.Data(200, "text/html; charset=utf-8", []byte(html))
 }
 
 func (h *WebHandler) notifyAdmin(uid int64, token string, device string) {
