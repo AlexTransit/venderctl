@@ -2,65 +2,49 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "console": "integratedTerminal",
-            "name": "version",
-            "env": {"app_ver": "0.3.1",},
+            "name": "Venderctl: Dynamic",
             "type": "go",
             "request": "launch",
             "mode": "auto",
+            "console": "integratedTerminal",
             "program": "${workspaceFolder}/cmd/venderctl/main.go",
-            "buildFlags": "-ldflags=' -X main.BuildVersion=debug'",
-             "args": ["-config","/home/alexm/dev.hcl","version"]
-            //  "args": ["-config","/home/alexm/dev.hcl","control", "88", "exec", "_emulate.key(5) emulate.key(0) emulate.key(11)"]
-            // "args": ["-config","/home/alexm/dev.hcl","sponge"]
-            // "args": ["-config","/home/alexm/dev.hcl","telegram"] //dev
-            // "args": ["-config","/home/alexm/dev.hcl","tax"]
-            // "args": ["-config","/home/alexm/prod.hcl","telegram"] //prod
-        },
+            "env": { "app_ver": "debug" },
+            "buildFlags": "-ldflags='-X main.BuildVersion=debug'",
+            "args": [
+                "-config",
+                "/etc/venderctl/dev.hcl",
+                // "/etc/venderctl/prod.hcl",
+                "${input:command}"
+            ]
+        },    
         {
-            "console": "integratedTerminal",
-            "name": "sponge",
-            "env": {"app_ver": "0.3.1",},
-            "type": "go",
+            "name": "Firefox: Web Port",
+            "type": "firefox",
             "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/cmd/venderctl/main.go",
-            "buildFlags": "-ldflags=' -X main.BuildVersion=debug'",
-            "args": ["-config","/home/alexm/dev.hcl","sponge"]
-        },
+            "reAttach": true,
+            "url": "http://localhost:8085",
+            // "url": "https://am.inkcat.net",
+            "webRoot": "${workspaceFolder}"
+        }
+    ],
+    "compounds": [
         {
-            "console": "integratedTerminal",
-            "name": "tax",
-            "env": {"app_ver": "0.3.1",},
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/cmd/venderctl/main.go",
-            "buildFlags": "-ldflags=' -X main.BuildVersion=debug'",
-            "args": ["-config","/home/alexm/dev.hcl","tax"]
-        },
+            "name": "Venderctl: Full Web (Go + Firefox)",
+            "configurations": [
+                "Venderctl: Dynamic",
+                "Firefox: Web Port"
+            ]
+        }
+    ],
+    "inputs": [
         {
-            "console": "integratedTerminal",
-            "name": "telegram dev",
-            "env": {"app_ver": "0.3.1",},
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/cmd/venderctl/main.go",
-            "buildFlags": "-ldflags=' -X main.BuildVersion=debug'",
-            "args": ["-config","/home/alexm/dev.hcl","telegram"] //dev
-        },
-        {
-            "console": "integratedTerminal",
-            "name": "telegram prod",
-            "env": {"app_ver": "0.3.1",},
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/cmd/venderctl/main.go",
-            "buildFlags": "-ldflags=' -X main.BuildVersion=debug'",
-            "args": ["-config","/home/alexm/prod.hcl","telegram"] //dev
-        },
-
+            "id": "command",
+            "type": "pickString",
+            "description": "Что запускаем?",
+            "options": [
+                "telegram", "web", "control", "version", "sponge", "tax"
+            ],
+            // "default": "web"
+        }
     ]
 }

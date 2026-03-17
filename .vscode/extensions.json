@@ -1,5 +1,6 @@
 {
     "recommendations": [
         "serhioromano.vscode-gitflow"
+        // ,        "github.copilot"
     ]
 }

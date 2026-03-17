@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0088cc">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="stylesheet" href="app.css">
+    <title>Vender Web</title>
+</head>
+
+<body>
+    <div id="splash"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:#fff; display:flex; align-items:center; justify-content:center; z-index:9999;">
+        <img src="icon-512.png" style="width:100vw; height:100vh; object-fit:contain;">
+    </div>
+
+    <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+    <div id="nav-bar" class="header" style="display: none;">
+        <span id="current-machine-label" style="font-weight: bold;">№ --</span>
+        <button onclick="toggleMenu()" style="background:none; border:none; color:white; font-size:24px;">☰</button>
+    </div>
+
+    <!-- ЗАТЕМНЕНИЕ И МЕНЮ -->
+    <div id="menu-overlay" onclick="toggleMenu()"></div>
+    <div id="side-menu" class="side-menu">
+        <div class="menu-header">Настройки</div>
+        <div id="install-app-item" class="menu-item" onclick="installPWA()" style="display:none;">📲 Установить
+            приложение</div>
+        <a href="tg://resolve?domain=FreeBenderTestBot" class="menu-item"
+            style="display:flex; align-items:center; text-decoration:none;">
+            <span style="margin-right:10px;">🤖</span> Перейти в телеграм бот
+        </a>
+        <div class="menu-item" onclick="messageAdmin()">✉️ Сообщение администратору</div>
+        <div id="admin-send-item" class="menu-item" onclick="sendMessageToUser()" style="display:none;">Написать
+            пользователю</div>
+        <div id="admin-messages-item" class="menu-item" onclick="openAdminMessages()" style="display:none;">Сообщения от
+            пользователей</div>
+        <div class="menu-item" onclick="openMachineList()">📍 Сменить автомат</div>
+        <div class="menu-item" onclick="openOrders()">📋 Заказы</div>
+        <div id="push-toggle-item" class="menu-item" onclick="togglePushNotifications()" style="display:none;">🔔
+            Включить уведомления</div>
+        <div id="ios-install-item" class="menu-item" onclick="showIOSInstallHelp()" style="display:none;">Как установить
+            на iPhone</div>
+        <div id="logout-menu-item" class="menu-item" style="color:#ff4d4d; margin-top:20px;" onclick="logout()">🚪 Выход
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- БЛОК ВХОДА -->
+        <div id="auth-section">
+            <h1>Управление автопоилкой</h1>
+            <p style="color:#888;">Вход доступен только по ссылке-приглашению.</p>
+        </div>
+
+        <!-- ЛИЧНЫЙ КАБИНЕТ -->
+        <div id="user-info" class="card">
+            <div id="welcome-user" style="font-size:18px;">Приветствую!</div>
+            <div class="balance-label">Ваш баланс:</div>
+            <div class="balance-val"><span id="balance">0.00</span> ₽</div>
+            <div id="credit-status"
+                style="display:none; color:#e74c3c; font-size:12px; margin-top:-15px; margin-bottom:10px; font-weight:bold;">
+                ☕ отгружаю в кредит
+            </div>
+            <div id="user-perks" style="font-size:11px; color:#999; margin-top:-12px; margin-bottom:15px;">
+                <span id="discount-info"></span>
+                <span id="perks-separator" style="display:none; margin:0 4px; opacity:0.5;">|</span>
+                <span id="credit-info"></span>
+            </div>
+            <hr style="border:0; border-top:1px solid #eee;">
+
+            <!-- ШАГ 1: ФОРМА ЗАКАЗА -->
+            <div id="order-card" class="card" style="margin-top:20px; text-align:left;">
+                <h4 style="text-align:center; margin-top:0;">☕ Заказать напиток</h4>
+                <div id="popular-drinks" style="display:flex; justify-content:center; gap:8px; margin-bottom:20px;">
+                </div>
+                <div style="text-align:center; margin-bottom:15px;">
+                    <input type="text" id="drink-id" placeholder="Код"
+                        style="width:80px; font-size:24px; text-align:center; border:2px solid #0088cc;">
+                </div>
+                <div class="adj-row" style="margin-bottom:10px;">
+                    <label>🥛 Сливки: <b id="val-c">4</b></label>
+                    <input type="range" id="cream" min="0" max="6" value="4"
+                        oninput="document.getElementById('val-c').innerText=this.value" style="width:100%;">
+                </div>
+                <div class="adj-row" style="margin-bottom:20px;">
+                    <label>🍬 Сахар: <b id="val-s">4</b></label>
+                    <input type="range" id="sugar" min="0" max="8" value="4"
+                        oninput="document.getElementById('val-s').innerText=this.value" style="width:100%;">
+                </div>
+                <button onclick="makeOrder()" class="btn-blue"
+                    style="width:100%; height:50px; font-size:18px;">ЗАКАЗАТЬ</button>
+            </div>
+        </div>
+
+        <!-- ШАГ 2: ПОДТВЕРЖДЕНИЕ -->
+        <div id="confirm-card" class="card"
+            style="display:none; margin-top:20px; border:2px solid #2ecc71; background:#fafffa;">
+            <div style="font-size:18px; line-height:1.6;">
+                Автомат: <b id="conf-vmid">--</b><br>
+                Напиток: <b id="conf-name">--</b> (код <span id="conf-code">--</span>)<br>
+            </div>
+            <br>
+            <button onclick="startBrewing()" id="btn-brew" class="btn-blue"
+                style="background:#27ae60; height:60px; font-size:20px;">ПРИГОТОВИТЬ</button>
+            <button id="btn-ok" onclick="cancelOrder()" class="btn-blue"
+                style="display:none; background:#888; height:60px; font-size:20px;">Ok</button>
+            <br>
+            <button id="btn-cancel" onclick="cancelOrder()"
+                style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Отмена</button>
+            <div id="status-msg"></div>
+        </div>
+
+        <!-- ИСТОРИЯ ЗАКАЗОВ -->
+        <div id="orders-card" class="card" style="display:none; margin-top:20px;">
+            <h4 style="margin-top:0;">📋 История заказов</h4>
+            <div id="orders-list"></div>
+            <button id="orders-more" onclick="loadMoreOrders()"
+                style="display:none; width:100%; margin-top:10px; padding:10px; border:1px solid #0088cc; background:#fff; color:#0088cc; border-radius:10px; cursor:pointer;">
+                Загрузить ещё
+            </button>
+            <br>
+            <button onclick="closeOrders()"
+                style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Закрыть</button>
+        </div>
+
+        <!-- СООБЩЕНИЯ ПОЛЬЗОВАТЕЛЕЙ (АДМИН) -->
+        <div id="admin-messages-card" class="card" style="display:none; margin-top:20px;">
+            <h4 style="margin-top:0;">Сообщения пользователей</h4>
+            <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:10px;">
+                <input type="checkbox" id="admin-hide-answered" onchange="toggleHideAnswered()">
+                показать с ответами
+            </label>
+            <div id="admin-messages-list"></div>
+            <button id="admin-messages-more" onclick="loadMoreAdminMessages()"
+                style="display:none; width:100%; margin-top:10px; padding:10px; border:1px solid #0088cc; background:#fff; color:#0088cc; border-radius:10px; cursor:pointer;">
+                Загрузить ещё
+            </button>
+            <br>
+            <button onclick="closeAdminMessages()"
+                style="background:none; border:none; color:#888; margin-top:10px; cursor:pointer;">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНЫЕ ОКНА -->
+    <div id="admin-reply-modal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
+        <div
+            style="background:#fff; border-radius:12px; padding:20px; margin:80px 20px; box-shadow:0 2px 10px rgba(0,0,0,0.15);">
+            <div style="font-weight:bold; margin-bottom:10px;">Сообщение администратору</div>
+            <div id="admin-reply-text" style="white-space:pre-wrap; margin-bottom:12px;"></div>
+            <div style="font-weight:bold; margin-bottom:6px;">Ответ</div>
+            <div id="admin-reply-reply" style="white-space:pre-wrap; margin-bottom:16px;"></div>
+            <button id="admin-reply-ack" class="btn-blue" style="width:100%;">Прочитал</button>
+        </div>
+    </div>
+
+    <div id="admin-message-modal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
+        <div
+            style="background:#fff; border-radius:12px; padding:20px; margin:80px 20px; box-shadow:0 2px 10px rgba(0,0,0,0.15);">
+            <div style="font-weight:bold; margin-bottom:10px;">Сообщение администратора</div>
+            <div id="admin-message-text" style="white-space:pre-wrap; margin-bottom:12px;"></div>
+            <textarea id="admin-message-reply" rows="3" placeholder="Ваш ответ"
+                style="width:100%; border:1px solid #ddd; border-radius:8px; padding:8px; margin-bottom:12px; font-size:14px;"></textarea>
+            <button id="admin-message-send" class="btn-blue" style="width:100%;">Отправить ответ</button>
+        </div>
+    </div>
+
+    <div id="ios-install-modal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
+        <div
+            style="background:#fff; border-radius:12px; padding:20px; margin:80px 20px; box-shadow:0 2px 10px rgba(0,0,0,0.15);">
+            <div style="font-weight:bold; margin-bottom:10px;">Установка на iPhone</div>
+            <div style="white-space:pre-wrap; margin-bottom:16px;">
+                1. Откройте сайт в Safari.
+                2. Нажмите "Поделиться".
+                3. Выберите "На экран Домой".
+                4. Подтвердите добавление.
+            </div>
+            <button id="ios-install-close" class="btn-blue" style="width:100%;">Понятно</button>
+        </div>
+    </div>
+
+    <div id="send-to-user-modal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
+        <div
+            style="background:#fff; border-radius:12px; margin:40px 15px; display:flex; flex-direction:column; max-height:85vh; overflow:hidden;">
+            <div
+                style="padding:15px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                <b style="font-size:16px;">Написать пользователю</b>
+                <button onclick="document.getElementById('send-to-user-modal').style.display='none'"
+                    style="background:none; border:none; font-size:22px; cursor:pointer; color:#999;">✕</button>
+            </div>
+            <div style="padding:12px 15px; border-bottom:1px solid #eee;">
+                <input id="send-to-user-filter" type="text" placeholder="🔍 Фильтр по имени..."
+                    oninput="renderUserList(this.value)"
+                    style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:15px; box-sizing:border-box;">
+            </div>
+            <div id="send-to-user-list" style="overflow-y:auto; max-height:250px; border-bottom:1px solid #eee;"></div>
+            <div style="padding:10px 15px; border-bottom:1px solid #eee; display:flex; gap:8px;">
+                <button id="btn-rename-user" onclick="renameUser()" disabled
+                    style="flex:1; padding:9px; border:1px solid #ddd; background:#fff; color:#888; border-radius:8px; font-size:14px; cursor:pointer;">
+                    ✏️ Переименовать
+                </button>
+                <button id="btn-invite-user" onclick="inviteUser()" disabled
+                    style="flex:1; padding:9px; border:1px solid #ddd; background:#fff; color:#888; border-radius:8px; font-size:14px; cursor:pointer;">
+                    🔗 Приглашение
+                </button>
+                <button id="btn-memo-user" onclick="memoUser()" disabled
+                    style="flex:1; padding:9px; border:1px solid #ddd; background:#fff; color:#888; border-radius:8px; font-size:14px; cursor:pointer;">
+                    📝 Memo
+                </button>
+            </div>
+            <div style="padding:12px 15px;">
+                <div id="send-to-user-selected"
+                    style="font-size:13px; color:#0088cc; margin-bottom:8px; min-height:18px;"></div>
+                <textarea id="send-to-user-message" placeholder="Текст сообщения..."
+                    style="width:100%; height:80px; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:15px; box-sizing:border-box; resize:vertical;"></textarea>
+                <button onclick="doSendToUser()" class="btn-blue"
+                    style="width:100%; margin-top:10px; padding:13px; font-size:16px;">
+                    📨 Отправить
+                </button>
+                <div id="send-to-user-result" style="text-align:center; margin-top:8px; font-size:13px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="user-messages-modal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
+        <div
+            style="background:#fff; border-radius:12px; margin:40px 15px; display:flex; flex-direction:column; max-height:85vh; overflow:hidden;">
+            <div
+                style="padding:15px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                <b style="font-size:16px;">Переписка с пользователем</b>
+                <button onclick="document.getElementById('user-messages-modal').style.display='none'"
+                    style="background:none; border:none; font-size:22px; cursor:pointer; color:#999;">✕</button>
+            </div>
+            <div style="padding:10px 15px; border-bottom:1px solid #eee;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:14px;">
+                    <input type="checkbox" id="user-messages-hide-read" checked
+                        onchange="userMessagesHideRead=this.checked; userMessagesOffset=0; document.getElementById('user-messages-list').innerHTML=''; loadUserMessages();">
+                    скрыть прочитанное
+                </label>
+            </div>
+            <div id="user-messages-list" style="overflow-y:auto; flex:1; padding:0 5px;"></div>
+            <div style="text-align:center; padding:10px;">
+                <button id="user-messages-more" onclick="loadUserMessages()"
+                    style="display:none; padding:10px 25px; border:1px solid #0088cc; background:#fff; color:#0088cc; border-radius:20px; cursor:pointer; font-size:14px;">
+                    Загрузить ещё
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

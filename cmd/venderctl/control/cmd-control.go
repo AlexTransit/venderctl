@@ -60,12 +60,9 @@ func controlMain(ctx context.Context, flags *flag.FlagSet) error {
 	switch cmd {
 	case "report":
 		cmd := &vender_api.Command{
-			Executer:             0,
-			Lock:                 false,
-			Task:                 &vender_api.Command_Report{Report: &vender_api.Command_ArgReport{}},
-			XXX_NoUnkeyedLiteral: struct{}{},
-			XXX_unrecognized:     []byte{},
-			XXX_sizecache:        0,
+			Executer: 0,
+			Lock:     false,
+			Task:     &vender_api.Command_Report{Report: &vender_api.Command_ArgReport{}},
 		}
 		g.Tele.CommandTx(targetId, cmd)
 		return nil

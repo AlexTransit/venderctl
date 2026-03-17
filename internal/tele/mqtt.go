@@ -101,10 +101,11 @@ func (self *tele) messageHandler(c mqtt.Client, msg mqtt.Message) {
 	// 	self.log.Debugf("msg=%v", msg)
 	// 	return
 	// }
-	select {
-	case self.pch <- p:
-		return
-	}
+	// select {
+	// case self.pch <- p:
+	// 	return
+	// }
+	self.pch <- p
 }
 
 var reTopic = regexp.MustCompile(`^vm(-?\d+)/(\w+)/?(.+)?$`)
@@ -146,7 +147,7 @@ func (t *tele) onConnectHandler(c mqtt.Client) {
 		if token := c.Subscribe(t.clientSubscribe, 0, nil); token.Wait() && token.Error() != nil {
 			t.log.Errorf("%s subscribe error", t.clientId)
 		} else {
-			t.log.Debugf("%s subscribe Ok", t.clientId)
+			t.log.Infof("%s subscribe Ok", t.clientId)
 			c.Publish(t.clientId+"/c", 1, true, []byte{0x01})
 		}
 
@@ -154,7 +155,7 @@ func (t *tele) onConnectHandler(c mqtt.Client) {
 }
 
 func (self *tele) connectLostHandler(c mqtt.Client, err error) {
-	self.log.Debugf("broker connection lost.")
+	self.log.Infof("broker connection lost.")
 }
 
 func (self *tele) mqttSend(p tele_api.Packet) error {
