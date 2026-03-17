@@ -1,0 +1,142 @@
+body {
+    font-family: -apple-system, sans-serif;
+    background: #f0f2f5;
+    margin: 0;
+    padding: 0;
+}
+
+.header {
+    background: #0088cc;
+    color: white;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.container {
+    padding: 15px;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    text-align: center;
+}
+
+/* Авторизация */
+#auth-section {
+    display: block;
+    text-align: center;
+    padding-top: 50px;
+}
+
+.btn-blue {
+    background: #0088cc;
+    color: white;
+    border: none;
+    padding: 12px;
+    width: 90%;
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+/* Кабинет */
+#user-info {
+    display: none;
+}
+
+.balance-label {
+    color: #888;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.balance-val {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #2ecc71;
+    margin-bottom: 20px;
+}
+
+/* Кнопка смены (меню) */
+.btn-menu {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid white;
+    color: white;
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Список напитков */
+.drinks-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Боковое меню */
+.side-menu {
+    position: fixed;
+    top: 0;
+    right: -280px;
+    width: 280px;
+    height: 100%;
+    background: white;
+    z-index: 1001;
+    transition: 0.3s;
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.side-menu.active {
+    right: 0;
+}
+
+/* Затемнение фона */
+#menu-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+/* Элементы меню */
+.menu-item {
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.menu-item:active {
+    background: #f0f0f0;
+}
+
+.menu-header {
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: #0088cc;
+    font-size: 20px;
+}
+
+/* Статус заказа */
+#status-msg {
+    margin-top: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #0088cc;
+    min-height: 28px;
+}

@@ -2,6 +2,7 @@ package state
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -20,15 +21,14 @@ type Config struct {
 	XXX_Include []ConfigSource `hcl:"include"`
 
 	DB struct {
-		PingTimeoutMs int    `hcl:"ping_timeout_ms"`
 		URL           string `hcl:"url"`
+		PingTimeoutMs int    `hcl:"ping_timeout_ms"`
 	}
 	Money struct {
 		Scale int `hcl:"scale"`
 	}
 	Tax struct {
-		DebugLevel int `hcl:"debug_level"`
-		Ru2019     struct {
+		Ru2019 struct {
 			Tag1009 string // payment address
 			Tag1187 string // payment place
 			Tag1018 string // business INN
@@ -40,23 +40,34 @@ type Config struct {
 				XXX_testRT http.RoundTripper `hcl:"-"`
 			}
 		}
+		DebugLevel int `hcl:"debug_level"`
 	}
 	CashLess struct {
-		DebugLevel                                 int
 		TerminalKey                                string
 		TerminalPass                               string
-		QRValidTimeSec                             int    // order validation time. время валидности заказа
-		TerminalQRPayRefreshSec                    int    // interval manualy cheking payment status. как часто опрашивать статус оплаты. во время валидного времени заказа
-		TerminalBankCommission                     int    // bank commision. ( 1 = 0.01% ) комиссия бынка в сотых процента/
-		TerminalMinimalAmount                      int    // minimal order amount. минимальная суммв заказа в копейках
 		URLToListenToBankNotifications             string // URL for incoming notifications. ссылка для банки, куда слать уведомления.
-		TimeoutToStartManualPaymentVerificationSec int    // after how many seconds to start checking the payment status manually. через сколько секунд начать проверять статус оплаты вручную
+		DebugLevel                                 int
+		QRValidTimeSec                             int // order validation time. время валидности заказа
+		TerminalQRPayRefreshSec                    int // interval manualy cheking payment status. как часто опрашивать статус оплаты. во время валидного времени заказа
+		TerminalBankCommission                     int // bank commision. ( 1 = 0.01% ) комиссия бынка в сотых процента/
+		TerminalMinimalAmount                      int // minimal order amount. минимальная суммв заказа в копейках
+		TimeoutToStartManualPaymentVerificationSec int // after how many seconds to start checking the payment status manually. через сколько секунд начать проверять статус оплаты вручную
 	}
 	Telegram struct {
 		TelegrammBotApi string `hcl:"telegram_bot_api"`
+		AdminBot        string `hcl:"admin_bot_name"`
+		Proxy           string `hcl:"proxy"`
 		TelegramAdmin   int64  `hcl:"telegram_admin"`
 		DebugMessages   bool   `hcl:"telegram_debug"`
-		AdminBot        string `hcl:"admin_bot_name"`
+	}
+	Web struct {
+		BaseURL   string `hcl:"web_url"`
+		SecretKey string `hcl:"secret_key"` // openssl rand -hex 32
+		// generate keys
+		// npx web-push generate-vapid-keys
+		VAPIDPublicKey  string `hcl:"vapid_public_key"`
+		VAPIDPrivateKey string `hcl:"vapid_private_key"`
+		VAPIDSubject    string `hcl:"vapid_subject"` //"mailto:admin@yourdomain.com"
 	}
 	Tele tele_config.Config
 
@@ -99,9 +110,8 @@ func (c *Config) read(log *log2.Log, fs FullReader, source ConfigSource, errs *[
 
 	err = hcl.Unmarshal(bs, c)
 	if err != nil {
-		err = errors.Annotatef(err, "config unmarshal source=%s content='%s'", source.Name, string(bs))
-		*errs = append(*errs, err)
-		return
+		log.Errorf("error config unmarshal source=%s error=%v ", source.Name, err)
+		os.Exit(1)
 	}
 
 	var includes []ConfigSource

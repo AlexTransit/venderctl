@@ -65,6 +65,10 @@ func (self *tele) Init(ctx context.Context, log *log2.Log, teleConfig tele_confi
 	case tele_config.ModeTelegram:
 		self.clientId = "telegram"
 		self.clientPasword = "telegrampass"
+	case tele_config.ModeWeb:
+		self.clientId = "web"
+		self.clientPasword = "webpass"
+
 	default:
 		panic(self.msgInvalidMode())
 	}
@@ -115,7 +119,6 @@ func (self *tele) SendCommand(vmid int32, c *vender_api.Command) {
 		self.log.Errorf("tele.SendCommand mqtt send error(%v)", err)
 		return
 	}
-	return
 }
 
 func (self *tele) CommandTx(vmid int32, c *vender_api.Command) {
