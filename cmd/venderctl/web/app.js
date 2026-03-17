@@ -319,6 +319,15 @@ function openSendToUserModal() {
     document.getElementById('send-to-user-selected').innerText = '';
     document.getElementById('send-to-user-result').innerText = '';
     selectedSendUser = null;
+    document.getElementById('btn-rename-user').disabled = true;
+    document.getElementById('btn-rename-user').style.color = '#888';
+    document.getElementById('btn-rename-user').style.borderColor = '#ddd';
+    document.getElementById('btn-invite-user').disabled = true;
+    document.getElementById('btn-invite-user').style.color = '#888';
+    document.getElementById('btn-invite-user').style.borderColor = '#ddd';
+    document.getElementById('btn-memo-user').disabled = true;
+    document.getElementById('btn-memo-user').style.color = '#888';
+    document.getElementById('btn-memo-user').style.borderColor = '#ddd';
 
     if (allUsers.length === 0) {
         fetch(withBase('/api/admin/users'))
@@ -351,6 +360,12 @@ function renderUserList(filter) {
             document.getElementById('send-to-user-selected').innerText =
                 '→ ' + (u.name || '') + (u.memo ? ' (' + u.memo + ')' : '');
             document.getElementById('send-to-user-message').focus();
+            ['btn-rename-user', 'btn-invite-user', 'btn-memo-user'].forEach(id => {
+                const btn = document.getElementById(id);
+                btn.disabled = false;
+                btn.style.color = '#0088cc';
+                btn.style.borderColor = '#0088cc';
+            });
         };
         list.appendChild(div);
     });
@@ -383,6 +398,68 @@ function doSendToUser() {
         .catch(() => {
             document.getElementById('send-to-user-result').innerText = '❌ Ошибка связи';
         });
+}
+
+function renameUser() {
+    if (!selectedSendUser) return;
+    const current = selectedSendUser.name || '';
+    const name = prompt('Новое имя:', current);
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed) { alert('Имя не может быть пустым'); return; }
+    fetch(withBase('/api/admin/rename-user'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: selectedSendUser.user_id, user_type: selectedSendUser.user_type, name: trimmed })
+    })
+        .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+        .then(({ ok, data }) => {
+            if (!ok) { alert(data.error || 'Ошибка'); return; }
+            selectedSendUser.name = trimmed;
+            allUsers = [];  // сбросить кэш списка
+            document.getElementById('send-to-user-selected').innerText =
+                '→ ' + trimmed + (selectedSendUser.memo ? ' (' + selectedSendUser.memo + ')' : '');
+        })
+        .catch(() => alert('Ошибка связи'));
+}
+
+function memoUser() {
+    if (!selectedSendUser) return;
+    const current = selectedSendUser.memo || '';
+    const memo = prompt('Memo:', current);
+    if (memo === null) return;
+    fetch(withBase('/api/admin/memo-user'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: selectedSendUser.user_id, user_type: selectedSendUser.user_type, memo: memo.trim() })
+    })
+        .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+        .then(({ ok, data }) => {
+            if (!ok) { alert(data.error || 'Ошибка'); return; }
+            selectedSendUser.memo = memo.trim();
+            allUsers = [];
+        })
+        .catch(() => alert('Ошибка связи'));
+}
+
+function inviteUser() {
+    if (!selectedSendUser) return;
+    fetch(withBase('/api/admin/invite'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: selectedSendUser.user_id, user_type: selectedSendUser.user_type })
+    })
+        .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+        .then(({ ok, data }) => {
+            if (!ok) { alert(data.error || 'Ошибка'); return; }
+            const link = data.url;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(link).then(() => alert('Ссылка скопирована:' + link));
+            } else {
+                prompt('Ссылка приглашение:', link);
+            }
+        })
+        .catch(() => alert('Ошибка связи'));
 }
 
 var pendingOpenUserMessages = null;

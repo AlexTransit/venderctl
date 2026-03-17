@@ -201,6 +201,20 @@
                     style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:15px; box-sizing:border-box;">
             </div>
             <div id="send-to-user-list" style="overflow-y:auto; max-height:250px; border-bottom:1px solid #eee;"></div>
+            <div style="padding:10px 15px; border-bottom:1px solid #eee; display:flex; gap:8px;">
+                <button id="btn-rename-user" onclick="renameUser()" disabled
+                    style="flex:1; padding:9px; border:1px solid #ddd; background:#fff; color:#888; border-radius:8px; font-size:14px; cursor:pointer;">
+                    ✏️ Переименовать
+                </button>
+                <button id="btn-invite-user" onclick="inviteUser()" disabled
+                    style="flex:1; padding:9px; border:1px solid #ddd; background:#fff; color:#888; border-radius:8px; font-size:14px; cursor:pointer;">
+                    🔗 Приглашение
+                </button>
+                <button id="btn-memo-user" onclick="memoUser()" disabled
+                    style="flex:1; padding:9px; border:1px solid #ddd; background:#fff; color:#888; border-radius:8px; font-size:14px; cursor:pointer;">
+                    📝 Memo
+                </button>
+            </div>
             <div style="padding:12px 15px;">
                 <div id="send-to-user-selected"
                     style="font-size:13px; color:#0088cc; margin-bottom:8px; min-height:18px;"></div>

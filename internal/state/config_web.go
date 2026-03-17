@@ -22,7 +22,8 @@ func NormalizeWebPath(raw string) string {
 }
 
 // parseWebURL разбирает web_url на origin и path.
-func (c *Config) parseWebURL() (origin, routePrefix string) {
+// "https://am.inkcat.net/robot" → origin="https://am.inkcat.net", routePrefix="/robot"
+func (c *Config) ParseWebURL() (origin, routePrefix string) {
 	u, err := url.Parse(strings.TrimRight(c.Web.BaseURL, "/"))
 	if err != nil || u.Host == "" {
 		return c.Web.BaseURL, "/"
@@ -33,7 +34,7 @@ func (c *Config) parseWebURL() (origin, routePrefix string) {
 }
 
 func (c *Config) WebRoutePrefix() string {
-	_, p := c.parseWebURL()
+	_, p := c.ParseWebURL()
 	if p == "/" {
 		return ""
 	}
@@ -55,11 +56,11 @@ func (c *Config) WebRootPath() string {
 }
 
 func (c *Config) WebCookiePath() string {
-	_, p := c.parseWebURL()
+	_, p := c.ParseWebURL()
 	return NormalizeWebPath(p)
 }
 
 func (c *Config) WebAuthCallbackURL(token string) string {
-	origin, _ := c.parseWebURL()
+	origin, _ := c.ParseWebURL()
 	return origin + c.WebPathWithPrefix("/auth/callback") + "?token=" + token
 }
