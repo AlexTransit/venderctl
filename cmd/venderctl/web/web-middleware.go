@@ -38,9 +38,9 @@ func (h *WebHandler) CheckAuth() gin.HandlerFunc {
 		}
 
 		var session struct {
-			Approved bool  `pg:"approved"`
-			Revoked  bool  `pg:"revoked"`
-			UserType int   `pg:"user_type"`
+			Approved bool `pg:"approved"`
+			Revoked  bool `pg:"revoked"`
+			UserType int  `pg:"user_type"`
 		}
 
 		_, err = h.App.DB.QueryOne(&session,
@@ -52,6 +52,7 @@ func (h *WebHandler) CheckAuth() gin.HandlerFunc {
 
 		c.Set("user_id", uid)
 		c.Set("user_type", session.UserType)
+		c.Set("session_token", token)
 		c.Next()
 	}
 }

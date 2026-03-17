@@ -60,7 +60,9 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
 	g.Config.Tele.SetMode("web")
 
-	g.InitDB(CmdName)
+	if err = g.InitDB(CmdName); err != nil {
+		return errors.Annotate(err, "db_init")
+	}
 	if err = g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {
 		return errors.Annotate(err, "MQTT.Init")
 	}
@@ -95,6 +97,9 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	web.POST("/api/admin/reply/ack", h.CheckAuth(), h.AdminReplyAck)
 	web.POST("/api/admin/message", h.CheckAuth(), h.SendAdminMessage)
 	web.GET("/api/admin/users", h.CheckAuth(), h.AdminGetUsers)
+	web.POST("/api/admin/rename-user", h.CheckAuth(), h.AdminRenameUser)
+	web.POST("/api/admin/invite", h.CheckAuth(), h.AdminInviteUser)
+	web.POST("/api/admin/memo-user", h.CheckAuth(), h.AdminMemoUser)
 
 	web.GET("/api/balance", h.CheckAuth(), h.GetBalance)
 	web.POST("/api/favorite", h.CheckAuth(), h.SetFavorite)

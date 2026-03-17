@@ -390,6 +390,101 @@ func (h *WebHandler) UserReplyAdminMessage(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+func (h *WebHandler) AdminRenameUser(c *gin.Context) {
+	adminID := h.App.Config.Telegram.TelegramAdmin
+	userID := c.MustGet("user_id").(int64)
+	if adminID <= 0 || userID != adminID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin only"})
+		return
+	}
+	var req struct {
+		UserID   int64  `json:"user_id"`
+		UserType int    `json:"user_type"`
+		Name     string `json:"name"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if req.UserID <= 0 || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id and name are required"})
+		return
+	}
+	_, err := h.App.DB.Exec(
+		`UPDATE users SET name = ?0 WHERE userid = ?1 AND user_type = ?2`,
+		name, req.UserID, req.UserType,
+	)
+	if err != nil {
+		h.App.Log.Errorf("rename user error user=%d type=%d err=%v", req.UserID, req.UserType, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (h *WebHandler) AdminMemoUser(c *gin.Context) {
+	adminID := h.App.Config.Telegram.TelegramAdmin
+	userID := c.MustGet("user_id").(int64)
+	if adminID <= 0 || userID != adminID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin only"})
+		return
+	}
+	var req struct {
+		UserID   int64  `json:"user_id"`
+		UserType int    `json:"user_type"`
+		Memo     string `json:"memo"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
+		return
+	}
+	if req.UserID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
+		return
+	}
+	_, err := h.App.DB.Exec(
+		`UPDATE users SET memo = ?0 WHERE userid = ?1 AND user_type = ?2`,
+		strings.TrimSpace(req.Memo), req.UserID, req.UserType,
+	)
+	if err != nil {
+		h.App.Log.Errorf("memo user error user=%d type=%d err=%v", req.UserID, req.UserType, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (h *WebHandler) AdminInviteUser(c *gin.Context) {
+	adminID := h.App.Config.Telegram.TelegramAdmin
+	userID := c.MustGet("user_id").(int64)
+	if adminID <= 0 || userID != adminID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin only"})
+		return
+	}
+	var req struct {
+		UserID   int64 `json:"user_id"`
+		UserType int   `json:"user_type"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
+		return
+	}
+	if req.UserID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
+		return
+	}
+	token, err := h.App.CreateWebAuthToken(req.UserID, req.UserType)
+	if err != nil {
+		h.App.Log.Errorf("create invite token error user=%d type=%d err=%v", req.UserID, req.UserType, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
+		return
+	}
+	origin, _ := h.App.Config.ParseWebURL()
+	inviteURL := origin + h.App.Config.WebPathWithPrefix("/open") + "?token=" + token
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "url": inviteURL})
+}
+
 func (h *WebHandler) AdminGetUsers(c *gin.Context) {
 	adminID := h.App.Config.Telegram.TelegramAdmin
 	userID := c.MustGet("user_id").(int64)

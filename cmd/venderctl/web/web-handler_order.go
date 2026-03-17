@@ -23,15 +23,10 @@ func (h *WebHandler) GetPopular(c *gin.Context) {
 
 	var drinks []PopularDrink
 
-	query := `SELECT menu_code as drink, (CASE WHEN options[1] = 0 THEN 4 ELSE options[1] - 1 END) as cream, (CASE WHEN options[2] = 0 THEN 4 ELSE options[2] - 1 END) as sugar FROM trans WHERE executer = ?0 AND executer_type = ?1 GROUP BY 1,2,3 ORDER BY COUNT(*) DESC LIMIT 5`
+	query := `SELECT menu_code as drink, (CASE WHEN options[1] = 0 THEN 4 ELSE options[1] - 1 END) as cream, (CASE WHEN options[2] = 0 THEN 4 ELSE options[2] - 1 END) as sugar FROM trans WHERE executer = ?0 AND (executer_type = ?1 or executer_type = -?1)  GROUP BY 1,2,3 ORDER BY COUNT(*) DESC LIMIT 5`
 
-	_, err := h.App.DB.Query(&drinks, query, userId, userType)
+	h.App.DB.Query(&drinks, query, userId, userType)
 
-	if err != nil || len(drinks) == 0 {
-		drinks = []PopularDrink{
-			{"00", 4, 4}, {"00.", 4, 4}, {"6", 2, 6}, {"6", 6, 4}, {"6", 6, 6},
-		}
-	}
 	c.JSON(200, drinks)
 }
 

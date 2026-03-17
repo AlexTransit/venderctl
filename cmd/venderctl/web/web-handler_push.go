@@ -53,23 +53,15 @@ func (h *WebHandler) PushSubscribe(c *gin.Context) {
 		return
 	}
 
-	userID := c.MustGet("user_id").(int64)
-	userType := c.MustGet("user_type").(int)
+	token := c.MustGet("session_token").(string)
 
 	_, err := h.App.DB.Exec(
-		`INSERT INTO web_push_subscriptions (endpoint, userid, user_type, p256dh, auth, revoked, updated_at)
-		 VALUES (?0, ?1, ?2, ?3, ?4, false, now())
-		 ON CONFLICT (endpoint) DO UPDATE SET
-		   userid = EXCLUDED.userid,
-		   user_type = EXCLUDED.user_type,
-		   p256dh = EXCLUDED.p256dh,
-		   auth = EXCLUDED.auth,
-		   revoked = false,
-		   updated_at = now()`,
-		req.Endpoint, userID, userType, req.Keys.P256DH, req.Keys.Auth,
+		`UPDATE user_sessions SET endpoint = ?0, p256dh = ?1, auth = ?2, push_revoked = false
+		  WHERE token = ?3`,
+		req.Endpoint, req.Keys.P256DH, req.Keys.Auth, token,
 	)
 	if err != nil {
-		h.App.Log.Errorf("push subscribe db error user=%d type=%d err=%v", userID, userType, err)
+		h.App.Log.Errorf("push subscribe db error token=%s err=%v", token, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
 		return
 	}
@@ -78,29 +70,14 @@ func (h *WebHandler) PushSubscribe(c *gin.Context) {
 }
 
 func (h *WebHandler) PushUnsubscribe(c *gin.Context) {
-	var req struct {
-		Endpoint string `json:"endpoint"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
-		return
-	}
-	if req.Endpoint == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "endpoint is required"})
-		return
-	}
-
-	userID := c.MustGet("user_id").(int64)
-	userType := c.MustGet("user_type").(int)
+	token := c.MustGet("session_token").(string)
 
 	_, err := h.App.DB.Exec(
-		`UPDATE web_push_subscriptions
-		   SET revoked = true, updated_at = now()
-		 WHERE endpoint = ?0 AND userid = ?1 AND user_type = ?2`,
-		req.Endpoint, userID, userType,
+		`UPDATE user_sessions SET push_revoked = true WHERE token = ?0`,
+		token,
 	)
 	if err != nil {
-		h.App.Log.Errorf("push unsubscribe db error user=%d type=%d err=%v", userID, userType, err)
+		h.App.Log.Errorf("push unsubscribe db error token=%s err=%v", token, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
 		return
 	}
@@ -108,102 +85,46 @@ func (h *WebHandler) PushUnsubscribe(c *gin.Context) {
 }
 
 func (h *WebHandler) sendWebPushToUser(userID int64, userType int32, title string, body string) {
-	if !h.webPushConfigured() {
-		return
-	}
-
-	var subscriptions []pushSubscriptionRecord
-	_, err := h.App.DB.Query(
-		&subscriptions,
-		`SELECT endpoint, p256dh, auth
-		   FROM web_push_subscriptions
-		  WHERE userid = ?0 AND user_type = ?1 AND revoked = false`,
-		userID, userType,
-	)
-	if err != nil {
-		h.App.Log.Errorf("push query error user=%d type=%d err=%v", userID, userType, err)
-		return
-	}
-
-	if len(subscriptions) == 0 {
-		return
-	}
-
-	h.sendWebPushSubscriptions(userID, subscriptions, title, body, nil)
+	h.sendWebPushToUserWithData(userID, userType, title, body, nil)
 }
 
 func (h *WebHandler) sendWebPushToUserWithData(userID int64, userType int32, title string, body string, data map[string]any) {
 	if !h.webPushConfigured() {
 		return
 	}
-
 	var subscriptions []pushSubscriptionRecord
 	_, err := h.App.DB.Query(
 		&subscriptions,
-		`SELECT endpoint, p256dh, auth
-		   FROM web_push_subscriptions
-		  WHERE userid = ?0 AND user_type = ?1 AND revoked = false`,
+		`SELECT endpoint, p256dh, auth FROM user_sessions
+		  WHERE userid = ?0 AND user_type = ?1
+		    AND approved = true AND revoked = false
+		    AND push_revoked = false AND endpoint IS NOT NULL`,
 		userID, userType,
 	)
 	if err != nil {
 		h.App.Log.Errorf("push query error user=%d type=%d err=%v", userID, userType, err)
 		return
 	}
-
-	if len(subscriptions) == 0 {
-		return
-	}
-
 	h.sendWebPushSubscriptions(userID, subscriptions, title, body, data)
 }
-
-// func (h *WebHandler) sendWebPushToUserAnyType(userID int64, title string, body string) {
-// 	if !h.webPushConfigured() {
-// 		return
-// 	}
-
-// 	var subscriptions []pushSubscriptionRecord
-// 	_, err := h.App.DB.Query(
-// 		&subscriptions,
-// 		`SELECT endpoint, p256dh, auth
-// 		   FROM web_push_subscriptions
-// 		  WHERE userid = ?0 AND revoked = false`,
-// 		userID,
-// 	)
-// 	if err != nil {
-// 		h.App.Log.Errorf("push query error user=%d err=%v", userID, err)
-// 		return
-// 	}
-
-// 	if len(subscriptions) == 0 {
-// 		return
-// 	}
-
-// 	h.sendWebPushSubscriptions(userID, subscriptions, title, body, nil)
-// }
 
 func (h *WebHandler) sendWebPushToUserAnyTypeWithData(userID int64, title string, body string, data map[string]any) {
 	if !h.webPushConfigured() {
 		return
 	}
-
 	var subscriptions []pushSubscriptionRecord
 	_, err := h.App.DB.Query(
 		&subscriptions,
-		`SELECT endpoint, p256dh, auth
-		   FROM web_push_subscriptions
-		  WHERE userid = ?0 AND revoked = false`,
+		`SELECT endpoint, p256dh, auth FROM user_sessions
+		  WHERE userid = ?0
+		    AND approved = true AND revoked = false
+		    AND push_revoked = false AND endpoint IS NOT NULL`,
 		userID,
 	)
 	if err != nil {
 		h.App.Log.Errorf("push query error user=%d err=%v", userID, err)
 		return
 	}
-
-	if len(subscriptions) == 0 {
-		return
-	}
-
 	h.sendWebPushSubscriptions(userID, subscriptions, title, body, data)
 }
 
@@ -245,17 +166,16 @@ func (h *WebHandler) sendWebPushSubscriptions(userID int64, subscriptions []push
 		}
 		_ = resp.Body.Close()
 
-		// Expired/invalid subscription; mark revoked to stop retry noise.
+		// Протухшая подписка — отзываем сессию целиком не выйдет, просто помечаем push_revoked
 		if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
 			_, _ = h.App.DB.Exec(
-				`UPDATE web_push_subscriptions SET revoked = true, updated_at = now() WHERE endpoint = ?0`,
+				`UPDATE user_sessions SET push_revoked = true WHERE endpoint = ?0`,
 				s.Endpoint,
 			)
 			continue
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			h.App.Log.Errorf("push send status=%d endpoint=%s", resp.StatusCode, s.Endpoint)
-			// Unauthorized VAPID should stop all sends until config fixed.
 			if resp.StatusCode == http.StatusUnauthorized || strings.Contains(strings.ToLower(resp.Status), "unauthorized") {
 				return
 			}
