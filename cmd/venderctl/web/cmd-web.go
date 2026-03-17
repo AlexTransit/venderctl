@@ -11,6 +11,7 @@ import (
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
 	"github.com/AlexTransit/venderctl/internal/state"
 	tele_api "github.com/AlexTransit/venderctl/internal/tele/api"
+	"github.com/coreos/go-systemd/daemon"
 	"github.com/gin-gonic/gin"
 	"github.com/juju/errors"
 )
@@ -60,9 +61,8 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
 	g.Config.Tele.SetMode("web")
 
-	if err = g.InitDB(CmdName); err != nil {
-		return errors.Annotate(err, "db_init")
-	}
+	g.InitDB(CmdName)
+
 	if err = g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {
 		return errors.Annotate(err, "MQTT.Init")
 	}
@@ -161,6 +161,8 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 		}
 	}()
 	go h.ListenMQTT(ctx)
+	cli.SdNotify(daemon.SdNotifyReady)
+	g.Log.Notice("web init complete")
 	<-g.Alive.StopChan()
 	return srv.Shutdown(ctx)
 }
