@@ -133,7 +133,7 @@ func createQR(ctx context.Context, vmid int32, rm *tele.FromRoboMessage) {
 	}
 	defer func() {
 		QR.Tele.SendToRobo(vmid, &messageForRobot)
-		QR.Log.Debugf("-> robo(%d) type(%+v) ", vmid, messageForRobot)
+		QR.Log.Debugf("-> robo(%d) type(%+v) ", vmid, &messageForRobot)
 	}()
 	if QR.Config.CashLess.TerminalKey == "" {
 		QR.Log.Info("cashless system not working. send robot message qrerror")
@@ -359,7 +359,7 @@ func (o *qrOrder) sendMessageMakeOrder(ctx context.Context) {
 	}
 	dbUpdate(ctx, fmt.Sprintf(`UPDATE cashless SET order_state = %d WHERE order_id = '%s';`, order_prepay, o.OrderID))
 	QR.Tele.SendToRobo(o.Vmid, &mToRobo)
-	QR.Log.Infof("->robo (%+v)", mToRobo)
+	QR.Log.Infof("->robo (%+v)", &mToRobo)
 }
 
 func (o *qrOrder) sendMessageImpossibleMake(ctx context.Context) {
