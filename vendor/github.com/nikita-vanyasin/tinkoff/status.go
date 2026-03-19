@@ -2,7 +2,7 @@ package tinkoff
 
 const (
 	StatusNew             = "NEW"              // Создан
-	StatusFormShowed      = "FORMSHOWED"       // Платежная форма открыта покупателем
+	StatusFormShowed      = "FORM_SHOWED"      // Платежная форма открыта покупателем
 	StatusDeadlineExpired = "DEADLINE_EXPIRED" // Просрочен
 	StatusCanceled        = "CANCELED"         // Отменен
 	StatusPreauthorizing  = "PREAUTHORIZING"   // Проверка платежных данных
