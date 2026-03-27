@@ -68,6 +68,11 @@ func (l telegramBotLogger) Printf(format string, v ...interface{}) {
 
 func (l telegramBotLogger) log(msg string) {
 	lmsg := strings.ToLower(msg)
+	if strings.Contains(lmsg, "getupdates") {
+		if strings.Contains(lmsg, `{"ok":true,"result":[]}`) || strings.Contains(lmsg, "params:") {
+			return
+		}
+	}
 	if isTelegramTransientNetError(lmsg) || strings.Contains(lmsg, "failed to get updates") {
 		l.g.Log.Debugf("telegram api: %s", msg)
 		return
