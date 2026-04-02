@@ -1,8 +1,8 @@
 {
   "name": "Vender Web",
   "short_name": "Vender",
-  "start_url": "/robot/",
-  "scope": "/robot/",
+  "start_url": "/__ROOT_PATH__/",
+  "scope": "/__ROOT_PATH__/",
   "display": "standalone",
   "background_color": "#f0f2f5",
   "theme_color": "#0088cc",

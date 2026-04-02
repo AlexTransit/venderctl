@@ -61,8 +61,9 @@ type Config struct {
 		DebugMessages   bool   `hcl:"telegram_debug"`
 	}
 	Web struct {
-		BaseURL   string `hcl:"web_url"`
-		SecretKey string `hcl:"secret_key"` // openssl rand -hex 32
+		BaseURL    string `hcl:"web_url"`
+		SecretKey  string `hcl:"secret_key"`  // openssl rand -hex 32
+		ListenAddr string `hcl:"listen_addr"` // web listen address. адрес для прослушивания веб сервера
 		// generate keys
 		// npx web-push generate-vapid-keys
 		VAPIDPublicKey  string `hcl:"vapid_public_key"`

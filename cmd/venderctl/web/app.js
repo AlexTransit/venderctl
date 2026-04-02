@@ -95,10 +95,7 @@ function isStandaloneApp() {
 function applyStandaloneUI() {
     const standalone = isStandaloneApp();
     const installItem = document.getElementById('install-app-item');
-    const logoutItem = document.getElementById('logout-menu-item');
     if (installItem) installItem.style.display = (!standalone && canInstallPWA) ? 'block' : 'none';
-    if (!logoutItem) return;
-    logoutItem.style.display = standalone ? 'none' : 'block';
 }
 
 const dmStandalone = window.matchMedia('(display-mode: standalone)');
@@ -874,18 +871,28 @@ async function ensureWebPushSubscription() {
     const keyData = await keyResp.json();
     if (!keyData.publicKey) return;
 
-    let subscription = await reg.pushManager.getSubscription();
-    if (!subscription) {
+    try {
+        // ждём активного SW перед подпиской
+        await navigator.serviceWorker.ready;
+        let subscription = await reg.pushManager.getSubscription();
+        if (subscription) await subscription.unsubscribe();
         subscription = await reg.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
         });
+        const resp = await fetch(withBase('/api/push/subscribe'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(subscription)
+        });
+        if (!resp.ok) {
+            console.error('push subscribe error', resp.status, await resp.text());
+        } else {
+            console.log('push subscribe ok', subscription.endpoint);
+        }
+    } catch (e) {
+        console.error('push subscribe exception', e);
     }
-    await fetch(withBase('/api/push/subscribe'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscription)
-    });
 }
 
 async function unsubscribeWebPush() {
@@ -912,15 +919,22 @@ async function togglePushNotifications() {
     if (subscription) {
         await unsubscribeWebPush();
         item.innerText = '🔔 Включить уведомления';
-    } else {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            await ensureWebPushSubscription();
-            item.innerText = '🔕 Выключить уведомления';
-        } else {
-            alert('Разрешите уведомления в настройках браузера');
-        }
+        toggleMenu();
+        return;
     }
+
+    const permission = Notification.permission === 'granted'
+        ? 'granted'
+        : await Notification.requestPermission();
+
+    if (permission !== 'granted') {
+        alert('Разрешите уведомления в настройках браузера');
+        toggleMenu();
+        return;
+    }
+
+    await ensureWebPushSubscription();
+    item.innerText = '🔕 Выключить уведомления';
     toggleMenu();
 }
 
@@ -997,6 +1011,9 @@ fetch(withBase('/api/balance'))
         }
         if (Notification.permission === 'granted') {
             ensureWebPushSubscription().catch(() => { });
+        } else if (_params.get('new') === '1') {
+            // новый пользователь — запрашиваем разрешение автоматически
+            requestNotificationPermission().catch(() => { });
         }
         loadPopular();
         updatePushMenuItem();

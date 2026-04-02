@@ -121,7 +121,7 @@ func (h *WebHandler) HandleAuth(c *gin.Context) {
 		c.String(403, "Ссылка уже использована")
 		return
 	}
-	if time.Since(rec.CreatedAt) > 5*time.Minute {
+	if time.Since(rec.CreatedAt) > 30*time.Minute {
 		c.String(403, "Ссылка устарела")
 		return
 	}

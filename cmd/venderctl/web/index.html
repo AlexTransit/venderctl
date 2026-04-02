@@ -30,10 +30,7 @@
         <div class="menu-header">Настройки</div>
         <div id="install-app-item" class="menu-item" onclick="installPWA()" style="display:none;">📲 Установить
             приложение</div>
-        <a href="tg://resolve?domain=FreeBenderTestBot" class="menu-item"
-            style="display:flex; align-items:center; text-decoration:none;">
-            <span style="margin-right:10px;">🤖</span> Перейти в телеграм бот
-        </a>
+
         <div class="menu-item" onclick="messageAdmin()">✉️ Сообщение администратору</div>
         <div id="admin-send-item" class="menu-item" onclick="sendMessageToUser()" style="display:none;">Написать
             пользователю</div>
@@ -45,8 +42,6 @@
             Включить уведомления</div>
         <div id="ios-install-item" class="menu-item" onclick="showIOSInstallHelp()" style="display:none;">Как установить
             на iPhone</div>
-        <div id="logout-menu-item" class="menu-item" style="color:#ff4d4d; margin-top:20px;" onclick="logout()">🚪 Выход
-        </div>
     </div>
 
     <div class="container">
@@ -63,7 +58,7 @@
             <div class="balance-val"><span id="balance">0.00</span> ₽</div>
             <div id="credit-status"
                 style="display:none; color:#e74c3c; font-size:12px; margin-top:-15px; margin-bottom:10px; font-weight:bold;">
-                ☕ отгружаю в кредит
+                ☕ робот отгружает в кредит
             </div>
             <div id="user-perks" style="font-size:11px; color:#999; margin-top:-12px; margin-bottom:15px;">
                 <span id="discount-info"></span>
@@ -225,33 +220,6 @@
                     📨 Отправить
                 </button>
                 <div id="send-to-user-result" style="text-align:center; margin-top:8px; font-size:13px;"></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="user-messages-modal"
-        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
-        <div
-            style="background:#fff; border-radius:12px; margin:40px 15px; display:flex; flex-direction:column; max-height:85vh; overflow:hidden;">
-            <div
-                style="padding:15px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
-                <b style="font-size:16px;">Переписка с пользователем</b>
-                <button onclick="document.getElementById('user-messages-modal').style.display='none'"
-                    style="background:none; border:none; font-size:22px; cursor:pointer; color:#999;">✕</button>
-            </div>
-            <div style="padding:10px 15px; border-bottom:1px solid #eee;">
-                <label style="display:flex; align-items:center; gap:8px; font-size:14px;">
-                    <input type="checkbox" id="user-messages-hide-read" checked
-                        onchange="userMessagesHideRead=this.checked; userMessagesOffset=0; document.getElementById('user-messages-list').innerHTML=''; loadUserMessages();">
-                    скрыть прочитанное
-                </label>
-            </div>
-            <div id="user-messages-list" style="overflow-y:auto; flex:1; padding:0 5px;"></div>
-            <div style="text-align:center; padding:10px;">
-                <button id="user-messages-more" onclick="loadUserMessages()"
-                    style="display:none; padding:10px 25px; border:1px solid #0088cc; background:#fff; color:#0088cc; border-radius:20px; cursor:pointer; font-size:14px;">
-                    Загрузить ещё
-                </button>
             </div>
         </div>
     </div>
