@@ -497,10 +497,11 @@ func (h *WebHandler) AdminGetUsers(c *gin.Context) {
 		UserType int    `pg:"user_type" json:"user_type"`
 		Name     string `pg:"name" json:"name"`
 		Memo     string `pg:"memo" json:"memo"`
+		Phone    string `pg:"phone" json:"phone"`
 	}
 	var users []UserRecord
 	_, err := h.App.DB.Query(&users,
-		`SELECT userid, user_type, name, memo FROM users ORDER BY name ASC`)
+		`SELECT userid, user_type, name, memo, phone as phone FROM users ORDER BY name ASC`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
 		return

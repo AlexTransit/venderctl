@@ -342,20 +342,20 @@ function renderUserList(filter) {
     const list = document.getElementById('send-to-user-list');
     const f = filter.toLowerCase();
     const filtered = allUsers.filter(u => {
-        const label = ((u.name || '') + ' ' + (u.memo || '')).toLowerCase();
+        const label = ((u.name || '') + ' ' + (u.memo || '') + ' ' + (u.phone || '') + ' ' + (u.user_id || '') + ' ' + (u.user_type || '')).toLowerCase();
         return !f || label.includes(f);
     });
     list.innerHTML = '';
     filtered.forEach(u => {
         const div = document.createElement('div');
         div.style = 'padding:10px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:15px;';
-        div.innerText = (u.name || 'без имени') + (u.memo ? ' (' + u.memo + ')' : '');
+        div.innerText = (u.name || 'без имени') + (u.memo ? ' (' + u.memo + ')' : '') + ' [' + u.phone + ' ' + u.user_id + ':' + u.user_type + ']';
         div.onmouseenter = () => div.style.background = '#f0f7ff';
         div.onmouseleave = () => div.style.background = '';
         div.onclick = () => {
             selectedSendUser = u;
             document.getElementById('send-to-user-selected').innerText =
-                '→ ' + (u.name || '') + (u.memo ? ' (' + u.memo + ')' : '');
+                '→ ' + (u.name || '') + (u.memo ? ' (' + u.memo + ')' : '') + ' [' + u.phone + ' ' + u.user_id + ':' + u.user_type + ']';
             document.getElementById('send-to-user-message').focus();
             ['btn-rename-user', 'btn-invite-user', 'btn-memo-user'].forEach(id => {
                 const btn = document.getElementById(id);
