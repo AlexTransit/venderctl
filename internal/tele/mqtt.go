@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
 	"time"
 
 	"github.com/AlexTransit/vender/helpers"
@@ -73,6 +72,7 @@ func (self *tele) mqttInit(_ context.Context, log *log2.Log) error {
 
 	token := self.m.Connect()
 	for !token.WaitTimeout(1 * time.Second) {
+		self.log.Infof("connecting to broker... (%v)", self.conf.Connect.URL)
 	}
 
 	if err := token.Error(); err != nil {
@@ -108,8 +108,10 @@ func (self *tele) messageHandler(c mqtt.Client, msg mqtt.Message) {
 	self.pch <- p
 }
 
-var reTopic = regexp.MustCompile(`^vm(-?\d+)/(\w+)/?(.+)?$`)
-var errTopicIgnore = fmt.Errorf("ignore irrelevant topic")
+var (
+	reTopic        = regexp.MustCompile(`^vm(-?\d+)/(\w+)/?(.+)?$`)
+	errTopicIgnore = fmt.Errorf("ignore irrelevant topic")
+)
 
 func parseTopic(msg mqtt.Message) (tele_api.Packet, error) {
 	parts := reTopic.FindStringSubmatch(msg.Topic())
@@ -150,7 +152,6 @@ func (t *tele) onConnectHandler(c mqtt.Client) {
 			t.log.Infof("%s subscribe Ok", t.clientId)
 			c.Publish(t.clientId+"/c", 1, true, []byte{0x01})
 		}
-
 	}
 }
 

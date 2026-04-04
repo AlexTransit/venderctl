@@ -24,10 +24,10 @@ type Config struct { //nolint:maligned
 
 	Listens []Listen `hcl:"listen"`
 
-	RoleMembersAdmin   []string `hcl:"role_admin"`
-	RoleMembersControl []string `hcl:"role_control"`
-	RoleMembersMonitor []string `hcl:"role_monitor"`
-	SecretsPath        string   `hcl:"secrets"`
+	// RoleMembersAdmin   []string `hcl:"role_admin"`
+	// RoleMembersControl []string `hcl:"role_control"`
+	// RoleMembersMonitor []string `hcl:"role_monitor"`
+	SecretsPath string `hcl:"secrets"`
 
 	Mode Mode `hcl:"-"`
 }
@@ -43,6 +43,7 @@ const (
 	ModeSponge   Mode = "sponge"
 	ModeTelegram Mode = "telegram"
 	ModeWeb      Mode = "web"
+	ModeWebR     Mode = "webR"
 )
 
 type Connect struct { //nolint:maligned
@@ -81,7 +82,8 @@ func (c *Config) SetMode(m string) {
 		c.Mode = ModeTelegram
 	case "web":
 		c.Mode = ModeWeb
-
+	case "webR":
+		c.Mode = ModeWebR
 	default:
 		c.Mode = ModeDisabled
 	}

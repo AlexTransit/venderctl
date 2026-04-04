@@ -9,7 +9,6 @@ package tele
 import (
 	"context"
 	"fmt"
-
 	"sync"
 
 	"github.com/AlexTransit/vender/log2"
@@ -68,6 +67,9 @@ func (self *tele) Init(ctx context.Context, log *log2.Log, teleConfig tele_confi
 	case tele_config.ModeWeb:
 		self.clientId = "web"
 		self.clientPasword = "webpass"
+	case tele_config.ModeWebR:
+		self.clientId = "webR"
+		self.clientPasword = "webRpass"
 
 	default:
 		panic(self.msgInvalidMode())

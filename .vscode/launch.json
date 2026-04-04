@@ -13,6 +13,7 @@
             "args": [
                 "-config",
                 "/etc/venderctl/dev.hcl",
+                // "/etc/venderctl/devr.hcl",
                 // "/etc/venderctl/prod.hcl",
                 "${input:command}"
             ]
@@ -42,7 +43,7 @@
             "type": "pickString",
             "description": "Что запускаем?",
             "options": [
-                "telegram", "web", "control", "version", "sponge", "tax"
+                "telegram", "web", "webR", "control", "version", "sponge", "tax"
             ],
             // "default": "web"
         }
