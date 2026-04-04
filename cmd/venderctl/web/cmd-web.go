@@ -5,7 +5,10 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
+	"strings"
 
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
@@ -48,6 +51,12 @@ var Cmd = cli.Cmd{
 	Action: webApp,
 }
 
+var CmdR = cli.Cmd{
+	Name:   "webR",
+	Desc:   "webR. control vmc via web browser",
+	Action: webApp,
+}
+
 type WebHandler struct {
 	App         *state.Global
 	OrderEvents *EventBus
@@ -59,9 +68,9 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	g.InitVMC()
 	configPath := flags.Lookup("config").Value.String()
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
-	g.Config.Tele.SetMode("web")
-
-	g.InitDB(CmdName)
+	mode := flags.Arg(0)
+	g.Config.Tele.SetMode(mode)
+	g.InitDB(mode)
 
 	if err = g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {
 		return errors.Annotate(err, "MQTT.Init")
@@ -122,6 +131,13 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	serveIndex := func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
 	}
+	// read config for root path replacement in manifest and service worker
+	rootPath := h.App.Config.WebRootPath()
+	manifestjs := strings.ReplaceAll(string(manifestJSON), "/__ROOT_PATH__/", rootPath)
+	manifestJSON := []byte(manifestjs)
+	js := strings.ReplaceAll(string(serviceWorkerJS), "/__ROOT_PATH__/", rootPath)
+	serviceWorkerJS := []byte(js)
+
 	serveManifest := func(c *gin.Context) {
 		c.Data(http.StatusOK, "application/manifest+json; charset=utf-8", manifestJSON)
 	}
@@ -150,8 +166,15 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	r.NoRoute(func(c *gin.Context) {
 		g.Log.Errorf("problematic action. ip=%s host=%s path=%s", c.ClientIP(), c.Request.Host, c.Request.RequestURI)
 	})
+
+	_, _, err = net.SplitHostPort(g.Config.Web.ListenAddr)
+	if err != nil {
+		g.Log.Errorf("invalid listen_addr=%s", g.Config.Web.ListenAddr)
+		os.Exit(1)
+		return
+	}
 	srv := &http.Server{
-		Addr:    ":8085",
+		Addr:    g.Config.Web.ListenAddr,
 		Handler: r,
 	}
 
@@ -223,9 +246,9 @@ func (h *WebHandler) ListenMQTT(ctx context.Context) {
 							}
 						}
 					}
-					pushBody := "Ваш напиток готов. Приятного аппетита."
+					pushBody := fmt.Sprintf("Автомат %d приготовил напиток %s. Приятного аппетита.", p.VmId, order.MenuCode)
 					if cashback, ok := event["cashback"].(float64); ok && cashback > 0 {
-						pushBody = fmt.Sprintf("Напиток готов. Кэшбек: %.2f ₽", cashback)
+						pushBody += fmt.Sprintf(" Кэшбек: %.2f ₽.", cashback)
 					}
 					h.sendWebPushToUser(userId, int32(userType), "Vender Web", pushBody)
 				case vender_api.OrderStatus_executionInaccessible:

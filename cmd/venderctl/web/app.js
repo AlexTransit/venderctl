@@ -95,10 +95,7 @@ function isStandaloneApp() {
 function applyStandaloneUI() {
     const standalone = isStandaloneApp();
     const installItem = document.getElementById('install-app-item');
-    const logoutItem = document.getElementById('logout-menu-item');
     if (installItem) installItem.style.display = (!standalone && canInstallPWA) ? 'block' : 'none';
-    if (!logoutItem) return;
-    logoutItem.style.display = standalone ? 'none' : 'block';
 }
 
 const dmStandalone = window.matchMedia('(display-mode: standalone)');
@@ -345,20 +342,20 @@ function renderUserList(filter) {
     const list = document.getElementById('send-to-user-list');
     const f = filter.toLowerCase();
     const filtered = allUsers.filter(u => {
-        const label = ((u.name || '') + ' ' + (u.memo || '')).toLowerCase();
+        const label = ((u.name || '') + ' ' + (u.memo || '') + ' ' + (u.phone || '') + ' ' + (u.user_id || '') + ' ' + (u.user_type || '')).toLowerCase();
         return !f || label.includes(f);
     });
     list.innerHTML = '';
     filtered.forEach(u => {
         const div = document.createElement('div');
         div.style = 'padding:10px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:15px;';
-        div.innerText = (u.name || 'без имени') + (u.memo ? ' (' + u.memo + ')' : '');
+        div.innerText = (u.name || 'без имени') + (u.memo ? ' (' + u.memo + ')' : '') + ' [' + u.phone + ' ' + u.user_id + ':' + u.user_type + ']';
         div.onmouseenter = () => div.style.background = '#f0f7ff';
         div.onmouseleave = () => div.style.background = '';
         div.onclick = () => {
             selectedSendUser = u;
             document.getElementById('send-to-user-selected').innerText =
-                '→ ' + (u.name || '') + (u.memo ? ' (' + u.memo + ')' : '');
+                '→ ' + (u.name || '') + (u.memo ? ' (' + u.memo + ')' : '') + ' [' + u.phone + ' ' + u.user_id + ':' + u.user_type + ']';
             document.getElementById('send-to-user-message').focus();
             ['btn-rename-user', 'btn-invite-user', 'btn-memo-user'].forEach(id => {
                 const btn = document.getElementById(id);
@@ -483,6 +480,12 @@ function showAdminReplyModal(messageId, messageText, replyText) {
 }
 
 function showAdminMessageModal(messageId, messageText) {
+    // сразу фиксируем прочтение
+    fetch(withBase('/api/user/admin-reply'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: messageId, reply: '' })
+    }).catch(() => {});
     currentAdminMessageId = messageId;
     document.getElementById('admin-message-text').textContent = messageText || '';
     document.getElementById('admin-message-reply').value = '';
@@ -874,18 +877,28 @@ async function ensureWebPushSubscription() {
     const keyData = await keyResp.json();
     if (!keyData.publicKey) return;
 
-    let subscription = await reg.pushManager.getSubscription();
-    if (!subscription) {
+    try {
+        // ждём активного SW перед подпиской
+        await navigator.serviceWorker.ready;
+        let subscription = await reg.pushManager.getSubscription();
+        if (subscription) await subscription.unsubscribe();
         subscription = await reg.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
         });
+        const resp = await fetch(withBase('/api/push/subscribe'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(subscription)
+        });
+        if (!resp.ok) {
+            console.error('push subscribe error', resp.status, await resp.text());
+        } else {
+            console.log('push subscribe ok', subscription.endpoint);
+        }
+    } catch (e) {
+        console.error('push subscribe exception', e);
     }
-    await fetch(withBase('/api/push/subscribe'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscription)
-    });
 }
 
 async function unsubscribeWebPush() {
@@ -912,15 +925,22 @@ async function togglePushNotifications() {
     if (subscription) {
         await unsubscribeWebPush();
         item.innerText = '🔔 Включить уведомления';
-    } else {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            await ensureWebPushSubscription();
-            item.innerText = '🔕 Выключить уведомления';
-        } else {
-            alert('Разрешите уведомления в настройках браузера');
-        }
+        toggleMenu();
+        return;
     }
+
+    const permission = Notification.permission === 'granted'
+        ? 'granted'
+        : await Notification.requestPermission();
+
+    if (permission !== 'granted') {
+        alert('Разрешите уведомления в настройках браузера');
+        toggleMenu();
+        return;
+    }
+
+    await ensureWebPushSubscription();
+    item.innerText = '🔕 Выключить уведомления';
     toggleMenu();
 }
 
@@ -997,6 +1017,9 @@ fetch(withBase('/api/balance'))
         }
         if (Notification.permission === 'granted') {
             ensureWebPushSubscription().catch(() => { });
+        } else if (_params.get('new') === '1') {
+            // новый пользователь — запрашиваем разрешение автоматически
+            requestNotificationPermission().catch(() => { });
         }
         loadPopular();
         updatePushMenuItem();
