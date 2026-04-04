@@ -115,7 +115,7 @@ func (h *WebHandler) AdminReplyMessage(c *gin.Context) {
 	// пустой ответ — юзер закрыл модалку не отвечая, пишем только read_at
 	if reply == "" {
 		_, _ = h.App.DB.Exec(
-			`UPDATE web_admin_messages SET read_at = now() WHERE id = ?0 AND from_admin = true`,
+			`UPDATE web_admin_messages SET read_at = now() WHERE id = ?0 AND from_admin = true AND read_at IS NULL`,
 			req.MessageID,
 		)
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -344,15 +344,6 @@ func (h *WebHandler) UserReplyAdminMessage(c *gin.Context) {
 		return
 	}
 	reply := strings.TrimSpace(req.Reply)
-	// пустой ответ — юзер закрыл модалку не отвечая, пишем только read_at
-	if reply == "" {
-		_, _ = h.App.DB.Exec(
-			`UPDATE web_admin_messages SET read_at = now() WHERE id = ?0 AND from_admin = true`,
-			req.MessageID,
-		)
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-		return
-	}
 	if len([]rune(reply)) > 1000 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "reply too long"})
 		return
@@ -362,7 +353,7 @@ func (h *WebHandler) UserReplyAdminMessage(c *gin.Context) {
 	userType := c.MustGet("user_type").(int)
 
 	res, err := h.App.DB.Exec(
-		`UPDATE web_admin_messages SET reply = ?0, replied_at = now(), read_at = now()
+		`UPDATE web_admin_messages SET reply = NULLIF(?0, ''), replied_at = now(), read_at = COALESCE(read_at, now())
 		  WHERE id = ?1 AND userid = ?2 AND user_type = ?3 AND from_admin = true`,
 		reply, req.MessageID, userID, userType,
 	)
@@ -377,7 +368,7 @@ func (h *WebHandler) UserReplyAdminMessage(c *gin.Context) {
 	}
 
 	adminID := h.App.Config.Telegram.TelegramAdmin
-	if adminID > 0 && h.webPushConfigured() {
+	if reply != "" && adminID > 0 && h.webPushConfigured() {
 		h.sendWebPushToUserAnyTypeWithData(adminID, "Ответ пользователю", reply, map[string]any{
 			"kind":        "user_reply",
 			"message_id":  req.MessageID,
