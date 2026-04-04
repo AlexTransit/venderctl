@@ -4,12 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"time"
-
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	log2 "github.com/AlexTransit/vender/log2"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
@@ -29,17 +28,20 @@ import (
 	"github.com/AlexTransit/venderctl/internal/tele"
 )
 
-var log = log2.NewStderr(log2.LOG_DEBUG)
-var commands = []cli.Cmd{
-	cmd_control.Cmd,
-	cmd_passwd.Cmd,
-	cmd_tax.Cmd,
-	// cmd_tele.Cmd,
-	cmd_sponge.Cmd,
-	cmd_telegram.Cmd,
-	cmd_web.Cmd,
-	{Name: "version", Action: versionMain},
-}
+var (
+	log      = log2.NewStderr(log2.LOG_DEBUG)
+	commands = []cli.Cmd{
+		cmd_control.Cmd,
+		cmd_passwd.Cmd,
+		cmd_tax.Cmd,
+		// cmd_tele.Cmd,
+		cmd_sponge.Cmd,
+		cmd_telegram.Cmd,
+		cmd_web.Cmd,
+		cmd_web.CmdR,
+		{Name: "version", Action: versionMain},
+	}
+)
 
 var BuildVersion string = "unknown" // set by ldflags -X
 
