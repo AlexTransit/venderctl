@@ -480,6 +480,12 @@ function showAdminReplyModal(messageId, messageText, replyText) {
 }
 
 function showAdminMessageModal(messageId, messageText) {
+    // сразу фиксируем прочтение
+    fetch(withBase('/api/user/admin-reply'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: messageId, reply: '' })
+    }).catch(() => {});
     currentAdminMessageId = messageId;
     document.getElementById('admin-message-text').textContent = messageText || '';
     document.getElementById('admin-message-reply').value = '';
