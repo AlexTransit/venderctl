@@ -144,7 +144,15 @@ func (h *WebHandler) HandleAuth(c *gin.Context) {
 		return
 	}
 	if !approved {
-		c.String(http.StatusOK, "Вход с дополнительных устройств разрешен только после подтверждения администратора. \nСвяжитесь с ним. он разрулит Вашу проблему.")
+		rootPath := h.App.Config.WebRootPath()
+		html := `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<meta http-equiv="refresh" content="15;url=` + rootPath + `">
+</head><body style="font-family:sans-serif;text-align:center;padding:40px;">
+<p>Вход с дополнительных устройств разрешён только после подтверждения администратора.<br>Свяжитесь с ним, он разрулит вашу проблему.</p>
+<p style="color:#888;font-size:14px;">Перенаправление через 15 секунд...</p>
+<script>setTimeout(()=>location.href='` + rootPath + `',15000);</script>
+</body></html>`
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 		return
 	}
 	c.Redirect(http.StatusFound, h.App.Config.WebRootPath())
@@ -219,20 +227,15 @@ func (h *WebHandler) createSession(c *gin.Context, user *userRecord) (bool, erro
 	token := hex.EncodeToString(b)
 
 	device := c.GetHeader("User-Agent")
-
-	// подключениче с двуих и более устройств - только с разрешения
-	approved := approvedCount == 0
-	// подлючения юзера с разных устрройст не ограничего
-	// approved, _ := true, approvedCount
+	approved := true
+	// ограничение на количество одновременных сессий для одного юзера - 2, при превышении нужно разрешение админа
+	if approvedCount >= 2 {
+		approved = false
+	}
 
 	err = store.InsertUserSession(token, user.Id, user.Type, device, approved)
 	if err != nil {
 		return false, err
-	}
-
-	if !approved {
-		// Уведомляем админа в Telegram
-		h.notifyAdmin(user.Id, token, device)
 	}
 
 	h.setAuthCookie(c, user.Id, token)
@@ -297,14 +300,4 @@ if (isChrome) {
 </body>
 </html>`
 	c.Data(200, "text/html; charset=utf-8", []byte(html))
-}
-
-func (h *WebHandler) notifyAdmin(uid int64, token string, device string) {
-	msg := fmt.Sprintf(
-		"Новое устройство для пользователя %d\nУстройство: %s\n/approve_%s\n/deny_%s",
-		uid, device, token, token,
-	)
-	// FIXME сделать оповещение
-	h.App.Log.Info(msg)
-	// h.App.TgSendToAdmin(msg)
 }
