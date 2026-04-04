@@ -51,6 +51,12 @@ var Cmd = cli.Cmd{
 	Action: webApp,
 }
 
+var CmdR = cli.Cmd{
+	Name:   "webR",
+	Desc:   "webR. control vmc via web browser",
+	Action: webApp,
+}
+
 type WebHandler struct {
 	App         *state.Global
 	OrderEvents *EventBus
@@ -62,9 +68,9 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	g.InitVMC()
 	configPath := flags.Lookup("config").Value.String()
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
-	g.Config.Tele.SetMode("web")
-
-	g.InitDB(CmdName)
+	mode := flags.Arg(0)
+	g.Config.Tele.SetMode(mode)
+	g.InitDB(mode)
 
 	if err = g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {
 		return errors.Annotate(err, "MQTT.Init")
