@@ -12,10 +12,10 @@
             "buildFlags": "-ldflags='-X main.BuildVersion=debug'",
             "args": [
                 "-config",
-                // "/etc/venderctl/dev.hcl",
+                "/etc/venderctl/dev.hcl",
                 // "/etc/venderctl/devr.hcl",
                 // "/etc/venderctl/prod.hcl",
-                "/etc/venderctl/prod-r.hcl",
+                // "/etc/venderctl/prod-r.hcl",
                 "${input:command}"
             ]
         },    
