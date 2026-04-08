@@ -3,8 +3,8 @@ const CORE_FILES = [
   '/__ROOT_PATH__/',
   '/__ROOT_PATH__/index.html',
   '/__ROOT_PATH__/manifest.webmanifest',
-  '/__ROOT_PATH__/robot/icon-192.png',
-  '/__ROOT_PATH__/robot/icon-512.png',
+  '/__ROOT_PATH__/icon-192.png',
+  '/__ROOT_PATH__/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {
