@@ -51,12 +51,6 @@ var Cmd = cli.Cmd{
 	Action: webApp,
 }
 
-var CmdR = cli.Cmd{
-	Name:   "webR",
-	Desc:   "webR. control vmc via web browser",
-	Action: webApp,
-}
-
 type WebHandler struct {
 	App         *state.Global
 	OrderEvents *EventBus
@@ -68,9 +62,9 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	g.InitVMC()
 	configPath := flags.Lookup("config").Value.String()
 	g.Config = state.MustReadConfig(g.Log, state.NewOsFullReader(), configPath)
-	mode := flags.Arg(0)
-	g.Config.Tele.SetMode(mode)
-	g.InitDB(mode)
+	g.Config.Tele.SetMode("web")
+
+	g.InitDB(CmdName)
 
 	if err = g.Tele.Init(ctx, g.Log, g.Config.Tele); err != nil {
 		return errors.Annotate(err, "MQTT.Init")
@@ -163,7 +157,20 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	web.GET("/apple-touch-icon.png", serveAppleTouchIcon)
 
 	r.SetTrustedProxies([]string{"127.0.0.1"})
+	knownBrowserRequests := map[string]bool{
+		"/favicon.ico":                              true,
+		"/apple-touch-icon.png":                     true,
+		"/apple-touch-icon-precomposed.png":         true,
+		"/apple-touch-icon-120x120.png":             true,
+		"/apple-touch-icon-120x120-precomposed.png": true,
+		"/robots.txt":                               true,
+		"/.well-known/assetlinks.json":              true,
+	}
 	r.NoRoute(func(c *gin.Context) {
+		if knownBrowserRequests[c.Request.URL.Path] {
+			c.Status(http.StatusNotFound)
+			return
+		}
 		g.Log.Errorf("problematic action. ip=%s host=%s path=%s", c.ClientIP(), c.Request.Host, c.Request.RequestURI)
 	})
 
