@@ -675,8 +675,51 @@ function makeOrder() {
         .catch(err => alert("Ошибка: " + (err.message || "связи с сервером")));
 }
 
+// Подключается к WebSocket заказа с автоматическим переподключением при обрыве.
+// onMessage вызывается при каждом сообщении от сервера.
+// onFail вызывается когда все попытки исчерпаны.
+// Возвращает объект { close() } для принудительного закрытия снаружи.
+function connectOrderWSWithRetry(onMessage, onFail, attempt = 0) {
+    const MAX_ATTEMPTS = 10;
+    const RETRY_DELAY_MS = 2000;
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(proto + '//' + location.host + withBase('/api/order/ws'));
+    const handle = { ws, closed: false };
+
+    ws.onopen = () => {
+        // при переподключении НЕ отправляем заказ повторно —
+        // только восстанавливаем канал для получения статуса
+        if (attempt === 0) {
+            showStatus('⏳ Подключился, отправляю заказ...');
+        } else {
+            showStatus('⏳ Переподключился, жду ответ автомата...');
+        }
+    };
+
+    ws.onmessage = onMessage;
+    ws.onerror = () => {}; // обрабатываем в onclose
+
+    ws.onclose = () => {
+        if (handle.closed) return; // закрыто намеренно снаружи
+        if (attempt < MAX_ATTEMPTS) {
+            showStatus(`⏳ Связь прервана, переподключаюсь... (${attempt + 1}/${MAX_ATTEMPTS})`);
+            setTimeout(() => {
+                if (!handle.closed) {
+                    const next = connectOrderWSWithRetry(onMessage, onFail, attempt + 1);
+                    handle.ws = next.ws;
+                }
+            }, RETRY_DELAY_MS);
+        } else {
+            onFail();
+        }
+    };
+
+    return handle;
+}
+
 function startBrewing() {
     let orderFinished = false;
+    let orderSent = false;
     if (!pendingOrder) return;
     requestNotificationPermission();
 
@@ -686,94 +729,114 @@ function startBrewing() {
     document.getElementById('btn-cancel').style.display = 'none';
     showStatus('⏳ Подключаюсь к автомату...');
 
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(proto + '//' + location.host + withBase('/api/order/ws'));
-
+    // Общий таймаут 60 секунд — если автомат вообще не ответил
+    let wsHandle = null;
     const timeout = setTimeout(() => {
-        ws.close();
-        alert('Проблема со связью.');
-        cancelOrder();
+        orderFinished = true;
+        if (wsHandle) wsHandle.closed = true, wsHandle.ws.close();
+        showStatus('❌ Таймаут — автомат не ответил');
+        showOkButton();
     }, 60000);
 
-    ws.onopen = () => {
-        fetch(withBase('/api/order/start'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(pendingOrder)
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    showStatus('❌ ' + data.error);
-                    ws.close();
-                    btn.disabled = false;
-                    btn.innerText = 'ПРИГОТОВИТЬ';
-                    return;
-                }
-                showStatus('⏳ Команда отправлена, жду автомат...');
-            })
-            .catch(() => {
-                showStatus('❌ Ошибка связи');
-                ws.close();
-                btn.disabled = false;
-                btn.innerText = 'ПРИГОТОВИТЬ';
-            });
-    };
+    wsHandle = connectOrderWSWithRetry(
+        // onMessage — обработка событий от автомата
+        (e) => {
+            console.log('WS message:', e.data);
+            clearTimeout(timeout);
+            const event = JSON.parse(e.data);
+            switch (event.status) {
+                case 'executionStart':
+                    showStatus('☕ Готовлю... стоимость заказа:' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
+                    btn.style.display = 'none';
+                    break;
+                case 'complete':
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    playDoneSound();
+                    notifyOrderReady(event);
+                    showStatus(event.cashback
+                        ? '✅ Готово! Приятного аппетита. Кэшбек: ' + event.cashback.toFixed(2) + ' ₽'
+                        : '✅ Готово! Приятного аппетита.');
+                    setTimeout(() => location.reload(), 3000);
+                    break;
+                case 'executionInaccessible':
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    showStatus('❌ Код недоступен или мало ингредиентов.');
+                    showOkButton(); break;
+                case 'overdraft':
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    showStatus('💸 Недостаточно средств.');
+                    showOkButton(); break;
+                case 'robotIsBusy':
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    showStatus('🔄 Автомат занят, попробуйте позже.');
+                    showOkButton(); break;
+                default:
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    alert(event.message || event.status);
+                    cancelOrder(); break;
+            }
+        },
 
-    ws.onmessage = (e) => {
-        console.log('WS message:', e.data);
-        clearTimeout(timeout);
-        const event = JSON.parse(e.data);
-        switch (event.status) {
-            case 'executionStart':
-                showStatus('☕ Готовлю... стоимость заказа:' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
-                btn.style.display = 'none';
-                break;
-            case 'complete':
-                orderFinished = true;
-                ws.close();
-                playDoneSound();
-                notifyOrderReady(event);
-                showStatus(event.cashback
-                    ? '✅ Готово! Приятного аппетита. Кэшбек: ' + event.cashback.toFixed(2) + ' ₽'
-                    : '✅ Готово! Приятного аппетита.');
-                setTimeout(() => location.reload(), 3000);
-                break;
-            case 'executionInaccessible':
-                orderFinished = true;
-                showStatus('❌ Код недоступен или мало ингредиентов.');
-                ws.close(); showOkButton(); break;
-            case 'overdraft':
-                orderFinished = true;
-                showStatus('💸 Недостаточно средств.');
-                ws.close(); showOkButton(); break;
-            case 'robotIsBusy':
-                orderFinished = true;
-                showStatus('🔄 Автомат занят, попробуйте позже.');
-                ws.close(); showOkButton(); break;
-            default:
-                orderFinished = true;
-                ws.close();
-                alert(event.message || event.status);
-                cancelOrder();
-                break;
-        }
-    };
-    ws.onerror = () => {
-        clearTimeout(timeout);
-        orderFinished = true;
-        showStatus('❌ Ошибка соединения');
-        showOkButton();
-    };
-    ws.onclose = () => {
-        clearTimeout(timeout);
-        setTimeout(() => {
+        // onFail — все попытки переподключения исчерпаны
+        () => {
+            clearTimeout(timeout);
             if (!orderFinished) {
-                showStatus('⚠️ Связь прервана. Проверьте подключение к интернету.');
+                showStatus('⚠️ Нет связи с сервером. Проверьте интернет.');
                 showOkButton();
             }
-        }, 3000);
+        }
+    );
+
+    // Отправляем заказ один раз — сразу после первого подключения
+    // Используем polling на ws.readyState чтобы дождаться onopen
+    const sendOrder = () => {
+        if (orderSent || orderFinished) return;
+        if (wsHandle.ws.readyState === WebSocket.OPEN) {
+            orderSent = true;
+            fetch(withBase('/api/order/start'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(pendingOrder)
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        clearTimeout(timeout);
+                        orderFinished = true;
+                        wsHandle.closed = true;
+                        wsHandle.ws.close();
+                        showStatus('❌ ' + data.error);
+                        btn.disabled = false;
+                        btn.innerText = 'ПРИГОТОВИТЬ';
+                        return;
+                    }
+                    showStatus('⏳ Команда отправлена, жду автомат...');
+                })
+                .catch(() => {
+                    clearTimeout(timeout);
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    showStatus('❌ Ошибка связи при отправке заказа');
+                    btn.disabled = false;
+                    btn.innerText = 'ПРИГОТОВИТЬ';
+                });
+        } else {
+            // WS ещё не открыт — ждём
+            setTimeout(sendOrder, 50);
+        }
     };
+    sendOrder();
 }
 
 function showOkButton() {
@@ -1024,4 +1087,10 @@ fetch(withBase('/api/balance'))
         loadPopular();
         updatePushMenuItem();
     })
-    .catch(() => console.log("Нужен логин"));
+    .catch(() => console.log("Нужен логин")
+    // .catch(() => {
+    // document.getElementById('auth-section').style.display = 'block';
+    // document.getElementById('auth-section').innerHTML =
+    //     '<p>Нет соединения с сервером. <button onclick="location.reload()">Обновить</button></p>';
+    // }
+);
