@@ -36,7 +36,7 @@ function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     swRegistrationPromise = new Promise((resolve) => {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register(withBase('/sw.js'), { scope: withBase('/') })
+            navigator.serviceWorker.register(withBase('/sw.js'), { scope: withBase('/'), updateViaCache: 'none' })
                 .then(resolve)
                 .catch((err) => {
                     console.log('SW registration failed:', err);
@@ -646,6 +646,97 @@ function setPreset(drink, cream, sugar) {
     document.getElementById('val-s').innerText = sugar;
 }
 
+// === СТАТУС АВТОМАТА В ВЕРХНЕМ БАРЕ ===
+
+// Маппинг enum vender_api.State → отображаемый текст и цвет.
+// См. tele.proto: 0=Invalid 1=Boot 2=Nominal 3=Client 4=Broken 5=Service
+//                6=Lock 7=Process 8=TempProblem 9=Shutdown 10=RemoteControl
+//                11=WaitingForExternalPayment
+const MACHINE_STATE_MAP = {
+    0:  { text: 'не в сети',      color: '#bbb' },
+    1:  { text: 'загрузка',       color: '#bbb' },
+    2:  { text: 'готов выполнить заказ',         color: '#2ecc71' },
+    3:  { text: 'работает с клиентом',         color: '#f1c40f' },
+    4:  { text: 'сломан',         color: '#e74c3c' },
+    5:  { text: 'обслуживание',   color: '#e67e22' },
+    6:  { text: 'заблокирован',  color: '#e67e22' },
+    7:  { text: 'готовит',         color: '#f1c40f' },
+    8:  { text: 'ошибка t°',      color: '#e74c3c' },
+    9:  { text: 'выключен',     color: '#bbb' },
+    10: { text: 'удалённое управление',      color: '#bbb' },
+    11: { text: 'работает с клиентом. ждёт оплату.',    color: '#f1c40f' },
+};
+
+let machineStatusVmid = null;
+let machineStatusWS = null;
+let machineStatusReconnectTimer = null;
+
+function setMachineStatusLabel(text, color) {
+    const el = document.getElementById('machine-status-label');
+    if (!el) return;
+    el.innerText = text;
+    el.style.color = color || '';
+}
+
+function applyMachineStatus(ev) {
+    if (!ev.connect) {
+        setMachineStatusLabel('offline', '#bbb');
+        return;
+    }
+    const meta = MACHINE_STATE_MAP[ev.state] || { text: '', color: '' };
+    setMachineStatusLabel(meta.text, meta.color);
+}
+
+function openMachineStatusWS() {
+    if (!machineStatusVmid) return;
+    if (machineStatusWS && machineStatusWS.readyState <= 1) return;
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = proto + '//' + location.host + withBase('/api/machine/status/ws')
+        + '?vmid=' + encodeURIComponent(machineStatusVmid);
+    const ws = new WebSocket(url);
+    machineStatusWS = ws;
+
+    ws.onmessage = (e) => {
+        try {
+            applyMachineStatus(JSON.parse(e.data));
+        } catch (_) { /* ignore */ }
+    };
+
+    ws.onclose = () => {
+        if (ws !== machineStatusWS) return;
+        machineStatusWS = null;
+        // Переподключаемся только если страница активна и vmid известен.
+        if (document.visibilityState === 'visible' && machineStatusVmid) {
+            clearTimeout(machineStatusReconnectTimer);
+            machineStatusReconnectTimer = setTimeout(openMachineStatusWS, 2000);
+        }
+    };
+    ws.onerror = () => { /* обрабатываем в onclose */ };
+}
+
+function closeMachineStatusWS() {
+    clearTimeout(machineStatusReconnectTimer);
+    machineStatusReconnectTimer = null;
+    if (machineStatusWS) {
+        const ws = machineStatusWS;
+        machineStatusWS = null;
+        try { ws.close(); } catch (_) { /* ignore */ }
+    }
+}
+
+function startMachineStatusWS(vmid) {
+    machineStatusVmid = vmid;
+    if (document.visibilityState === 'visible') openMachineStatusWS();
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        if (machineStatusVmid) openMachineStatusWS();
+    } else {
+        closeMachineStatusWS();
+    }
+});
+
 // === ЗАКАЗ ===
 
 function makeOrder() {
@@ -669,14 +760,57 @@ function makeOrder() {
             document.getElementById('conf-name').innerText = data.drink_name || '—';
             document.getElementById('conf-code').innerText = drink;
             document.getElementById('status-msg').innerText = '';
-            document.getElementById('order-card').style.display = 'none';
-            document.getElementById('confirm-card').style.display = 'block';
+            _showConfirmScreen();
+            history.pushState({ orderScreen: true }, '');
         })
         .catch(err => alert("Ошибка: " + (err.message || "связи с сервером")));
 }
 
+// Подключается к WebSocket заказа с автоматическим переподключением при обрыве.
+// onMessage вызывается при каждом сообщении от сервера.
+// onFail вызывается когда все попытки исчерпаны.
+// Возвращает объект { close() } для принудительного закрытия снаружи.
+function connectOrderWSWithRetry(onMessage, onFail, attempt = 0) {
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 2000;
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(proto + '//' + location.host + withBase('/api/order/ws'));
+    const handle = { ws, closed: false };
+
+    ws.onopen = () => {
+        // при переподключении НЕ отправляем заказ повторно —
+        // только восстанавливаем канал для получения статуса
+        if (attempt === 0) {
+            showStatus('⏳ Подключился, отправляю заказ...');
+        } else {
+            showStatus('⏳ Переподключился, жду ответ автомата...');
+        }
+    };
+
+    ws.onmessage = onMessage;
+    ws.onerror = () => {}; // обрабатываем в onclose
+
+    ws.onclose = () => {
+        if (handle.closed) return; // закрыто намеренно снаружи
+        if (attempt < MAX_ATTEMPTS) {
+            showStatus(`⏳ Связь прервана, переподключаюсь... (${attempt + 1}/${MAX_ATTEMPTS})`);
+            setTimeout(() => {
+                if (!handle.closed) {
+                    const next = connectOrderWSWithRetry(onMessage, onFail, attempt + 1);
+                    handle.ws = next.ws;
+                }
+            }, RETRY_DELAY_MS);
+        } else {
+            onFail();
+        }
+    };
+
+    return handle;
+}
+
 function startBrewing() {
     let orderFinished = false;
+    let orderSent = false;
     if (!pendingOrder) return;
     requestNotificationPermission();
 
@@ -686,94 +820,139 @@ function startBrewing() {
     document.getElementById('btn-cancel').style.display = 'none';
     showStatus('⏳ Подключаюсь к автомату...');
 
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(proto + '//' + location.host + withBase('/api/order/ws'));
-
+    // Общий таймаут 60 секунд — если автомат вообще не ответил
+    let wsHandle = null;
     const timeout = setTimeout(() => {
-        ws.close();
-        alert('Проблема со связью.');
-        cancelOrder();
+        orderFinished = true;
+        if (wsHandle) wsHandle.closed = true, wsHandle.ws.close();
+        showStatus('❌ Таймаут — автомат не ответил');
+        showOkButton();
     }, 60000);
 
-    ws.onopen = () => {
-        fetch(withBase('/api/order/start'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(pendingOrder)
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    showStatus('❌ ' + data.error);
-                    ws.close();
-                    btn.disabled = false;
-                    btn.innerText = 'ПРИГОТОВИТЬ';
-                    return;
-                }
-                showStatus('⏳ Команда отправлена, жду автомат...');
-            })
-            .catch(() => {
-                showStatus('❌ Ошибка связи');
-                ws.close();
-                btn.disabled = false;
-                btn.innerText = 'ПРИГОТОВИТЬ';
-            });
-    };
+    wsHandle = connectOrderWSWithRetry(
+        // onMessage — обработка событий от автомата
+        (e) => {
+            console.log('WS message:', e.data);
+            clearTimeout(timeout);
+            const event = JSON.parse(e.data);
+            switch (event.status) {
+                case 'executionStart':
+                    showStatus('☕ Готовлю... стоимость заказа:' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
+                    btn.style.display = 'none';
+                    break;
+                case 'complete':
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    playDoneSound();
+                    notifyOrderReady(event);
+                    refreshBalance();
+                    // Если пользователь не уходил с экрана приготовления — сбрасываем форму к дефолту.
+                    // Если ушёл на главный, форму не трогаем: можно начать вводить следующий заказ.
+                    if (document.getElementById('confirm-card').style.display !== 'none') {
+                        document.getElementById('drink-id').value = '';
+                        document.getElementById('cream').value = 4;
+                        document.getElementById('sugar').value = 4;
+                        document.getElementById('val-c').innerText = 4;
+                        document.getElementById('val-s').innerText = 4;
+                    }
+                    // сбрасываем состояние кнопок и заказа
+                    pendingOrder = null;
+                    document.getElementById('btn-brew').style.display = '';
+                    document.getElementById('btn-brew').disabled = false;
+                    document.getElementById('btn-brew').innerText = 'ПРИГОТОВИТЬ';
+                    document.getElementById('btn-ok').style.display = 'none';
+                    document.getElementById('btn-cancel').style.display = 'inline';
+                    document.getElementById('status-msg').innerText = '';
+                    // возвращаемся на главный экран с финальным статусом в баннере
+                    if (history.state && history.state.orderScreen) history.back();
+                    _hideConfirmScreen();
+                    showStatus(event.cashback
+                        ? '✅ Готово! Приятного аппетита. Кэшбек: ' + event.cashback.toFixed(2) + ' ₽'
+                        : '✅ Готово! Приятного аппетита.', true);
+                    // убираем баннер через 5 секунд
+                    setTimeout(() => {
+                        const banner = document.getElementById('order-status-banner');
+                        if (banner) banner.style.display = 'none';
+                    }, 5000);
+                    break;
+                case 'executionInaccessible':
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    showStatus('❌ Код недоступен или мало ингредиентов.');
+                    showOkButton(); break;
+                case 'overdraft':
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    showStatus('💸 Недостаточно средств.');
+                    showOkButton(); break;
+                case 'robotIsBusy':
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    showStatus('🔄 Автомат занят, попробуйте позже.');
+                    showOkButton(); break;
+                default:
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    alert(event.message || event.status);
+                    cancelOrder(); break;
+            }
+        },
 
-    ws.onmessage = (e) => {
-        console.log('WS message:', e.data);
-        clearTimeout(timeout);
-        const event = JSON.parse(e.data);
-        switch (event.status) {
-            case 'executionStart':
-                showStatus('☕ Готовлю... стоимость заказа:' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
-                btn.style.display = 'none';
-                break;
-            case 'complete':
-                orderFinished = true;
-                ws.close();
-                playDoneSound();
-                notifyOrderReady(event);
-                showStatus(event.cashback
-                    ? '✅ Готово! Приятного аппетита. Кэшбек: ' + event.cashback.toFixed(2) + ' ₽'
-                    : '✅ Готово! Приятного аппетита.');
-                setTimeout(() => location.reload(), 3000);
-                break;
-            case 'executionInaccessible':
-                orderFinished = true;
-                showStatus('❌ Код недоступен или мало ингредиентов.');
-                ws.close(); showOkButton(); break;
-            case 'overdraft':
-                orderFinished = true;
-                showStatus('💸 Недостаточно средств.');
-                ws.close(); showOkButton(); break;
-            case 'robotIsBusy':
-                orderFinished = true;
-                showStatus('🔄 Автомат занят, попробуйте позже.');
-                ws.close(); showOkButton(); break;
-            default:
-                orderFinished = true;
-                ws.close();
-                alert(event.message || event.status);
-                cancelOrder();
-                break;
-        }
-    };
-    ws.onerror = () => {
-        clearTimeout(timeout);
-        orderFinished = true;
-        showStatus('❌ Ошибка соединения');
-        showOkButton();
-    };
-    ws.onclose = () => {
-        clearTimeout(timeout);
-        setTimeout(() => {
+        // onFail — все попытки переподключения исчерпаны
+        () => {
+            clearTimeout(timeout);
             if (!orderFinished) {
-                showStatus('⚠️ Связь прервана. Проверьте подключение к интернету.');
+                showStatus('⚠️ Нет связи с сервером. Проверьте интернет.');
                 showOkButton();
             }
-        }, 3000);
+        }
+    );
+
+    // Отправляем заказ один раз — сразу после первого подключения
+    // Используем polling на ws.readyState чтобы дождаться onopen
+    const sendOrder = () => {
+        if (orderSent || orderFinished) return;
+        if (wsHandle.ws.readyState === WebSocket.OPEN) {
+            orderSent = true;
+            fetch(withBase('/api/order/start'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(pendingOrder)
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        clearTimeout(timeout);
+                        orderFinished = true;
+                        wsHandle.closed = true;
+                        wsHandle.ws.close();
+                        showStatus('❌ ' + data.error);
+                        btn.disabled = false;
+                        btn.innerText = 'ПРИГОТОВИТЬ';
+                        return;
+                    }
+                    showStatus('⏳ Команда отправлена, жду автомат...');
+                })
+                .catch(() => {
+                    clearTimeout(timeout);
+                    orderFinished = true;
+                    wsHandle.closed = true;
+                    wsHandle.ws.close();
+                    showStatus('❌ Ошибка связи при отправке заказа');
+                    btn.disabled = false;
+                    btn.innerText = 'ПРИГОТОВИТЬ';
+                });
+        } else {
+            // WS ещё не открыт — ждём
+            setTimeout(sendOrder, 50);
+        }
     };
+    sendOrder();
 }
 
 function showOkButton() {
@@ -782,6 +961,9 @@ function showOkButton() {
 }
 
 function cancelOrder() {
+    if (history.state && history.state.orderScreen) {
+        history.back();
+    }
     document.getElementById('confirm-card').style.display = 'none';
     document.getElementById('order-card').style.display = 'block';
     document.getElementById('btn-brew').style.display = '';
@@ -793,8 +975,59 @@ function cancelOrder() {
     pendingOrder = null;
 }
 
-function showStatus(msg) {
+function _hideConfirmScreen() {
+    document.getElementById('confirm-card').style.display = 'none';
+    document.getElementById('order-card').style.display = 'block';
+    // показываем текущий статус на главном экране если заказ ещё идёт
+    const currentStatus = document.getElementById('status-msg').innerText;
+    if (currentStatus) showStatus(currentStatus);
+}
+
+function _showConfirmScreen() {
+    const banner = document.getElementById('order-status-banner');
+    if (banner) banner.style.display = 'none';
+    document.getElementById('order-card').style.display = 'none';
+    document.getElementById('confirm-card').style.display = 'block';
+}
+
+// Кнопка "назад" браузера/телефона во время экрана заказа —
+// просто скрываем экран приготовления, заказ продолжается в фоне.
+window.addEventListener('popstate', () => {
+    const confirmVisible = document.getElementById('confirm-card').style.display !== 'none';
+    if (confirmVisible) {
+        _hideConfirmScreen();
+    }
+});
+
+function showStatus(msg, hideBackButton = false) {
     document.getElementById('status-msg').innerText = msg;
+
+    // Если пользователь вернулся на главный экран — показываем статус там
+    const confirmHidden = document.getElementById('confirm-card').style.display === 'none';
+    const orderVisible = document.getElementById('order-card').style.display !== 'none';
+    if (confirmHidden && orderVisible && msg) {
+        let banner = document.getElementById('order-status-banner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'order-status-banner';
+            banner.style.cssText = 'padding:12px; border-radius:10px; background:#e8f4fd; color:#0088cc; text-align:center; font-size:15px; margin-bottom:12px;';
+            banner.innerHTML =
+                '<div id="order-status-text" style="font-weight:bold; margin-bottom:6px;"></div>' +
+                '<button id="order-back-btn" onclick="_showConfirmScreen(); history.pushState({orderScreen:true},\'\')" ' +
+                'style="font-size:13px; padding:5px 14px; border:1px solid #0088cc; border-radius:8px; background:#fff; color:#0088cc; cursor:pointer;">← К заказу</button>';
+            // вставляем перед карточкой заказа — прямо над ней, внутри #user-info
+            const userInfo = document.getElementById('user-info');
+            const orderCard = document.getElementById('order-card');
+            userInfo.insertBefore(banner, orderCard);
+        }
+        document.getElementById('order-status-text').innerText = '☕ ' + msg;
+        const backBtn = document.getElementById('order-back-btn');
+        if (backBtn) backBtn.style.display = hideBackButton ? 'none' : 'inline-block';
+        banner.style.display = 'block';
+    } else {
+        const banner = document.getElementById('order-status-banner');
+        if (banner) banner.style.display = 'none';
+    }
 }
 
 function playDoneSound() {
@@ -957,6 +1190,28 @@ async function updatePushMenuItem() {
 
 // === ЗАГРУЗКА ПРОФИЛЯ ===
 
+function refreshBalance() {
+    fetch(withBase('/api/balance'))
+        .then(res => res.ok ? res.json() : Promise.reject())
+        .then(data => {
+            const balanceElem = document.getElementById('balance');
+            const creditStatus = document.getElementById('credit-status');
+            const welcomeElem = document.getElementById('welcome-user');
+            if (!balanceElem) return;
+            balanceElem.innerText = data.balance.toFixed(2);
+            if (data.balance < 0) {
+                balanceElem.style.color = '#e74c3c';
+                creditStatus.style.display = 'block';
+                welcomeElem.innerText = `Приветствую, должничок ${data.user_name || ''}!`;
+            } else {
+                balanceElem.style.color = '#2ecc71';
+                creditStatus.style.display = 'none';
+                welcomeElem.innerText = `Приветствую, ${data.user_name || 'мой господин'}!`;
+            }
+        })
+        .catch(() => {});
+}
+
 fetch(withBase('/api/balance'))
     .then(res => res.ok ? res.json() : Promise.reject())
     .then(data => {
@@ -1008,6 +1263,7 @@ fetch(withBase('/api/balance'))
         const iosItem = document.getElementById('ios-install-item');
         if (iosItem) iosItem.style.display = (!isStandaloneApp() && isIOSDevice()) ? 'block' : 'none';
         document.getElementById('current-machine-label').innerText = data.vm_id ? `Автомат №${data.vm_id}` : "Выберите автомат";
+        if (data.vm_id) startMachineStatusWS(data.vm_id);
 
         if (data.admin_reply && data.admin_reply.id) {
             showAdminReplyModal(data.admin_reply.id, data.admin_reply.message || '', data.admin_reply.reply || '');
@@ -1024,4 +1280,5 @@ fetch(withBase('/api/balance'))
         loadPopular();
         updatePushMenuItem();
     })
-    .catch(() => console.log("Нужен логин"));
+    .catch(() => console.log("Нужен логин")
+);
