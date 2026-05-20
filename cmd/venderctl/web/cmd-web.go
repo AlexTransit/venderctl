@@ -58,9 +58,10 @@ var CmdR = cli.Cmd{
 }
 
 type WebHandler struct {
-	App         *state.Global
-	OrderEvents *EventBus
-	authStore   webAuthStore
+	App           *state.Global
+	OrderEvents   *EventBus
+	MachineStatus *MachineStatusBus
+	authStore     webAuthStore
 }
 
 func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
@@ -80,6 +81,7 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 
 	h := &WebHandler{App: g}
 	h.OrderEvents = NewEventBus()
+	h.MachineStatus = NewMachineStatusBus()
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
@@ -91,9 +93,11 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 
 	// маршруты
 	web.GET("/app.js", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-cache, must-revalidate")
 		c.Data(http.StatusOK, "application/javascript; charset=utf-8", appJS)
 	})
 	web.GET("/app.css", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-cache, must-revalidate")
 		c.Data(http.StatusOK, "text/css; charset=utf-8", appCSS)
 	})
 
@@ -125,6 +129,7 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	web.POST("/api/order/check", h.CheckAuth(), h.PreviewOrder)
 	web.POST("/api/order/start", h.CheckAuth(), h.StartOrder)
 	web.GET("/api/order/ws", h.CheckAuth(), h.OrderWS)
+	web.GET("/api/machine/status/ws", h.CheckAuth(), h.MachineStatusWS)
 
 	web.GET("/api/orders", h.CheckAuth(), h.GetOrders)
 
@@ -145,6 +150,7 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	}
 	serveSW := func(c *gin.Context) {
 		c.Header("Service-Worker-Allowed", h.App.Config.WebRootPath())
+		c.Header("Cache-Control", "no-cache, must-revalidate")
 		c.Data(http.StatusOK, "application/javascript; charset=utf-8", serviceWorkerJS)
 	}
 	serveIcon192 := func(c *gin.Context) {
@@ -213,6 +219,16 @@ func (h *WebHandler) ListenMQTT(ctx context.Context) {
 		select {
 		case p := <-mqttch:
 			rm := h.App.ParseFromRobo(p)
+
+			// Любое connect/state-сообщение обновляет статус машины в памяти —
+			// сразу же пушим его подписчикам верхнего бара.
+			if p.Kind == tele_api.PacketConnect || p.Kind == tele_api.FromRobo {
+				h.MachineStatus.Publish(MachineStatusEvent{
+					Vmid:    p.VmId,
+					Connect: h.App.RobotConnected(p.VmId),
+					State:   int32(h.App.GetRoboState(p.VmId)),
+				})
+			}
 
 			if p.Kind == tele_api.FromRobo && rm.Order != nil {
 				order := rm.Order
