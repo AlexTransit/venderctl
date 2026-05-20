@@ -20,7 +20,11 @@
 
     <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
     <div id="nav-bar" class="header" style="display: none;">
-        <span id="current-machine-label" style="font-weight: bold;">№ --</span>
+        <span style="display:flex; align-items:center; gap:10px;">
+            <span id="current-machine-label" style="font-weight: bold;">№ --</span>
+            <!-- <span id="machine-status-label" style="font-weight: bold; opacity:1.9"></span> -->
+            <span id="machine-status-label" style="font-weight: bold; font-size:24px; "></span>
+        </span>
         <button onclick="toggleMenu()" style="background:none; border:none; color:white; font-size:24px;">☰</button>
     </div>
 
