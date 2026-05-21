@@ -681,10 +681,21 @@ function setMachineStatusLabel(text, color) {
 function applyMachineStatus(ev) {
     if (!ev.connect) {
         setMachineStatusLabel('offline', '#bbb');
+        setOrderButtonAvailable(false);
         return;
     }
     const meta = MACHINE_STATE_MAP[ev.state] || { text: '', color: '' };
     setMachineStatusLabel(meta.text, meta.color);
+    // Заказ доступен только в состоянии Nominal (2)
+    setOrderButtonAvailable(ev.state === 2);
+}
+
+function setOrderButtonAvailable(available) {
+    const btn = document.querySelector('#order-card .btn-blue');
+    if (!btn) return;
+    btn.disabled = !available;
+    btn.style.opacity = available ? '1' : '0.2';
+    btn.title = available ? '' : 'Автомат сейчас не может выполнить заказ';
 }
 
 function openMachineStatusWS() {
