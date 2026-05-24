@@ -170,10 +170,21 @@ func (h *WebHandler) OrderWS(c *gin.Context) {
 	ch := h.OrderEvents.Subscribe(userId, userType)
 	defer h.OrderEvents.Unsubscribe(userId, userType, ch)
 
+	// по умолчанию считаем окно скрытым — безопаснее (push придёт если клиент не успел отправить статус)
+	h.windowHidden.Store(userId, true)
 	go func() {
 		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
+			var msg struct {
+				Type   string `json:"type"`
+				Hidden bool   `json:"hidden"`
+			}
+			if err := conn.ReadJSON(&msg); err != nil {
+				// соединение закрыто — помечаем как скрытое чтобы push работал
+				h.windowHidden.Store(userId, true)
 				return
+			}
+			if msg.Type == "visibility" {
+				h.windowHidden.Store(userId, msg.Hidden)
 			}
 		}
 	}()

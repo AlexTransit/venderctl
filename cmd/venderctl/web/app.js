@@ -681,10 +681,21 @@ function setMachineStatusLabel(text, color) {
 function applyMachineStatus(ev) {
     if (!ev.connect) {
         setMachineStatusLabel('offline', '#bbb');
+        setOrderButtonAvailable(false);
         return;
     }
     const meta = MACHINE_STATE_MAP[ev.state] || { text: '', color: '' };
     setMachineStatusLabel(meta.text, meta.color);
+    // Заказ доступен только в состоянии Nominal (2)
+    setOrderButtonAvailable(ev.state === 2);
+}
+
+function setOrderButtonAvailable(available) {
+    const btn = document.querySelector('#order-card .btn-blue');
+    if (!btn) return;
+    btn.disabled = !available;
+    btn.style.opacity = available ? '1' : '0.2';
+    btn.title = available ? '' : 'Автомат сейчас не может выполнить заказ';
 }
 
 function openMachineStatusWS() {
@@ -771,7 +782,7 @@ function makeOrder() {
 // onFail вызывается когда все попытки исчерпаны.
 // Возвращает объект { close() } для принудительного закрытия снаружи.
 function connectOrderWSWithRetry(onMessage, onFail, attempt = 0) {
-    const MAX_ATTEMPTS = 3;
+    const MAX_ATTEMPTS = 10;
     const RETRY_DELAY_MS = 2000;
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(proto + '//' + location.host + withBase('/api/order/ws'));
@@ -785,12 +796,26 @@ function connectOrderWSWithRetry(onMessage, onFail, attempt = 0) {
         } else {
             showStatus('⏳ Переподключился, жду ответ автомата...');
         }
+        // сразу сообщаем серверу видимость окна
+        try { ws.send(JSON.stringify({ type: 'visibility', hidden: document.hidden })); } catch (_) {}
     };
 
     ws.onmessage = onMessage;
     ws.onerror = () => {}; // обрабатываем в onclose
 
+    // при смене видимости окна — уведомляем сервер чтобы он не слал push когда окно открыто
+    handle._visibilityHandler = () => {
+        if (ws.readyState === WebSocket.OPEN) {
+            try { ws.send(JSON.stringify({ type: 'visibility', hidden: document.hidden })); } catch (_) {}
+        }
+    };
+    document.addEventListener('visibilitychange', handle._visibilityHandler);
+
     ws.onclose = () => {
+        if (handle._visibilityHandler) {
+            document.removeEventListener('visibilitychange', handle._visibilityHandler);
+            handle._visibilityHandler = null;
+        }
         if (handle.closed) return; // закрыто намеренно снаружи
         if (attempt < MAX_ATTEMPTS) {
             showStatus(`⏳ Связь прервана, переподключаюсь... (${attempt + 1}/${MAX_ATTEMPTS})`);
@@ -837,7 +862,8 @@ function startBrewing() {
             const event = JSON.parse(e.data);
             switch (event.status) {
                 case 'executionStart':
-                    showStatus('☕ Готовлю... стоимость заказа:' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
+                    // showStatus('☕ Готовлю... стоимость заказа:' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
+                    showStatus('☕ Готовлю... код: ' + (pendingOrder ? pendingOrder.drink_code : '') + '  стоимость: ' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
                     btn.style.display = 'none';
                     break;
                 case 'complete':
@@ -845,7 +871,7 @@ function startBrewing() {
                     wsHandle.closed = true;
                     wsHandle.ws.close();
                     playDoneSound();
-                    notifyOrderReady(event);
+                    // notifyOrderReady(event);
                     refreshBalance();
                     // Если пользователь не уходил с экрана приготовления — сбрасываем форму к дефолту.
                     // Если ушёл на главный, форму не трогаем: можно начать вводить следующий заказ.
@@ -1020,7 +1046,7 @@ function showStatus(msg, hideBackButton = false) {
             const orderCard = document.getElementById('order-card');
             userInfo.insertBefore(banner, orderCard);
         }
-        document.getElementById('order-status-text').innerText = '☕ ' + msg;
+        document.getElementById('order-status-text').innerText = msg;
         const backBtn = document.getElementById('order-back-btn');
         if (backBtn) backBtn.style.display = hideBackButton ? 'none' : 'inline-block';
         banner.style.display = 'block';
@@ -1069,10 +1095,10 @@ async function notifyOrderReady(event) {
     if (!('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
     if (!document.hidden && document.hasFocus()) return;
-
+    const drinkCode = pendingOrder ? ` (${pendingOrder.drink_code})` : '';
     const body = event && event.cashback
-        ? `Напиток готов. Кэшбек: ${event.cashback.toFixed(2)} ₽`
-        : 'Ваш напиток готов. Приятного аппетита.';
+        ? `Напиток готов${drinkCode}. Кэшбек: ${event.cashback.toFixed(2)} ₽`
+        : `Ваш напиток готов${drinkCode}. Приятного аппетита.`;
     const targetURL = location.origin + withBase('/');
     const iconURL = location.origin + withBase('/icon-192.png');
 
