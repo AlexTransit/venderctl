@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	vender_api "github.com/AlexTransit/vender/tele"
 	"github.com/AlexTransit/venderctl/cmd/internal/cli"
@@ -62,6 +63,7 @@ type WebHandler struct {
 	OrderEvents   *EventBus
 	MachineStatus *MachineStatusBus
 	authStore     webAuthStore
+	windowHidden  sync.Map // userId(int64) -> bool; true = окно скрыто/закрыто
 }
 
 func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
@@ -277,11 +279,17 @@ func (h *WebHandler) ListenMQTT(ctx context.Context) {
 							}
 						}
 					}
-					pushBody := fmt.Sprintf("Автомат %d приготовил напиток %s. Приятного аппетита.", p.VmId, order.MenuCode)
-					if cashback, ok := event["cashback"].(float64); ok && cashback > 0 {
-						pushBody += fmt.Sprintf(" Кэшбек: %.2f ₽.", cashback)
+
+					// Отправляем Web Push только если окно скрыто или пользователь не в приложении
+					hidden, _ := h.windowHidden.Load(userId)
+					if hidden == nil || hidden.(bool) {
+						pushBody := fmt.Sprintf("Автомат %d приготовил напиток %s. Приятного аппетита.", p.VmId, order.MenuCode)
+						if cashback, ok := event["cashback"].(float64); ok && cashback > 0 {
+							pushBody += fmt.Sprintf(" Кэшбек: %.2f ₽.", cashback)
+						}
+						h.sendWebPushToUser(userId, int32(userType), "Vender Web", pushBody)
 					}
-					h.sendWebPushToUser(userId, int32(userType), "Vender Web", pushBody)
+
 				case vender_api.OrderStatus_executionInaccessible:
 					event["message"] = "код недоступен"
 				case vender_api.OrderStatus_overdraft:
