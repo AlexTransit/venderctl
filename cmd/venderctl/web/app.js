@@ -782,7 +782,7 @@ function makeOrder() {
 // onFail вызывается когда все попытки исчерпаны.
 // Возвращает объект { close() } для принудительного закрытия снаружи.
 function connectOrderWSWithRetry(onMessage, onFail, attempt = 0) {
-    const MAX_ATTEMPTS = 3;
+    const MAX_ATTEMPTS = 10;
     const RETRY_DELAY_MS = 2000;
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(proto + '//' + location.host + withBase('/api/order/ws'));
@@ -848,7 +848,8 @@ function startBrewing() {
             const event = JSON.parse(e.data);
             switch (event.status) {
                 case 'executionStart':
-                    showStatus('☕ Готовлю... стоимость заказа:' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
+                    // showStatus('☕ Готовлю... стоимость заказа:' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
+                    showStatus('☕ Готовлю... код: ' + (pendingOrder ? pendingOrder.drink_code : '') + '  стоимость: ' + (event.amount ? event.amount.toFixed(2) + ' ₽' : ''));
                     btn.style.display = 'none';
                     break;
                 case 'complete':
@@ -1031,7 +1032,7 @@ function showStatus(msg, hideBackButton = false) {
             const orderCard = document.getElementById('order-card');
             userInfo.insertBefore(banner, orderCard);
         }
-        document.getElementById('order-status-text').innerText = '☕ ' + msg;
+        document.getElementById('order-status-text').innerText = msg;
         const backBtn = document.getElementById('order-back-btn');
         if (backBtn) backBtn.style.display = hideBackButton ? 'none' : 'inline-block';
         banner.style.display = 'block';
@@ -1080,10 +1081,10 @@ async function notifyOrderReady(event) {
     if (!('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
     if (!document.hidden && document.hasFocus()) return;
-
+    const drinkCode = pendingOrder ? ` (${pendingOrder.drink_code})` : '';
     const body = event && event.cashback
-        ? `Напиток готов. Кэшбек: ${event.cashback.toFixed(2)} ₽`
-        : 'Ваш напиток готов. Приятного аппетита.';
+        ? `Напиток готов${drinkCode}. Кэшбек: ${event.cashback.toFixed(2)} ₽`
+        : `Ваш напиток готов${drinkCode}. Приятного аппетита.`;
     const targetURL = location.origin + withBase('/');
     const iconURL = location.origin + withBase('/icon-192.png');
 
