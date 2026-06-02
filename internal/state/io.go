@@ -1,7 +1,8 @@
 package state
 
 import (
-	"io/ioutil"
+	"io"
+
 	"log"
 	"os"
 	"path/filepath"
@@ -57,7 +58,7 @@ func (self *OsFullReader) ReadAll(path string) ([]byte, error) {
 		}
 		return nil, err
 	}
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	f.Close()
 	return b, err
 }

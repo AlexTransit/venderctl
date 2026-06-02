@@ -104,7 +104,7 @@ func (g *Global) VMCErrorWriteDb(vmid int32, message string, level ...int) {
 	}
 }
 
-func (g *Global) Error(err error, args ...interface{}) {
+func (g *Global) Error(err error, args ...any) {
 	if err != nil {
 		if len(args) != 0 {
 			msg := args[0].(string)

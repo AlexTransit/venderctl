@@ -9,17 +9,17 @@ type userKey struct {
 
 type EventBus struct {
 	mu       sync.RWMutex
-	channels map[userKey][]chan interface{}
+	channels map[userKey][]chan any
 }
 
 func NewEventBus() *EventBus {
 	return &EventBus{
-		channels: make(map[userKey][]chan interface{}),
+		channels: make(map[userKey][]chan any),
 	}
 }
 
-func (b *EventBus) Subscribe(userId int64, userType int32) chan interface{} {
-	ch := make(chan interface{}, 10)
+func (b *EventBus) Subscribe(userId int64, userType int32) chan any {
+	ch := make(chan any, 10)
 	key := userKey{userId, userType}
 	b.mu.Lock()
 	b.channels[key] = append(b.channels[key], ch)
@@ -27,7 +27,7 @@ func (b *EventBus) Subscribe(userId int64, userType int32) chan interface{} {
 	return ch
 }
 
-func (b *EventBus) Unsubscribe(userId int64, userType int32, ch chan interface{}) {
+func (b *EventBus) Unsubscribe(userId int64, userType int32, ch chan any) {
 	key := userKey{userId, userType}
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -41,7 +41,7 @@ func (b *EventBus) Unsubscribe(userId int64, userType int32, ch chan interface{}
 	}
 }
 
-func (b *EventBus) Publish(userId int64, userType int32, event interface{}) {
+func (b *EventBus) Publish(userId int64, userType int32, event any) {
 	key := userKey{userId, userType}
 	b.mu.RLock()
 	arr := b.channels[key]

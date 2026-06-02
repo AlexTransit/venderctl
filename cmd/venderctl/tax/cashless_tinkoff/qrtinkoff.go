@@ -321,7 +321,7 @@ func (o *qrOrder) manualyPaymentVerification(ctx context.Context) {
 	}
 }
 
-func (o *qrOrder) compareOrder(orderID string, paymentID interface{}) (ok bool) {
+func (o *qrOrder) compareOrder(orderID string, paymentID any) (ok bool) {
 	switch paymentID.(type) {
 	case string:
 		if o.paymentIdStr == paymentID {
@@ -518,7 +518,7 @@ func (o *qrOrder) dbUpdateOrdreStatus(ctx context.Context, bankOrderStatusStr st
 	return refresh
 }
 
-func dbUpdate(ctx context.Context, query interface{}, params ...interface{}) error {
+func dbUpdate(ctx context.Context, query any, params ...any) error {
 	r, err := QR.qrDb.ExecContext(ctx, query, params...)
 	if err != nil || r.RowsAffected() != 1 {
 		QR.VMCErrorWriteDb(0, fmt.Sprintf("fail db update sql(%s) parameters (%+v) error(%v)", query, params, err), 2)

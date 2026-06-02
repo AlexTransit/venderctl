@@ -86,7 +86,7 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	h.MachineStatus = NewMachineStatusBus()
 	r := gin.New()
 	r.Use(gin.Logger())
-	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
+	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered any) {
 		g.Log.Errorf("web panic: %v", recovered)
 		c.JSON(500, gin.H{"error": "internal server error"})
 	}))
