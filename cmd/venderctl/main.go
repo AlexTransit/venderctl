@@ -16,10 +16,8 @@ import (
 	cmd_passwd "github.com/AlexTransit/venderctl/cmd/venderctl/passwd"
 	cmd_sponge "github.com/AlexTransit/venderctl/cmd/venderctl/sponge"
 	cmd_tax "github.com/AlexTransit/venderctl/cmd/venderctl/tax"
-	cmd_web "github.com/AlexTransit/venderctl/cmd/venderctl/web"
-
-	// cmd_tele "github.com/AlexTransit/venderctl/cmd/venderctl/tele"
 	cmd_telegram "github.com/AlexTransit/venderctl/cmd/venderctl/telegram"
+	cmd_web "github.com/AlexTransit/venderctl/cmd/venderctl/web"
 	"github.com/juju/errors"
 
 	// _ "golang.org/x/tools/cmd/stringer"
