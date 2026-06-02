@@ -27,9 +27,35 @@ main() {
 
 build_version() {
   (
+    # -e: выйти при ошибке, -u: ошибка при пустых переменных
     set -eu
     cd "$base"
-    git describe --always --dirty --tags
+
+    # 1. Безопасно получаем тег. Если тегов нет, git describe упадет, 
+    # но "|| true" не даст флагу "set -e" сломать скрипт.
+    # В TAG запишется короткий SHA-1 коммита (благодаря --always)
+    TAG=$(git describe --tags --always --abbrev=0 2>/dev/null || true)
+
+    # Если репозиторий пустой или это первый коммит без тегов, подстрахуемся
+    if [ -z "$TAG" ]; then
+      TAG=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    fi
+
+    # 2. Проверяем, ушли ли мы вперед от тега. 
+    # "|| true" защищает от ошибки, если $TAG — это хэш коммита, а не тег
+    TAG_COMMIT=$(git rev-list -n 1 "$TAG" 2>/dev/null || true)
+    
+    if [ "$(git rev-parse HEAD)" = "$TAG_COMMIT" ]; then
+      AHEAD_SUFFIX=""
+    else
+      AHEAD_SUFFIX="-ahead"
+    fi
+
+    # 3. Проверяем локальные незакоммиченные изменения
+    DIRTY_SUFFIX=$(git diff --quiet --exit-code HEAD 2>/dev/null && echo "" || echo "-dirty")
+
+    # 4. Выводим результат наружу
+    echo "${TAG}${AHEAD_SUFFIX}${DIRTY_SUFFIX}"
   )
 }
 
