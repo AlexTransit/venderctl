@@ -30,26 +30,33 @@ build_version() {
     set -eu
     cd "$base"
 
-    # Находим самый последний тег в репозитории вообще (а не только в dev)
+    # 1. Получаем самый последний тег в репозитории (даже если он в master)
+    # Используем конструкцию, которая гарантированно найдет последний тег по времени
     LATEST_TAG_COMMIT=$(git rev-list --tags --max-count=1 2>/dev/null || true)
     
     if [ -n "$LATEST_TAG_COMMIT" ]; then
       TAG=$(git describe --tags --abbrev=0 "$LATEST_TAG_COMMIT")
     else
-      # Если тегов вообще нет в репозитории
       TAG=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
     fi
 
-    # Проверяем, совпадает ли текущий HEAD с коммитом этого тега
-    TAG_COMMIT=$(git rev-list -n 1 "$TAG" 2>/dev/null || true)
-    if [ "$(git rev-parse HEAD)" = "$TAG_COMMIT" ]; then
-      AHEAD_SUFFIX=""
+    # 2. ПРОВЕРКА НА AHEAD (ОТЛИЧИЯ ОТ ТЕГА)
+    # Если тег существует, проверяем, есть ли разница в файлах между HEAD и тегом.
+    # Если различий в файловой системе нет (код одинаковый), то AHEAD_SUFFIX будет пустым.
+    if [ -n "$LATEST_TAG_COMMIT" ]; then
+      if git diff --quiet HEAD "$TAG" 2>/dev/null; then
+        AHEAD_SUFFIX=""
+      else
+        AHEAD_SUFFIX="-ahead"
+      fi
     else
-      AHEAD_SUFFIX="-ahead"
+      AHEAD_SUFFIX=""
     fi
 
+    # 3. ПРОВЕРКА НА DIRTY (НЕЗАКОММИЧЕННЫЕ ИЗМЕНЕНИЯ)
     DIRTY_SUFFIX=$(git diff --quiet --exit-code HEAD 2>/dev/null && echo "" || echo "-dirty")
 
+    # 4. Вывод результата
     echo "${TAG}${AHEAD_SUFFIX}${DIRTY_SUFFIX}"
   )
 }
