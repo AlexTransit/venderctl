@@ -55,17 +55,18 @@ func main() {
 		usage += "\nGlobal options:\n"
 		fmt.Fprint(flags.Output(), usage)
 		flags.PrintDefaults()
-		cmds := "\nCommands:\n"
+		var cmds strings.Builder
+		cmds.WriteString("\nCommands:\n")
 		for i, c := range commands {
-			cmds += fmt.Sprintf("  %s\t%s\n", c.Name, c.Desc)
+			cmds.WriteString(fmt.Sprintf("  %s\t%s\n", c.Name, c.Desc))
 			if c.Usage != "" {
-				cmds += fmt.Sprintf("  %s\t%s\n", strings.Repeat(" ", len(c.Name)), c.Usage)
+				cmds.WriteString(fmt.Sprintf("  %s\t%s\n", strings.Repeat(" ", len(c.Name)), c.Usage))
 			}
 			if i != len(commands)-1 {
-				cmds += "\n"
+				cmds.WriteString("\n")
 			}
 		}
-		fmt.Fprint(flags.Output(), cmds)
+		fmt.Fprint(flags.Output(), cmds.String())
 	}
 
 	err := flags.Parse(os.Args[1:])

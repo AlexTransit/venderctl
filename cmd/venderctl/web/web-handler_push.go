@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"strings"
 	"time"
@@ -139,9 +140,7 @@ func (h *WebHandler) sendWebPushSubscriptions(userID int64, subscriptions []push
 		"url":   h.App.Config.WebRootPath(),
 		"ts":    time.Now().Unix(),
 	}
-	for k, v := range data {
-		payloadData[k] = v
-	}
+	maps.Copy(payloadData, data)
 	payload, _ := json.Marshal(payloadData)
 
 	options := &webpush.Options{

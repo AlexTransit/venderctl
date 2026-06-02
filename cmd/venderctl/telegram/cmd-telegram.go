@@ -56,12 +56,12 @@ type telegramBotLogger struct {
 	g *state.Global
 }
 
-func (l telegramBotLogger) Println(v ...interface{}) {
+func (l telegramBotLogger) Println(v ...any) {
 	msg := strings.TrimSpace(fmt.Sprintln(v...))
 	l.log(msg)
 }
 
-func (l telegramBotLogger) Printf(format string, v ...interface{}) {
+func (l telegramBotLogger) Printf(format string, v ...any) {
 	msg := strings.TrimSpace(fmt.Sprintf(format, v...))
 	l.log(msg)
 }
@@ -616,10 +616,7 @@ func (tb *tgbotapiot) logTgDb(m tgbotapi.Message) {
 // }
 
 func (tb *tgbotapiot) sendCookCmdN(tgUser tgUser) {
-	moneyAvalible := tgUser.Balance + int64(tgUser.Credit)
-	if moneyAvalible < 0 {
-		moneyAvalible = 0
-	}
+	moneyAvalible := max(tgUser.Balance+int64(tgUser.Credit), 0)
 	trm := vender_api.ToRoboMessage{
 		ServerTime: time.Now().Unix(),
 		Cmd:        vender_api.MessageType_makeOrder,
