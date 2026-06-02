@@ -6,7 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/juju/errors"
 )
@@ -140,7 +140,7 @@ func (t *TLS) TLSConfig() (*tls.Config, error) {
 	}
 	if t.CaFile != "" {
 		c.RootCAs = x509.NewCertPool()
-		cabytes, err := ioutil.ReadFile(t.CaFile)
+		cabytes, err := os.ReadFile(t.CaFile)
 		if err != nil {
 			return nil, errors.Annotate(err, "CaFile read")
 		}

@@ -139,8 +139,8 @@ type TaxJobData struct {
 			LastDocNumber    uint32 `json:"last_doc,omitempty"`
 			UnsentDocNumber  uint32 `json:"unsent_doc,omitempty"`
 			OfflineDocsCount uint32 `json:"offline_docs,omitempty"`
-		} `json:"fss,omitempty"`
-	} `json:"ru2019,omitempty"`
+		} `json:"fss"`
+	} `json:"ru2019"`
 }
 
 type TaxJobOp struct {
@@ -173,7 +173,7 @@ func (tj *MTaxJob) OpKeysString() string {
 	return b.String()
 }
 
-func (tj *MTaxJob) Update(conn *pg.Conn, assign string, params ...interface{}) error {
+func (tj *MTaxJob) Update(conn *pg.Conn, assign string, params ...any) error {
 	conn = conn.
 		WithParam("tj_id", tj.Id).
 		WithParam("tj_state", tj.State).
@@ -191,7 +191,7 @@ func (tj *MTaxJob) Update(conn *pg.Conn, assign string, params ...interface{}) e
 func (tj *MTaxJob) UpdateFinal(conn *pg.Conn, note string) error {
 	tj.State = "final"
 	assign := ""
-	var params []interface{}
+	var params []any
 	if note != "" {
 		assign = "notes=array_append(notes,?0)"
 		params = append(params, note)
