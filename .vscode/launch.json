@@ -8,12 +8,16 @@
             "mode": "auto",
             "console": "integratedTerminal",
             "program": "${workspaceFolder}/cmd/venderctl/main.go",
-            "env": { "app_ver": "debug" },
+            // "env": { "app_ver": "debug" },
+            "env": {
+                "app_ver": "debug",
+                "SSL_CERT_FILE": "/etc/venderctl/russian_trusted_root_ca_pem.crt"
+            },
             "buildFlags": "-ldflags='-X main.BuildVersion=debug'",
             "args": [
                 "-config",
-                // "/etc/venderctl/dev.hcl",
-                "/etc/venderctl/devr.hcl",
+                "/etc/venderctl/dev.hcl",
+                // "/etc/venderctl/devr.hcl",
                 // "/etc/venderctl/prod.hcl",
                 // "/etc/venderctl/prod-r.hcl",
                 "${input:command}"
