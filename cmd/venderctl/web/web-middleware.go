@@ -53,6 +53,8 @@ func (h *WebHandler) CheckAuth() gin.HandlerFunc {
 		c.Set("user_id", uid)
 		c.Set("user_type", session.UserType)
 		c.Set("session_token", token)
+		// продлеваем куку при каждом запросе
+		h.setAuthCookie(c, uid, token)
 		c.Next()
 	}
 }
