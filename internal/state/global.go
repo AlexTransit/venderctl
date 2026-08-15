@@ -67,9 +67,10 @@ func (g *Global) InitDB(cmdName string) error {
 		return errors.Annotatef(err, "config db.url=%s", cleanUrl.String())
 	}
 	dbOpt.MinIdleConns = 1
-	dbOpt.IdleTimeout = -1
-	dbOpt.IdleCheckFrequency = -1
+	dbOpt.IdleTimeout = 5 * time.Minute
+	dbOpt.IdleCheckFrequency = 1 * time.Minute
 	dbOpt.ApplicationName = "venderctl/" + cmdName
+	dbOpt.MaxRetries = 1
 	// MaxRetries:1,
 	// PoolSize:2,
 
