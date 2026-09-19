@@ -612,7 +612,13 @@ function saveFavorite(vmid, lat = null, lon = null) {
     })
         .then(res => res.json())
         .then(data => {
-            if (data.status === 'ok') { location.reload(); return; }
+            if (data.status === 'ok') {
+                    if (data.auto_selected && data.message) {
+                        alert(data.message);
+                    }
+                    location.reload();
+                    return;
+                }
             if (data.status === 'need_machine_select') { askMachineManualAndSave(); return; }
             alert("Не удалось сохранить автомат");
         })
