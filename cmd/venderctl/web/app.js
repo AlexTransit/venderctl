@@ -577,10 +577,23 @@ async function logout() {
 // === АВТОМАТ ===
 
 function openMachineList() {
-    const value = prompt("Введите номер автомата (VMID).\n0 — авто по геолокации.");
-    if (value === null) return;
+    const modal = document.getElementById('machine-select-modal');
+    const input = document.getElementById('machine-vmid-input');
+    input.value = '0';
+    modal.style.display = 'block';
+    setTimeout(() => input.focus(), 100);
+}
+
+function closeMachineSelectModal() {
+    document.getElementById('machine-select-modal').style.display = 'none';
+}
+
+function confirmMachineSelect() {
+    const input = document.getElementById('machine-vmid-input');
+    const value = input.value.trim();
     const vmid = parseInt(value, 10);
-    if (Number.isNaN(vmid) || vmid < 0) return alert("Некорректный номер автомата");
+    closeMachineSelectModal();
+    if (value === '' || Number.isNaN(vmid) || vmid < 0) return alert("Некорректный номер автомата");
     if (vmid === 0) return setAutoFavoriteByLocation();
     saveFavorite(vmid);
 }
