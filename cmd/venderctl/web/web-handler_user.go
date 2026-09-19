@@ -24,22 +24,60 @@ func (h *WebHandler) SetFavorite(c *gin.Context) {
 	}
 
 	vmid := req.VMID
+	autoSelected := false
 	if vmid == 0 {
 		if req.Lat == nil || req.Lon == nil {
 			c.JSON(http.StatusOK, gin.H{"status": "need_machine_select"})
 			return
 		}
 
-		var nearestVMID int
-		_, err := h.App.DB.QueryOne(&nearestVMID,
-			`SELECT vmid FROM public.robot WHERE sqrt(pow((geolocation->'lat')::float - ?0, 2) + pow((geolocation->'lon')::float - ?1, 2)) < 1.06 LIMIT 1;`,
+		var nearest struct {
+			VMID      int     `pg:"vmid"`
+			DistanceM float64 `pg:"distance_m"`
+		}
+		_, err := h.App.DB.QueryOne(&nearest,
+			`SELECT vmid,
+				2 * 6371000 * asin(
+					sqrt(
+						pow(sin(radians((geolocation->'lat')::double precision - ?0) / 2), 2) +
+						cos(radians(?0)) * cos(radians((geolocation->'lat')::double precision)) *
+						pow(sin(radians((geolocation->'lon')::double precision - ?1) / 2), 2)
+					)
+				) AS distance_m
+			FROM public.robot
+			WHERE geolocation->'lat' IS NOT NULL
+			AND geolocation->'lon' IS NOT NULL
+			ORDER BY distance_m
+			LIMIT 1;`,
 			*req.Lat, *req.Lon)
-		if err != nil || nearestVMID <= 0 {
+		if err != nil || nearest.VMID <= 0 {
 			h.App.Log.Errorf("auto favorite machine detect error userId=%d err=%v", userId, err)
 			c.JSON(http.StatusOK, gin.H{"status": "need_machine_select"})
 			return
 		}
-		vmid = nearestVMID
+
+		if nearest.DistanceM > 10 {
+			c.JSON(http.StatusOK, gin.H{
+				"status":       "need_machine_select",
+				"nearest_vmid": nearest.VMID,
+				"distance_m":   nearest.DistanceM,
+				"message":      fmt.Sprintf("До ближайшего автомата ID %d расстояние %.0f м. Укажите номер автомата вручную.", nearest.VMID, nearest.DistanceM),
+			})
+			return
+		}
+
+		// if !h.App.RobotConnected(int32(nearest.VMID)) {
+		// 	c.JSON(http.StatusOK, gin.H{
+		// 		"status":       "need_machine_select",
+		// 		"nearest_vmid": nearest.VMID,
+		// 		"distance_m":   nearest.DistanceM,
+		// 		"message":      fmt.Sprintf("Ближайший автомат ID %d сейчас недоступен. Укажите номер автомата вручную.", nearest.VMID),
+		// 	})
+		// 	return
+		// }
+
+		vmid = nearest.VMID
+		autoSelected = true
 	}
 
 	_, err := h.App.DB.Exec(
@@ -49,6 +87,11 @@ func (h *WebHandler) SetFavorite(c *gin.Context) {
 	if err != nil {
 		h.App.Log.Errorf("change default robot error:%v", err)
 		c.JSON(http.StatusOK, gin.H{"status": "false"})
+		return
+	}
+
+	if autoSelected {
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "vmid": vmid, "auto_selected": true, "message": fmt.Sprintf("Автоматически выбран робот ID: %d", vmid)})
 		return
 	}
 
@@ -70,7 +113,8 @@ func (h *WebHandler) GetBalance(c *gin.Context) {
 		Message string `pg:"message"`
 		Reply   string `pg:"reply"`
 	}
-	_, _ = h.App.DB.QueryOne(&adminReply,
+	_, _ = h.App.DB.QueryOne(
+		&adminReply,
 		`SELECT id, message, reply FROM web_admin_messages
 		  WHERE userid = ?0 AND user_type = ?1 AND from_admin = false AND reply IS NOT NULL AND replied_at IS NOT NULL AND read_at IS NULL
 		  ORDER BY replied_at DESC LIMIT 1`,
@@ -100,7 +144,8 @@ func (h *WebHandler) GetBalance(c *gin.Context) {
 				ID      int64  `pg:"id"`
 				Message string `pg:"message"`
 			}
-			_, _ = h.App.DB.QueryOne(&adminMsg,
+			_, _ = h.App.DB.QueryOne(
+				&adminMsg,
 				`SELECT id, message FROM web_admin_messages
 				  WHERE userid = ?0 AND user_type = ?1 AND from_admin = true AND reply IS NULL AND read_at IS NULL
 				  ORDER BY created_at DESC LIMIT 1`,
