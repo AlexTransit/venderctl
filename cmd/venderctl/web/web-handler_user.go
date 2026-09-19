@@ -31,27 +31,52 @@ func (h *WebHandler) SetFavorite(c *gin.Context) {
 			return
 		}
 
-		var nearestVMID int
-		_, err := h.App.DB.QueryOne(&nearestVMID,
-			`SELECT vmid
+		var nearest struct {
+			VMID      int     `pg:"vmid"`
+			DistanceM float64 `pg:"distance_m"`
+		}
+		_, err := h.App.DB.QueryOne(&nearest,
+			`SELECT vmid,
+				2 * 6371000 * asin(
+					sqrt(
+						pow(sin(radians((geolocation->'lat')::double precision - ?0) / 2), 2) +
+						cos(radians(?0)) * cos(radians((geolocation->'lat')::double precision)) *
+						pow(sin(radians((geolocation->'lon')::double precision - ?1) / 2), 2)
+					)
+				) AS distance_m
 			FROM public.robot
 			WHERE geolocation->'lat' IS NOT NULL
 			AND geolocation->'lon' IS NOT NULL
-			ORDER BY
-				pow((geolocation->'lat')::double precision - ?0, 2) +
-				pow(
-					((geolocation->'lon')::double precision - ?1)
-					* cos(radians(?0)),
-					2
-				)
+			ORDER BY distance_m
 			LIMIT 1;`,
 			*req.Lat, *req.Lon)
-		if err != nil || nearestVMID <= 0 {
+		if err != nil || nearest.VMID <= 0 {
 			h.App.Log.Errorf("auto favorite machine detect error userId=%d err=%v", userId, err)
 			c.JSON(http.StatusOK, gin.H{"status": "need_machine_select"})
 			return
 		}
-		vmid = nearestVMID
+
+		if nearest.DistanceM > 10 {
+			c.JSON(http.StatusOK, gin.H{
+				"status":       "need_machine_select",
+				"nearest_vmid": nearest.VMID,
+				"distance_m":   nearest.DistanceM,
+				"message":      fmt.Sprintf("До ближайшего автомата ID %d расстояние %.0f м. Укажите номер автомата вручную.", nearest.VMID, nearest.DistanceM),
+			})
+			return
+		}
+
+		// if !h.App.RobotConnected(int32(nearest.VMID)) {
+		// 	c.JSON(http.StatusOK, gin.H{
+		// 		"status":       "need_machine_select",
+		// 		"nearest_vmid": nearest.VMID,
+		// 		"distance_m":   nearest.DistanceM,
+		// 		"message":      fmt.Sprintf("Ближайший автомат ID %d сейчас недоступен. Укажите номер автомата вручную.", nearest.VMID),
+		// 	})
+		// 	return
+		// }
+
+		vmid = nearest.VMID
 		autoSelected = true
 	}
 
