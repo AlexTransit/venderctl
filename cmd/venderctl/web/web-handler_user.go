@@ -24,6 +24,7 @@ func (h *WebHandler) SetFavorite(c *gin.Context) {
 	}
 
 	vmid := req.VMID
+	autoSelected := false
 	if vmid == 0 {
 		if req.Lat == nil || req.Lon == nil {
 			c.JSON(http.StatusOK, gin.H{"status": "need_machine_select"})
@@ -32,7 +33,18 @@ func (h *WebHandler) SetFavorite(c *gin.Context) {
 
 		var nearestVMID int
 		_, err := h.App.DB.QueryOne(&nearestVMID,
-			`SELECT vmid FROM public.robot WHERE sqrt(pow((geolocation->'lat')::float - ?0, 2) + pow((geolocation->'lon')::float - ?1, 2)) < 1.06 LIMIT 1;`,
+			`SELECT vmid
+			FROM public.robot
+			WHERE geolocation->'lat' IS NOT NULL
+			AND geolocation->'lon' IS NOT NULL
+			ORDER BY
+				pow((geolocation->'lat')::double precision - ?0, 2) +
+				pow(
+					((geolocation->'lon')::double precision - ?1)
+					* cos(radians(?0)),
+					2
+				)
+			LIMIT 1;`,
 			*req.Lat, *req.Lon)
 		if err != nil || nearestVMID <= 0 {
 			h.App.Log.Errorf("auto favorite machine detect error userId=%d err=%v", userId, err)
@@ -40,6 +52,7 @@ func (h *WebHandler) SetFavorite(c *gin.Context) {
 			return
 		}
 		vmid = nearestVMID
+		autoSelected = true
 	}
 
 	_, err := h.App.DB.Exec(
@@ -49,6 +62,11 @@ func (h *WebHandler) SetFavorite(c *gin.Context) {
 	if err != nil {
 		h.App.Log.Errorf("change default robot error:%v", err)
 		c.JSON(http.StatusOK, gin.H{"status": "false"})
+		return
+	}
+
+	if autoSelected {
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "vmid": vmid, "auto_selected": true, "message": fmt.Sprintf("Автоматически выбран робот ID: %d", vmid)})
 		return
 	}
 
@@ -70,7 +88,8 @@ func (h *WebHandler) GetBalance(c *gin.Context) {
 		Message string `pg:"message"`
 		Reply   string `pg:"reply"`
 	}
-	_, _ = h.App.DB.QueryOne(&adminReply,
+	_, _ = h.App.DB.QueryOne(
+		&adminReply,
 		`SELECT id, message, reply FROM web_admin_messages
 		  WHERE userid = ?0 AND user_type = ?1 AND from_admin = false AND reply IS NOT NULL AND replied_at IS NOT NULL AND read_at IS NULL
 		  ORDER BY replied_at DESC LIMIT 1`,
@@ -100,7 +119,8 @@ func (h *WebHandler) GetBalance(c *gin.Context) {
 				ID      int64  `pg:"id"`
 				Message string `pg:"message"`
 			}
-			_, _ = h.App.DB.QueryOne(&adminMsg,
+			_, _ = h.App.DB.QueryOne(
+				&adminMsg,
 				`SELECT id, message FROM web_admin_messages
 				  WHERE userid = ?0 AND user_type = ?1 AND from_admin = true AND reply IS NULL AND read_at IS NULL
 				  ORDER BY created_at DESC LIMIT 1`,
