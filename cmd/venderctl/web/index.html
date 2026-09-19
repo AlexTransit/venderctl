@@ -228,7 +228,45 @@
         </div>
     </div>
 
+    <!-- МОДАЛЬНОЕ ОКНО ВЫБОРА АВТОМАТА -->
+    <div id="machine-select-modal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
+        <div
+            style="background:#fff; border-radius:12px; padding:20px; margin:80px 20px; box-shadow:0 2px 10px rgba(0,0,0,0.15);">
+            <div style="font-weight:bold; margin-bottom:10px;">Выбор автомата</div>
+            <div style="margin-bottom:12px; font-size:14px; color:#666;">
+                Введите номер автомата (VMID).<br>0 — авто по геолокации.
+            </div>
+            <input id="machine-vmid-input" type="number" value="0"
+                style="width:100%; padding:12px; border:1px solid #0088cc; border-radius:8px; font-size:16px; margin-bottom:12px; box-sizing:border-box;"
+                onfocus="this.select()">
+            <button onclick="confirmMachineSelect()" class="btn-blue"
+                style="width:100%; padding:13px; font-size:16px; margin-bottom:8px;">
+                OK
+            </button>
+            <button onclick="closeMachineSelectModal()"
+                style="width:100%; padding:13px; border:none; background:none; color:#888; font-size:14px; cursor:pointer; margin-top:8px;">
+                Отмена
+            </button>
+        </div>
+    </div>
+
     <script src="app.js"></script>
+    <script>
+        // Закрытие модального окна выбора автомата по клику на затемнение
+        document.getElementById('machine-select-modal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeMachineSelectModal();
+            }
+        });
+        // Обработка Enter в поле ввода VMID
+        document.getElementById('machine-vmid-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                confirmMachineSelect();
+            }
+        });
+    </script>
+
 </body>
 
 </html>

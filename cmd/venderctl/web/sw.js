@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'vender-web-v260524.12';
+const CACHE_VERSION = 'vender-web-v260524.14';
 const CORE_FILES = [
   '/__ROOT_PATH__/',
   '/__ROOT_PATH__/index.html',
