@@ -265,6 +265,24 @@
                 confirmMachineSelect();
             }
         });
+        // Обработка Enter в поле ввода кода напитка - вызов makeOrder если кнопка активна
+        document.getElementById('drink-id').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                const btn = document.querySelector('#order-card .btn-blue');
+                if (btn && !btn.disabled) {
+                    makeOrder();
+                }
+            }
+        });
+        // Обработка Enter для кнопки "ПРИГОТОВИТЬ" - вызов startBrewing если кнопка активна
+        document.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                const brewBtn = document.getElementById('btn-brew');
+                if (brewBtn && brewBtn.style.display !== 'none' && !brewBtn.disabled) {
+                    startBrewing();
+                }
+            }
+        });
     </script>
 
 </body>
