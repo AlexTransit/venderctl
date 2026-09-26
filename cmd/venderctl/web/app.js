@@ -1122,7 +1122,7 @@ async function notifyOrderReady(event) {
     const iconURL = location.origin + withBase('/icon-192.png');
 
     try {
-        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        if (navigator.serviceWorker) {
             const reg = await navigator.serviceWorker.ready;
             await reg.showNotification('Vender Web', {
                 body, tag: 'order-ready', renotify: true,
@@ -1237,7 +1237,7 @@ async function updatePushMenuItem() {
 
 function refreshBalance() {
     fetch(withBase('/api/balance'))
-        .then(res => res.ok ? res.json() : Promise.reject())
+        .then(res => res.ok ? res.json() : Promise.reject(new Error('Request failed')))
         .then(data => {
             const balanceElem = document.getElementById('balance');
             const creditStatus = document.getElementById('credit-status');
@@ -1258,7 +1258,7 @@ function refreshBalance() {
 }
 
 fetch(withBase('/api/balance'))
-    .then(res => res.ok ? res.json() : Promise.reject())
+    .then(res => res.ok ? res.json() : Promise.reject(new Error('Request failed')))
     .then(data => {
         document.getElementById('auth-section').style.display = 'none';
         document.getElementById('user-info').style.display = 'block';
