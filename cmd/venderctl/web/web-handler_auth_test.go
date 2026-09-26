@@ -183,8 +183,10 @@ func TestAuth_NewDeviceRequiresApprovalWhenOldActive(t *testing.T) {
 	store := newFakeAuthStore()
 	store.tokens["ta"] = authTokenRecord{Userid: 2002, UserType: 1, Used: false, CreatedAt: time.Now()}
 	store.tokens["tb"] = authTokenRecord{Userid: 2002, UserType: 1, Used: false, CreatedAt: time.Now()}
+	store.tokens["tc"] = authTokenRecord{Userid: 2002, UserType: 1, Used: false, CreatedAt: time.Now()}
 	h := newTestWebHandler(t, store)
 
+	// первые две сессии устройств разрешаются автоматически (approvedCount >= 2 - порог)
 	w1 := runAuthRequest(h, "ta", "device-A")
 	if w1.Code != http.StatusFound {
 		t.Fatalf("first auth code=%d body=%s", w1.Code, w1.Body.String())
@@ -195,13 +197,23 @@ func TestAuth_NewDeviceRequiresApprovalWhenOldActive(t *testing.T) {
 	}
 
 	w2 := runAuthRequest(h, "tb", "device-B")
-	if w2.Code != http.StatusOK {
+	if w2.Code != http.StatusFound {
 		t.Fatalf("second device code=%d body=%s", w2.Code, w2.Body.String())
 	}
-	if !strings.Contains(w2.Body.String(), "только после подтверждения") {
-		t.Fatalf("unexpected body: %s", w2.Body.String())
+	secondSession := findSessionByDevice(store, 2002, 1, "device-B")
+	if secondSession == nil || !secondSession.Approved || secondSession.Revoked {
+		t.Fatalf("second session invalid: %#v", secondSession)
 	}
-	newSession := findSessionByDevice(store, 2002, 1, "device-B")
+
+	// третья сессия с нового устройства требует подтверждения администратора
+	w3 := runAuthRequest(h, "tc", "device-C")
+	if w3.Code != http.StatusOK {
+		t.Fatalf("third device code=%d body=%s", w3.Code, w3.Body.String())
+	}
+	if !strings.Contains(w3.Body.String(), "только после подтверждения") {
+		t.Fatalf("unexpected body: %s", w3.Body.String())
+	}
+	newSession := findSessionByDevice(store, 2002, 1, "device-C")
 	if newSession == nil {
 		t.Fatal("new device session not created")
 	}
