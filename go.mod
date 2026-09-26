@@ -1,6 +1,6 @@
 module github.com/AlexTransit/venderctl
 
-go 1.26
+go 1.27
 
 require (
 	github.com/AlexTransit/ru-nalog-go v0.220727.0
