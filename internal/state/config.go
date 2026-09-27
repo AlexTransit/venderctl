@@ -2,7 +2,6 @@ package state
 
 import (
 	"net/http"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -83,7 +82,9 @@ type ConfigSource struct {
 func (c *Config) ScaleI(i int) currency.Amount {
 	return currency.Amount(i) * currency.Amount(c.Money.Scale)
 }
-func (c *Config) ScaleU(u uint32) currency.Amount          { return currency.Amount(u * uint32(c.Money.Scale)) }
+
+func (c *Config) ScaleU(u uint32) currency.Amount { return currency.Amount(u * uint32(c.Money.Scale)) }
+
 func (c *Config) ScaleA(a currency.Amount) currency.Amount { return a * currency.Amount(c.Money.Scale) }
 
 func (c *Config) read(log *log2.Log, fs FullReader, source ConfigSource, errs *[]error) {
@@ -111,8 +112,11 @@ func (c *Config) read(log *log2.Log, fs FullReader, source ConfigSource, errs *[
 
 	err = hcl.Unmarshal(bs, c)
 	if err != nil {
-		log.Errorf("error config unmarshal source=%s error=%v ", source.Name, err)
-		os.Exit(1)
+		err = errors.Annotatef(err, "config unmarshal source=%s", source.Name)
+		log.Errorf("error %v", err)
+		*errs = append(*errs, err)
+		log.Fatal(errors.ErrorStack(err))
+		return
 	}
 
 	var includes []ConfigSource

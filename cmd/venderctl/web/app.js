@@ -2,8 +2,8 @@ const _params = new URLSearchParams(location.search);
 if (_params.get('open') === 'admin-messages') {
     window.__openAdminMessages = true;
 }
-const _openUserId = parseInt(_params.get('open_user') || '0');
-const _openUserType = parseInt(_params.get('open_user_type') || '0');
+const _openUserId = Number.parseInt(_params.get('open_user') || '0', 10);
+const _openUserType = Number.parseInt(_params.get('open_user_type') || '0');
 if (_openUserId > 0) window.__openUserMessages = { id: _openUserId, type: _openUserType };
 
 setTimeout(() => {
@@ -277,9 +277,9 @@ function replyAdminMessage(btn) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            message_id: parseInt(messageId),
-            user_id: parseInt(btn.dataset.uid),
-            user_type: parseInt(btn.dataset.utype),
+            message_id: Number.parseInt(messageId),
+            user_id: Number.parseInt(btn.dataset.uid),
+            user_type: Number.parseInt(btn.dataset.utype),
             reply
         })
     })
@@ -577,10 +577,23 @@ async function logout() {
 // === АВТОМАТ ===
 
 function openMachineList() {
-    const value = prompt("Введите номер автомата (VMID).\n0 — авто по геолокации.");
-    if (value === null) return;
-    const vmid = parseInt(value, 10);
-    if (Number.isNaN(vmid) || vmid < 0) return alert("Некорректный номер автомата");
+    const modal = document.getElementById('machine-select-modal');
+    const input = document.getElementById('machine-vmid-input');
+    input.value = '0';
+    modal.style.display = 'block';
+    setTimeout(() => input.focus(), 100);
+}
+
+function closeMachineSelectModal() {
+    document.getElementById('machine-select-modal').style.display = 'none';
+}
+
+function confirmMachineSelect() {
+    const input = document.getElementById('machine-vmid-input');
+    const value = input.value.trim();
+    const vmid = Number.parseInt(value, 10);
+    closeMachineSelectModal();
+    if (value === '' || Number.isNaN(vmid) || vmid < 0) return alert("Некорректный номер автомата");
     if (vmid === 0) return setAutoFavoriteByLocation();
     saveFavorite(vmid);
 }
@@ -588,7 +601,7 @@ function openMachineList() {
 function askMachineManualAndSave() {
     const manual = prompt("С каким автоматом работаем? Введите VMID:");
     if (manual === null) return;
-    const vmid = parseInt(manual, 10);
+    const vmid = Number.parseInt(manual, 10);
     if (Number.isNaN(vmid) || vmid <= 0) return alert("Некорректный VMID");
     saveFavorite(vmid);
 }
@@ -603,7 +616,7 @@ function setAutoFavoriteByLocation() {
 }
 
 function saveFavorite(vmid, lat = null, lon = null) {
-    const payload = { vmid: parseInt(vmid, 10) };
+    const payload = { vmid: Number.parseInt(vmid, 10) };
     if (lat !== null && lon !== null) { payload.lat = lat; payload.lon = lon; }
     fetch(withBase('/api/favorite'), {
         method: 'POST',
@@ -758,8 +771,8 @@ document.addEventListener('visibilitychange', () => {
 
 function makeOrder() {
     const drink = document.getElementById('drink-id').value;
-    const cream = parseInt(document.getElementById('cream').value);
-    const sugar = parseInt(document.getElementById('sugar').value);
+    const cream = Number.parseInt(document.getElementById('cream').value);
+    const sugar = Number.parseInt(document.getElementById('sugar').value);
 
     if (!drink) return alert("Введите код напитка");
     if (!currentDefaultVmid) return alert("Выберите автомат в меню ☰");
@@ -767,12 +780,12 @@ function makeOrder() {
     fetch(withBase('/api/order/check'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vmid: parseInt(currentDefaultVmid), drink: String(drink), cream, sugar })
+        body: JSON.stringify({ vmid: Number.parseInt(currentDefaultVmid), drink: String(drink), cream, sugar })
     })
         .then(res => res.json().catch(() => { throw new Error('HTTP ' + res.status) }))
         .then(data => {
             if (data.error) { alert("Ошибка: " + data.error); return; }
-            pendingOrder = { vmid: parseInt(currentDefaultVmid), drink_code: String(drink), cream, sugar };
+            pendingOrder = { vmid: Number.parseInt(currentDefaultVmid), drink_code: String(drink), cream, sugar };
             document.getElementById('conf-vmid').innerText = currentDefaultVmid;
             document.getElementById('conf-name').innerText = data.drink_name || '—';
             document.getElementById('conf-code').innerText = drink;
@@ -1109,7 +1122,7 @@ async function notifyOrderReady(event) {
     const iconURL = location.origin + withBase('/icon-192.png');
 
     try {
-        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        if (navigator.serviceWorker) {
             const reg = await navigator.serviceWorker.ready;
             await reg.showNotification('Vender Web', {
                 body, tag: 'order-ready', renotify: true,
@@ -1224,7 +1237,7 @@ async function updatePushMenuItem() {
 
 function refreshBalance() {
     fetch(withBase('/api/balance'))
-        .then(res => res.ok ? res.json() : Promise.reject())
+        .then(res => res.ok ? res.json() : Promise.reject(new Error('Request failed')))
         .then(data => {
             const balanceElem = document.getElementById('balance');
             const creditStatus = document.getElementById('credit-status');
@@ -1245,7 +1258,7 @@ function refreshBalance() {
 }
 
 fetch(withBase('/api/balance'))
-    .then(res => res.ok ? res.json() : Promise.reject())
+    .then(res => res.ok ? res.json() : Promise.reject(new Error('Request failed')))
     .then(data => {
         document.getElementById('auth-section').style.display = 'none';
         document.getElementById('user-info').style.display = 'block';
