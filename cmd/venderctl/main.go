@@ -100,6 +100,7 @@ func main() {
 
 			ctxN, g := state_new.NewContext(cmdName, log, tele.NewTele())
 			ctx, cancelCTX := context.WithCancel(ctxN)
+			defer cancelCTX()
 
 			// working term signal
 			sigs := make(chan os.Signal, 1)
