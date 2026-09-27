@@ -62,7 +62,7 @@ func (g *Global) InitDB(cmdName string) error {
 	if err != nil {
 		cleanUrl, _ := url.Parse(g.Config.DB.URL)
 		if cleanUrl.User != nil {
-			cleanUrl.User = url.UserPassword("_hidden_", "_hidden_")
+			cleanUrl.User = url.UserPassword("USER", "PASSWORD")
 		}
 		return errors.Annotatef(err, "config db.url=%s", cleanUrl.String())
 	}

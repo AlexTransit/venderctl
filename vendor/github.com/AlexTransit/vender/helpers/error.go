@@ -23,7 +23,8 @@ func FoldErrors(errs []error) (err error) {
 	// 	}
 	// }
 	for _, e := range errs {
-		errors.Join(err, e)
+		// errors.Join(err, e)
+		err = errors.Join(err, e)
 	}
 	return err
 }
