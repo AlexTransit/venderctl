@@ -1235,6 +1235,41 @@ async function updatePushMenuItem() {
 
 // === ЗАГРУЗКА ПРОФИЛЯ ===
 
+// Отличает сетевую ошибку (в т.ч. невалидный TLS-сертификат на стороне сервера)
+// от обычного ответа сервера (например, 401 — нужен логин).
+function isNetworkError(err) {
+    if (typeof err !== 'object' || err === null) return false;
+    const msg = String(err.message || '');
+    // fetch упал на уровне сети/TLS (браузер не дал подробностей):
+    // Chrome/Edge: "Failed to fetch", Safari: "Load failed", Firefox: "NetworkError when attempting to fetch resource."
+    if (err.name === 'TypeError' ||
+        /failed to fetch|load failed|networkerror|certificate|ssl/i.test(msg)) return true;
+    if (/HTTP\s*5\d\d/.test(msg)) return true; // ошибки прокси (частый случай проблем с сертификатом)
+    return false;
+}
+
+// Проверяет доступность сервера: если даже простой запрос не проходит из-за сети/TLS —
+// значит проблема с сертификатом на стороне сервера, а не в отсутствии логина.
+function serverUnreachable() {
+    return fetch(withBase('/api/balance'), { method: 'HEAD', cache: 'no-store' })
+        .then(res => {
+            if (res.status >= 500 && res.status <= 599) return true;
+            return false; // любой ответ сервера (в т.ч. 401) означает соединение в порядке
+        })
+        .catch(() => true); // запрос упал на уровне сети/TLS
+}
+
+function showCertError() {
+    const authSection = document.getElementById('auth-section');
+    if (!authSection) return;
+    authSection.style.display = 'block';
+    const p = authSection.querySelector('p');
+    if (p) {
+        p.innerText = 'Проблема с сертификатом на стороне сервера.';
+        p.style.color = '#e74c3c';
+    }
+}
+
 function refreshBalance() {
     fetch(withBase('/api/balance'))
         .then(res => res.ok ? res.json() : Promise.reject(new Error('Request failed')))
@@ -1325,5 +1360,19 @@ fetch(withBase('/api/balance'))
         loadPopular();
         updatePushMenuItem();
     })
-    .catch(() => console.log("Нужен логин")
+    .catch((err) => {
+        if (isNetworkError(err)) {
+            // Запрос упал на уровне сети/TLS — вероятно, невалидный сертификат сервера.
+            serverUnreachable().then(unreachable => {
+                if (unreachable) {
+                    console.log("Проблема с сертификатом на стороне сервера");
+                    showCertError();
+                } else {
+                    console.log("Нужен логин");
+                }
+            });
+        } else {
+            console.log("Нужен логин");
+        }
+    }
 );
