@@ -20,7 +20,12 @@ import (
 	"github.com/juju/errors"
 )
 
-const CmdName = "web"
+const (
+	CmdName             = "web"
+	headerCacheControl  = "Cache-Control"
+	cacheControlNoCache = "no-cache, must-revalidate"
+	mimePNG             = "image/png"
+)
 
 //go:embed index.html
 var indexHTML []byte
@@ -95,11 +100,11 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 
 	// маршруты
 	web.GET("/app.js", func(c *gin.Context) {
-		c.Header("Cache-Control", "no-cache, must-revalidate")
+		c.Header(headerCacheControl, cacheControlNoCache)
 		c.Data(http.StatusOK, "application/javascript; charset=utf-8", appJS)
 	})
 	web.GET("/app.css", func(c *gin.Context) {
-		c.Header("Cache-Control", "no-cache, must-revalidate")
+		c.Header(headerCacheControl, cacheControlNoCache)
 		c.Data(http.StatusOK, "text/css; charset=utf-8", appCSS)
 	})
 
@@ -152,17 +157,17 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	}
 	serveSW := func(c *gin.Context) {
 		c.Header("Service-Worker-Allowed", h.App.Config.WebRootPath())
-		c.Header("Cache-Control", "no-cache, must-revalidate")
+		c.Header(headerCacheControl, cacheControlNoCache)
 		c.Data(http.StatusOK, "application/javascript; charset=utf-8", serviceWorkerJS)
 	}
 	serveIcon192 := func(c *gin.Context) {
-		c.Data(http.StatusOK, "image/png", icon192)
+		c.Data(http.StatusOK, mimePNG, icon192)
 	}
 	serveIcon512 := func(c *gin.Context) {
-		c.Data(http.StatusOK, "image/png", icon512)
+		c.Data(http.StatusOK, mimePNG, icon512)
 	}
 	serveAppleTouchIcon := func(c *gin.Context) {
-		c.Data(http.StatusOK, "image/png", appleTouchIcon)
+		c.Data(http.StatusOK, mimePNG, appleTouchIcon)
 	}
 	web.GET("/", serveIndex)
 	web.GET("/index.html", serveIndex)
