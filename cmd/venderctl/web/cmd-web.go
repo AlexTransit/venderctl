@@ -20,7 +20,12 @@ import (
 	"github.com/juju/errors"
 )
 
-const CmdName = "web"
+const (
+	CmdName             = "web"
+	headerCacheControl  = "Cache-Control"
+	cacheControlNoCache = "no-cache, must-revalidate"
+	mimePNG             = "image/png"
+)
 
 //go:embed index.html
 var indexHTML []byte
@@ -95,11 +100,11 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 
 	// маршруты
 	web.GET("/app.js", func(c *gin.Context) {
-		c.Header("Cache-Control", "no-cache, must-revalidate")
+		c.Header(headerCacheControl, cacheControlNoCache)
 		c.Data(http.StatusOK, "application/javascript; charset=utf-8", appJS)
 	})
 	web.GET("/app.css", func(c *gin.Context) {
-		c.Header("Cache-Control", "no-cache, must-revalidate")
+		c.Header(headerCacheControl, cacheControlNoCache)
 		c.Data(http.StatusOK, "text/css; charset=utf-8", appCSS)
 	})
 
@@ -152,17 +157,17 @@ func webApp(ctx context.Context, flags *flag.FlagSet) (err error) {
 	}
 	serveSW := func(c *gin.Context) {
 		c.Header("Service-Worker-Allowed", h.App.Config.WebRootPath())
-		c.Header("Cache-Control", "no-cache, must-revalidate")
+		c.Header(headerCacheControl, cacheControlNoCache)
 		c.Data(http.StatusOK, "application/javascript; charset=utf-8", serviceWorkerJS)
 	}
 	serveIcon192 := func(c *gin.Context) {
-		c.Data(http.StatusOK, "image/png", icon192)
+		c.Data(http.StatusOK, mimePNG, icon192)
 	}
 	serveIcon512 := func(c *gin.Context) {
-		c.Data(http.StatusOK, "image/png", icon512)
+		c.Data(http.StatusOK, mimePNG, icon512)
 	}
 	serveAppleTouchIcon := func(c *gin.Context) {
-		c.Data(http.StatusOK, "image/png", appleTouchIcon)
+		c.Data(http.StatusOK, mimePNG, appleTouchIcon)
 	}
 	web.GET("/", serveIndex)
 	web.GET("/index.html", serveIndex)
@@ -220,90 +225,112 @@ func (h *WebHandler) ListenMQTT(ctx context.Context) {
 	for {
 		select {
 		case p := <-mqttch:
-			rm := h.App.ParseFromRobo(p)
-
-			// Любое connect/state-сообщение обновляет статус машины в памяти —
-			// сразу же пушим его подписчикам верхнего бара.
-			if p.Kind == tele_api.PacketConnect || p.Kind == tele_api.FromRobo {
-				h.MachineStatus.Publish(MachineStatusEvent{
-					Vmid:    p.VmId,
-					Connect: h.App.RobotConnected(p.VmId),
-					State:   int32(h.App.GetRoboState(p.VmId)),
-				})
-			}
-
-			if p.Kind == tele_api.FromRobo && rm.Order != nil {
-				order := rm.Order
-
-				// Фильтруем — только для web клиентов
-				if order.OwnerType >= 0 {
-					break
-				}
-
-				userId := int64(order.OwnerInt)
-				userType := -order.OwnerType
-				h.App.Log.Infof("order response from robot (%v)", rm)
-
-				// Формируем ответ для фронта
-				event := gin.H{
-					"status": order.OrderStatus.String(),
-					"vmid":   p.VmId,
-					"drink":  order.MenuCode,
-					"amount": float64(order.Amount) / 100,
-				}
-
-				// Добавляем дополнительные данные в зависимости от статуса
-				switch order.OrderStatus {
-				case vender_api.OrderStatus_executionStart:
-					event["message"] = "начинаю готовить"
-				case vender_api.OrderStatus_complete:
-					event["message"] = "готово"
-					h.App.ClientUpdateBalance(userId, userType, int64(order.Amount))
-
-					cl, _ := h.App.ClientGet(userId, userType)
-					action := fmt.Sprintf("приготовил №%d код:%s цена:%.2f",
-						p.VmId, order.MenuCode,
-						float64(order.Amount)/100)
-					h.App.LogUserOrder("Web", userId, int32(userType), action, cl.Balance)
-					if cl.Diskont > 0 {
-						bonus := int64(order.Amount) * int64(cl.Diskont) / 100
-						if bonus > 0 {
-							h.App.ClientUpdateBalance(userId, userType, -bonus)
-							clAfterBonus, err := h.App.ClientGet(userId, userType)
-							if err != nil {
-								h.App.Log.Errorf("web bonus ClientGet userId=%d err=%v", userId, err)
-							} else {
-								bonusMsg := fmt.Sprintf("начислен бонус: %.2f", float64(bonus)/100)
-								h.App.LogUserOrder("Web", userId, int32(userType), bonusMsg, clAfterBonus.Balance)
-								event["cashback"] = float64(bonus) / 100
-							}
-						}
-					}
-
-					// Отправляем Web Push только если окно скрыто или пользователь не в приложении
-					hidden, _ := h.windowHidden.Load(userId)
-					if hidden == nil || hidden.(bool) {
-						pushBody := fmt.Sprintf("Автомат %d приготовил напиток %s. Приятного аппетита.", p.VmId, order.MenuCode)
-						if cashback, ok := event["cashback"].(float64); ok && cashback > 0 {
-							pushBody += fmt.Sprintf(" Кэшбек: %.2f ₽.", cashback)
-						}
-						h.sendWebPushToUser(userId, int32(userType), "Vender Web", pushBody)
-					}
-
-				case vender_api.OrderStatus_executionInaccessible:
-					event["message"] = "код недоступен"
-				case vender_api.OrderStatus_overdraft:
-					event["message"] = "недостаточно средств"
-				case vender_api.OrderStatus_orderError:
-					event["message"] = "ошибка приготовления"
-				}
-
-				// Отправляем событие подписанному клиенту
-				h.OrderEvents.Publish(userId, int32(userType), event)
-			}
-
+			h.handlePacket(p)
 		case <-stopch:
 			return
 		}
 	}
+}
+
+func (h *WebHandler) handlePacket(p tele_api.Packet) {
+	rm := h.App.ParseFromRobo(p)
+
+	// Любое connect/state-сообщение обновляет статус машины в памяти —
+	// сразу же пушим его подписчикам верхнего бара.
+	if p.Kind == tele_api.PacketConnect || p.Kind == tele_api.FromRobo {
+		h.MachineStatus.Publish(MachineStatusEvent{
+			Vmid:    p.VmId,
+			Connect: h.App.RobotConnected(p.VmId),
+			State:   int32(h.App.GetRoboState(p.VmId)),
+		})
+	}
+
+	if p.Kind == tele_api.FromRobo && rm.Order != nil {
+		h.handleOrder(p, rm.Order)
+	}
+}
+
+func (h *WebHandler) handleOrder(p tele_api.Packet, order *vender_api.Order) {
+	// Фильтруем — только для web клиентов
+	if order.OwnerType >= 0 {
+		return
+	}
+
+	userId := int64(order.OwnerInt)
+	userType := -order.OwnerType
+	h.App.Log.Infof("order response from robot (%v)", order)
+
+	event := gin.H{
+		"status": order.OrderStatus.String(),
+		"vmid":   p.VmId,
+		"drink":  order.MenuCode,
+		"amount": float64(order.Amount) / 100,
+	}
+
+	switch order.OrderStatus {
+	case vender_api.OrderStatus_executionStart:
+		event["message"] = "начинаю готовить"
+	case vender_api.OrderStatus_complete:
+		event["message"] = "готово"
+		h.handleOrderComplete(p.VmId, order, userId, userType, event)
+	case vender_api.OrderStatus_executionInaccessible:
+		event["message"] = "код недоступен"
+	case vender_api.OrderStatus_overdraft:
+		event["message"] = "недостаточно средств"
+	case vender_api.OrderStatus_orderError:
+		event["message"] = "ошибка приготовления"
+	}
+
+	// Отправляем событие подписанному клиенту
+	h.OrderEvents.Publish(userId, int32(userType), event)
+}
+
+func (h *WebHandler) handleOrderComplete(vmid int32, order *vender_api.Order, userId int64, userType vender_api.OwnerType, event gin.H) {
+	h.App.ClientUpdateBalance(userId, userType, int64(order.Amount))
+
+	cl, _ := h.App.ClientGet(userId, userType)
+	action := fmt.Sprintf("приготовил №%d код:%s цена:%.2f",
+		vmid, order.MenuCode, float64(order.Amount)/100)
+	h.App.LogUserOrder("Web", userId, int32(userType), action, cl.Balance)
+
+	if cashback := h.applyCashback(userId, int32(userType), int64(order.Amount), int32(cl.Diskont)); cashback > 0 {
+		event["cashback"] = cashback
+	}
+
+	h.notifyOrderComplete(vmid, order.MenuCode, userId, int32(userType), event)
+}
+
+// applyCashback начисляет бонус и возвращает его размер в рублях (0 — если не начислен).
+func (h *WebHandler) applyCashback(userId int64, userType int32, amount int64, discount int32) float64 {
+	if discount <= 0 {
+		return 0
+	}
+	bonus := amount * int64(discount) / 100
+	if bonus <= 0 {
+		return 0
+	}
+
+	h.App.ClientUpdateBalance(userId, vender_api.OwnerType(userType), -bonus)
+	cl, err := h.App.ClientGet(userId, vender_api.OwnerType(userType))
+	if err != nil {
+		h.App.Log.Errorf("web bonus ClientGet userId=%d err=%v", userId, err)
+		return 0
+	}
+
+	bonusMsg := fmt.Sprintf("начислен бонус: %.2f", float64(bonus)/100)
+	h.App.LogUserOrder("Web", userId, userType, bonusMsg, cl.Balance)
+	return float64(bonus) / 100
+}
+
+// notifyOrderComplete шлёт Web Push, только если окно скрыто или пользователь не в приложении.
+func (h *WebHandler) notifyOrderComplete(vmid int32, menuCode string, userId int64, userType int32, event gin.H) {
+	if hidden, _ := h.windowHidden.Load(userId); hidden != nil && !hidden.(bool) {
+		return
+	}
+
+	body := fmt.Sprintf("Автомат %d приготовил напиток %s. Приятного аппетита.", vmid, menuCode)
+	if cashback, ok := event["cashback"].(float64); ok && cashback > 0 {
+		body += fmt.Sprintf(" Кэшбек: %.2f ₽.", cashback)
+	}
+	h.sendWebPushToUser(userId, userType, "Vender Web", body)
 }

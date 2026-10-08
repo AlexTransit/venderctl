@@ -9,11 +9,12 @@ db {
 }
 
 telegram {
- telegram_bot_api = "telegram bot api"
+ telegram_bot_api = "NNNNNNNN:XXXXXXXX-token-from-BotFather" // токен целиком, без слова "bot"
  telegram_admin = 0 //telegram user id 
  telegram_debug = true
  admin_bot_name = "name" // name admin bot, for verification if bots in joint channel"
- }
+ # proxy = "socks5://127.0.0.1:1080"
+}
 
 
 money {
