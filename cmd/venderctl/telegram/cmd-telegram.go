@@ -125,18 +125,43 @@ func telegramMain(ctx context.Context, flags *flag.FlagSet) error {
 // newBotHTTPClient returns an *http.Client that routes traffic through the
 // proxy URL specified in config (Telegram.Proxy). Supported schemes:
 // http, https, socks5. If Proxy is empty, a default client is returned.
+// The client always has a timeout set, so a dropped connection to
+// api.telegram.org ("unexpected EOF") fails as a timed request instead of
+// hanging forever.
 func newBotHTTPClient(proxyAddr string) (*http.Client, error) {
-	if proxyAddr == "" {
-		return &http.Client{}, nil
+	transport := &http.Transport{}
+	if proxyAddr != "" {
+		proxyURL, err := url.Parse(proxyAddr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid proxy URL %q: %w", proxyAddr, err)
+		}
+		transport.Proxy = http.ProxyURL(proxyURL)
 	}
-	proxyURL, err := url.Parse(proxyAddr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid proxy URL %q: %w", proxyAddr, err)
+	return &http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second,
+	}, nil
+}
+
+// tgSendWithRetry sends a telegram message with retries.
+// Telegram API and proxies sometimes drop connections intermittently, which
+// surfaces as errors like "Post .../sendMessage: unexpected EOF". Such errors
+// are transient, so retry the send a few times before giving up.
+func (tb *tgbotapiot) tgSendWithRetry(chatid int64, s string, attempts int) (tgbotapi.Message, error) {
+	msg := tgbotapi.NewMessage(chatid, s)
+	var err error
+	for i := 0; i < attempts; i++ {
+		if i > 0 {
+			time.Sleep(time.Duration(1<<uint(i)) * time.Second) // 2s, 4s, 8s...
+		}
+		var m tgbotapi.Message
+		m, err = tb.bot.Send(msg)
+		if err == nil {
+			return m, nil
+		}
+		tb.g.Log.Errorf("error send telegramm message (attempt %d/%d): (%v)", i+1, attempts, err)
 	}
-	transport := &http.Transport{
-		Proxy: http.ProxyURL(proxyURL),
-	}
-	return &http.Client{Transport: transport}, nil
+	return tgbotapi.Message{}, err
 }
 
 func telegramInit(ctx context.Context) error {
@@ -223,28 +248,6 @@ func (tb *tgbotapiot) telegramLoop() error {
 				tb.tgSend(tb.admin, errm)
 			}
 		case tgm := <-tgch:
-			// if tgm.CallbackQuery != nil && tgm.CallbackQuery.Data == "invite_url" {
-
-			// 	token, err := tb.g.CreateWebAuthToken(tgm.CallbackQuery.From.ID, int(vender_api.OwnerType_telegramUser))
-			// 	if err != nil {
-			// 		tb.tgSend(tgm.CallbackQuery.From.ID, "ошибка генерации ссылки")
-			// 		return nil
-			// 	}
-			// 	url := tb.g.Config.WebAuthCallbackURL(token)
-
-			// 	tb.tgSend(tgm.CallbackQuery.From.ID, "Ваша одноразовая ссылка:\n"+url)
-			// 	// callbackConfig := tgbotapi.CallbackConfig{
-			// 	// 	CallbackQueryID: tgm.CallbackQuery.ID,
-			// 	// 	URL:             url,
-			// 	// }
-			// 	// tb.bot.Request(callbackConfig)
-
-			// 	delMsg := tgbotapi.NewDeleteMessage(tgm.CallbackQuery.Message.Chat.ID, tgm.CallbackQuery.Message.MessageID)
-			// 	tb.bot.Request(delMsg)
-			// 	// callbackConfig := tgbotapi.CallbackQuery .NewCallbackWithURL(update.CallbackQuery.ID, "https://google.com")
-			// 	// bot.Request(callbackConfig)
-
-			// }
 			if tgm.Message == nil && tgm.EditedMessage != nil {
 				tb.g.Log.Infof("telegramm message change (%v)", tgm.EditedMessage)
 				tb.logTgDbChange(*tgm.EditedMessage)
@@ -332,26 +335,11 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 	}
 	cl := tgUser{Client: c}
 
-	// if m.Message.From.ID == tb.admin {
-	// 	text := m.Message.Text
-	// 	if strings.HasPrefix(text, "/approve_") {
-	// 		token := strings.TrimPrefix(text, "/approve_")
-	// 		tb.approveSession(token)
-	// 		return nil
-	// 	}
-	// 	if strings.HasPrefix(text, "/deny_") {
-	// 		token := strings.TrimPrefix(text, "/deny_")
-	// 		tb.denySession(token)
-	// 		return nil
-	// 	}
-	// }
-
 	// parse command
 	switch parseCommand(m.Message.Text) {
 	case tgCommandWeb:
 		link := tb.g.Config.Web.BaseURL
 		tb.tgSend(cl.Id, fmt.Sprintf("ссылка на сайт: %s", link))
-	// 	return nil
 	case tgCommandWebInvite:
 		token, err := tb.g.CreateWebAuthToken(cl.Id, int(vender_api.OwnerType_telegramUser))
 		if err != nil {
@@ -439,36 +427,6 @@ func (tb *tgbotapiot) onTeleBot(m tgbotapi.Update) error {
 	return nil
 }
 
-// func (tb *tgbotapiot) setWebPassword(userId int64, password string) error {
-// 	hash := tb.g.Sha256sum(password)
-// 	_, err := tb.g.DB.Exec(`
-//         INSERT INTO users (userid, user_type, login, hash)
-//         VALUES (?0, ?1, ?2, ?3)
-//         ON CONFLICT (login) DO UPDATE SET hash = ?3`,
-// 		userId, int32(vender_api.OwnerType_telegramUser), fmt.Sprintf("%d", userId), hash)
-// 	return err
-// }
-
-// func (tb *tgbotapiot) approveSession(token string) {
-// 	_, err := tb.g.DB.Exec(
-// 		"UPDATE user_sessions SET approved = true WHERE token = ?", token)
-// 	if err != nil {
-// 		tb.tgSend(tb.admin, "ошибка подтверждения сессии")
-// 		return
-// 	}
-// 	tb.tgSend(tb.admin, "сессия подтверждена")
-// }
-
-// func (tb *tgbotapiot) denySession(token string) {
-// 	_, err := tb.g.DB.Exec(
-// 		"DELETE FROM user_sessions WHERE token = ?", token)
-// 	if err != nil {
-// 		tb.tgSend(tb.admin, "ошибка удаления сессии")
-// 		return
-// 	}
-// 	tb.tgSend(tb.admin, "сессия отклонена")
-// }
-
 func (tb *tgbotapiot) addCredit(clientId int64, bablo int) {
 	msgToUser := fmt.Sprintf("пополнение баланса на: %d\n", bablo)
 	tb.tgSend(tb.admin, fmt.Sprintf("баланс: %d пополнен на: %d", clientId, bablo))
@@ -499,8 +457,6 @@ func parseCommand(cmd string) tgCommand {
 		return tgCommandWebInvite
 	case cmd == "/web":
 		return tgCommandWeb
-	// case strings.HasPrefix(cmd, "/setpassword "):
-	// 	return tgCommandSetPassword
 	case parts[2] != "":
 		return tgCommandCook
 	case parts[4] != "":
@@ -574,7 +530,8 @@ func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
 func (tb *tgbotapiot) logTgDbChange(m tgbotapi.Message) {
 	const q = `UPDATE tg_chat set (changedate, changetext) = (?0,?1) WHERE messageid=?2;`
 	tb.g.Alive.Add(1)
-	_, err := tb.g.DB.Exec(q,
+	_, err := tb.g.DB.Exec(
+		q,
 		m.EditDate,
 		m.Text,
 		m.MessageID,
@@ -585,16 +542,6 @@ func (tb *tgbotapiot) logTgDbChange(m tgbotapi.Message) {
 	}
 }
 
-// func (tb *tgbotapiot) setCredit(id int64, credit int) {
-// 	const q = `UPDATE users SET credit = ?2 WHERE userid = ?0 and user_type = ?1;`
-// 	tb.g.Alive.Add(1)
-// 	_, err := tb.g.DB.Exec(q, id, vender_api.OwnerType_telegramUser, credit)
-// 	tb.g.Alive.Done()
-// 	if err != nil {
-// 		tb.g.Log.Errorf("db query=%s err=%v", q, err)
-// 	}
-// }
-
 func (tb *tgbotapiot) logTgDb(m tgbotapi.Message) {
 	const q = `insert into tg_chat (messageid, fromid, toid, date, text) values (?0, ?1, ?2, ?3, ?4);`
 	tb.g.Alive.Add(1)
@@ -604,16 +551,6 @@ func (tb *tgbotapiot) logTgDb(m tgbotapi.Message) {
 	}
 	tb.g.Alive.Done()
 }
-
-// func (tb *tgbotapiot) logUserOrder(userId int64, userType int32, action string, balanceInfo int64) {
-// 	const q = `INSERT INTO user_orders (userid, user_type, action, balance_info) VALUES (?0, ?1, ?2, ?3)`
-// 	tb.g.Alive.Add(1)
-// 	_, err := tb.g.DB.Exec(q, userId, userType, "TG "+action, float64(balanceInfo)/100)
-// 	tb.g.Alive.Done()
-// 	if err != nil {
-// 		tb.g.Log.Errorf("logUserOrder userId=%d userType=%d err=%v", userId, userType, err)
-// 	}
-// }
 
 func (tb *tgbotapiot) sendCookCmdN(tgUser tgUser) {
 	moneyAvalible := max(tgUser.Balance+int64(tgUser.Credit), 0)
@@ -708,10 +645,8 @@ func (tb *tgbotapiot) tgSend(chatid int64, s string) (m tgbotapi.Message) {
 	if s == "" {
 		return
 	}
-	msg := tgbotapi.NewMessage(chatid, s)
-	m, err := tb.bot.Send(msg)
+	m, err := tb.tgSendWithRetry(chatid, s, 3)
 	if err != nil {
-		tb.g.Log.Errorf("error send telegramm message (%v)", err)
 		return
 	}
 	tb.g.Log.Infof("send telegram message userid: %d text: %s", m.Chat.ID, m.Text)
@@ -731,13 +666,6 @@ func (tb *tgbotapiot) registerNewUser(m tgbotapi.Update) error {
 	var err error
 
 	if m.Message.Text == "/start" {
-		// msg = tgbotapi.NewMessage(m.Message.Chat.ID, regMess)
-		// btn := tgbotapi.KeyboardButton{
-		// 	Text:           "разрешить боту увидеть номер телефона",
-		// 	RequestContact: true,
-		// }
-		// msg.ReplyMarkup = tgbotapi.NewReplyKeyboard([]tgbotapi.KeyboardButton{btn})
-		// _, err = tb.bot.Send(msg)
 		msg = tgbotapi.NewMessage(m.Message.Chat.ID, regMess)
 		msg.ParseMode = "HTML"
 		btn := tgbotapi.KeyboardButton{
