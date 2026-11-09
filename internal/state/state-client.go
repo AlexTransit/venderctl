@@ -77,13 +77,14 @@ func (g *Global) CreateWebAuthToken(userId int64, userType int) (string, error) 
 	token := hex.EncodeToString(b)
 	_, err := g.DB.Exec(
 		`INSERT INTO web_auth_tokens (token, userid, user_type, used) VALUES (?0, ?1, ?2, false)`,
-		token, userId, userType)
+		token, userId, userType,
+	)
 	return token, err
 }
 
 // check robot state
 // если false то в ошибке присылает почему не может (нет связи, работает с другим клиентом и т.д)
-func (g *Global) СheckRobotMakeState(vmid int32) (valid bool, messageImpossible string) {
+func (g *Global) CheckRobotMakeState(vmid int32) (valid bool, messageImpossible string) {
 	roboState := g.GetRoboState(vmid)
 	if roboState == vender_api.State_Nominal {
 		return true, ""
