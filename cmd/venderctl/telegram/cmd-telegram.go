@@ -519,7 +519,7 @@ func parseCookCommand(cmd string) (cs cookSruct, resultFunction bool) {
 }
 
 func (tb *tgbotapiot) checkRobo(vmid int32, user int64) bool {
-	ok, text := tb.g.СheckRobotMakeState(vmid)
+	ok, text := tb.g.CheckRobotMakeState(vmid)
 	if ok {
 		return true
 	}

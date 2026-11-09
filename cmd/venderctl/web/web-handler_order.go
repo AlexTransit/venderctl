@@ -67,7 +67,7 @@ func (h *WebHandler) PreviewOrder(c *gin.Context) {
 
 	vmid := int32(req.VMID)
 
-	ok, err1 := h.App.СheckRobotMakeState(vmid)
+	ok, err1 := h.App.CheckRobotMakeState(vmid)
 	if !ok {
 		c.JSON(400, gin.H{"error": err1})
 		return
@@ -110,7 +110,7 @@ func (h *WebHandler) StartOrder(c *gin.Context) {
 
 	vmid := int32(req.VMID)
 
-	ok, errText := h.App.СheckRobotMakeState(vmid)
+	ok, errText := h.App.CheckRobotMakeState(vmid)
 	if !ok {
 		c.JSON(400, gin.H{"error": errText})
 		return
