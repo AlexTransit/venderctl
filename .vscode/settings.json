@@ -11,5 +11,9 @@
     // "go.testTimeout": "15s",
     "[html]": {
         "editor.defaultFormatter": "vscode.html-language-features"
+    },
+    "sonarlint.connectedMode.project": {
+        "connectionId": "alextransit",
+        "projectKey": "AlexTransit_venderctl"
     }
 }
