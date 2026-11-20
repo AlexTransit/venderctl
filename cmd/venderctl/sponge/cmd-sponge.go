@@ -198,8 +198,6 @@ func onTelemetry(ctx context.Context, dbConn *pg.Conn, vmid int32, t *vender_api
 	errs := make([]error, 0)
 	if t.Error != nil {
 		const q = `insert into error (vmid,vmtime,received,app_version,code,message,count) values (?vmid,to_timestamp(?vmtime/1e9),current_timestamp,?0,?1,?2,?3)`
-		// AlexM set BuildVersion after connect
-		// _, err := dbConn.Exec(q, t.BuildVersion, t.Error.Code, t.Error.Message, t.Error.Count)
 
 		_, err := dbConn.Exec(q, "", t.Error.Code, t.Error.Message, t.Error.Count)
 		if err != nil {
@@ -208,49 +206,37 @@ func onTelemetry(ctx context.Context, dbConn *pg.Conn, vmid int32, t *vender_api
 	}
 
 	if t.Inventory != nil || t.MoneyCashbox != nil {
-		const q = `insert into inventory (vmid,at_service,vmtime,received,inventory,cashbox_bill,cashbox_coin,change_bill,change_coin) values (?vmid,?0,to_timestamp(?vmtime/1e9),current_timestamp,?1,?2,?3,?4,?5)
-		on conflict (vmid,at_service) DO UPDATE SET vmtime=to_timestamp(?vmtime/1e9), received=current_timestamp, inventory=?1,cashbox_bill=?2,cashbox_coin=?3,change_bill=?4,change_coin=?5`
-		// 		const q = `insert into inventory (vmid,at_service,vmtime,received,inventory,cashbox_bill,cashbox_coin,change_bill,change_coin) values (?vmid,?0,to_timestamp(?vmtime/1e9),current_timestamp,?1,?2,?3,?4,?5)
-		// on conflict (vmid) where at_service=?0 do update set
-		//   vmtime=excluded.vmtime,received=excluded.received,inventory=excluded.inventory,
-		// 	cashbox_bill=excluded.cashbox_bill,cashbox_coin=excluded.cashbox_coin,
-		// 	change_bill=excluded.change_bill,change_coin=excluded.change_coin`
+
+		timeCol, ingCol := "last_sync", "last_sync_ingredient"
+		if t.GetAtService() {
+			timeCol, ingCol = "service_time", "service_ingredient"
+		}
+		query := fmt.Sprintf(
+			"UPDATE public.robot SET %s = current_timestamp, %s = ?0, money_inside = ?1 WHERE vmid = ?vmid",
+			timeCol, ingCol,
+		)
+
 		invMap := make(map[string]string)
-		var cashboxBillMap map[uint32]uint32
-		var cashboxCoinMap map[uint32]uint32
-		var changeBillMap map[uint32]uint32
-		var changeCoinMap map[uint32]uint32
-		if t.MoneyCashbox != nil {
-			cashboxBillMap = t.MoneyCashbox.Bills
-			cashboxCoinMap = t.MoneyCashbox.Coins
-		}
-		if t.MoneyChange != nil {
-			changeBillMap = t.MoneyChange.Bills
-			changeCoinMap = t.MoneyChange.Coins
-		}
 		if t.Inventory != nil {
 			for _, item := range t.Inventory.Stocks {
-				// invMap[item.Name] = strconv.FormatFloat(float64(item.Valuef), 'f', -1, 32)
 				invMap[item.Name] = strconv.Itoa(int(item.Value))
 			}
 		}
-		_, err := dbConn.Exec(q, t.GetAtService(), pg.Hstore(invMap),
-			mapUint32ToHstore(cashboxBillMap),
-			mapUint32ToHstore(cashboxCoinMap),
-			mapUint32ToHstore(changeBillMap),
+		var changeCoinMap map[uint32]uint32
+		if t.MoneyChange != nil {
+			changeCoinMap = t.MoneyChange.Coins
+		}
+
+		_, err := dbConn.Exec(
+			query,
+			pg.Hstore(invMap),
 			mapUint32ToHstore(changeCoinMap),
 		)
 		if err != nil {
-			errs = append(errs, errors.Annotatef(err, "db query=%s t=%s", q, proto.CompactTextString(t)))
+			errs = append(errs, errors.Annotatef(err, "db query=%s t=%s", query, proto.CompactTextString(t)))
 		}
 	}
 
-	// const q = `insert into ingest (received,vmid,done,raw) values (current_timestamp,?vmid,?0,?1)`
-	// raw, _ := proto.Marshal(t)
-	// _, err := dbConn.Exec(q, len(errs) == 0, raw)
-	// if err != nil {
-	// 	errs = append(errs, errors.Annotatef(err, "db query=%s t=%s", q, proto.CompactTextString(t)))
-	// }
 	return helpers.FoldErrors(errs)
 }
 
